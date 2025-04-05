@@ -3,6 +3,7 @@ package main
 import (
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"os"
 )
 
 func main() {
@@ -17,5 +18,10 @@ func main() {
 		c.JSON(http.StatusOK, body)
 	})
 
-	r.Run(":8080") // запускает сервер на порту 8080
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080" // значение по умолчанию
+	}
+
+	r.Run(":" + port)
 }

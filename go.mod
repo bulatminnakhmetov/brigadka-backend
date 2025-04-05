@@ -1,4 +1,4 @@
-module github.com/Minnakhmetov/brigadka-backend/api-gateway
+module github.com/Minnakhmetov/brigadka-backend
 
 go 1.22.2
 
