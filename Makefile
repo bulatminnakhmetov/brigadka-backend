@@ -1,3 +1,7 @@
+# Загружаем переменные из .env файла
+include .env
+export
+
 run:
 	go run ./cmd/service
 
@@ -10,7 +14,40 @@ build-release:
 run-release:
 	GIN_MODE=release ./bin/app
 
-test:
-	go test ./...
+run-local:
+	docker-compose up --build
 
+unit-tests:
+	go test ./internal/...
 	
+KEEP ?= false
+
+test-integration-docker:
+	@bash -c '\
+	set -e; \
+	docker-compose -f docker-compose.test.yml up -d test-postgres test-migrations test-app; \
+	trap " \
+		if [ "$$KEEP" != "true" ]; then \
+			echo Cleaning up containers...; \
+			docker-compose -f docker-compose.test.yml down; \
+		else \
+			echo Skipping docker-compose down because KEEP=true; \
+		fi" EXIT; \
+	docker-compose -f docker-compose.test.yml run --rm tests; \
+	'
+
+# Миграции
+migrate-up:
+	go run ./cmd/migrate -up
+
+migrate-down:
+	go run ./cmd/migrate -down
+
+migrate-create:
+	@read -p "Enter migration name: " name; \
+	migrate create -ext sql -dir db/migrations -seq $$name
+
+# База данных
+db-connect:
+	docker exec -it brigadka-backend-postgres-1 psql -U ${DB_USER} -d ${DB_NAME}
+
