@@ -159,16 +159,9 @@ func TestLogin_UserNotFound(t *testing.T) {
 func TestLogin_InvalidPassword(t *testing.T) {
 	router, _, mock := setupTestRouter(t)
 
-	// Генерируем реальный хеш пароля
-	password := "password123"
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		t.Fatalf("Failed to hash password: %v", err)
-	}
-
 	// Настраиваем мок для случая с неверным паролем
 	rows := sqlmock.NewRows([]string{"user_id", "password_hash"}).
-		AddRow(1, string(hashedPassword))
+		AddRow(1, "$2a$10$hashedpassword")
 	mock.ExpectQuery("SELECT user_id, password_hash FROM users WHERE email = \\$1").
 		WithArgs("test@example.com").
 		WillReturnRows(rows)
