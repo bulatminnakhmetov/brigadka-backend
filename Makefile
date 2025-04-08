@@ -17,7 +17,7 @@ run-release:
 	GIN_MODE=release ./bin/app
 
 run-local:
-	docker-compose up --build
+	docker compose up --build
 
 run-unit-tests:
 	go test ./internal/...
@@ -27,15 +27,15 @@ KEEP ?= false
 run-integration-tests:
 	@bash -c '\
 	set -e; \
-	docker-compose -f docker-compose.test.yml up -d test-postgres test-migrations test-app; \
+	docker compose -f docker-compose.test.yml up -d test-postgres test-migrations test-app; \
 	trap " \
 		if [ "$$KEEP" != "true" ]; then \
 			echo Cleaning up containers...; \
-			docker-compose -f docker-compose.test.yml down; \
+			docker compose -f docker-compose.test.yml down; \
 		else \
-			echo Skipping docker-compose down because KEEP=true; \
+			echo Skipping docker compose down because KEEP=true; \
 		fi" EXIT; \
-	docker-compose -f docker-compose.test.yml run --rm tests; \
+	docker compose -f docker-compose.test.yml run --rm tests; \
 	'
 
 # Миграции
