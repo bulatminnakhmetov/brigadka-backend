@@ -21,21 +21,30 @@ run-local:
 
 run-unit-tests:
 	go test ./internal/...
-	
+
 KEEP ?= false
+
+start-integration-env:
+	docker compose -f docker-compose.test.yml up -d test-postgres test-migrations test-app
+
+down-integration-env:
+	docker compose -f docker-compose.test.yml down
+
+run-integration:
+	docker compose -f docker-compose.test.yml run --rm tests
 
 run-integration-tests:
 	@bash -c '\
 	set -e; \
-	docker compose -f docker-compose.test.yml up -d test-postgres test-migrations test-app; \
+	$(MAKE) start-integration-env; \
 	trap " \
 		if [ "$$KEEP" != "true" ]; then \
 			echo Cleaning up containers...; \
-			docker compose -f docker-compose.test.yml down; \
+			$(MAKE) down-integration-env; \
 		else \
 			echo Skipping docker compose down because KEEP=true; \
 		fi" EXIT; \
-	docker compose -f docker-compose.test.yml run --rm tests; \
+	$(MAKE) run-integration; \
 	'
 
 # Миграции
@@ -52,4 +61,3 @@ migrate-create:
 # База данных
 db-connect:
 	docker exec -it brigadka-backend-postgres-1 psql -U ${DB_USER} -d ${DB_NAME}
-
