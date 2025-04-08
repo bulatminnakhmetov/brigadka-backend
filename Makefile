@@ -1,6 +1,8 @@
 # Загружаем переменные из .env файла
-include .env
-export
+ifneq ("$(wildcard .env)","")
+	include .env
+	export
+endif
 
 run:
 	go run ./cmd/service
@@ -17,12 +19,12 @@ run-release:
 run-local:
 	docker-compose up --build
 
-unit-tests:
+run-unit-tests:
 	go test ./internal/...
 	
 KEEP ?= false
 
-test-integration-docker:
+run-integration-tests:
 	@bash -c '\
 	set -e; \
 	docker-compose -f docker-compose.test.yml up -d test-postgres test-migrations test-app; \
