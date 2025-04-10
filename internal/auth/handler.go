@@ -48,9 +48,21 @@ func (ac *AuthController) Register(c *gin.Context) {
 		return
 	}
 
+	// Check if email already exists
+	var emailExists bool
+	err := ac.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", creds.Email).Scan(&emailExists)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		return
+	}
+	if emailExists {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already registered"})
+		return
+	}
+
 	// Validate city exists
 	var cityExists bool
-	err := ac.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM cities WHERE city_id = $1)", creds.CityID).Scan(&cityExists)
+	err = ac.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM cities WHERE city_id = $1)", creds.CityID).Scan(&cityExists)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
@@ -90,11 +102,7 @@ func (ac *AuthController) Register(c *gin.Context) {
 	)
 	if err != nil {
 		log.Printf("Database error in Register: %v", err)
-		if err.Error() == "pq: duplicate key value violates unique constraint \"users_email_key\"" {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Email already registered"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
 		return
 	}
 

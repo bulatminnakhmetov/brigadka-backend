@@ -2,7 +2,6 @@ package auth
 
 import (
 	"database/sql"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +12,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/crypto/bcrypt"
 )
+
+func expectEmailCheck(mock sqlmock.Sqlmock, email string, exists bool) {
+	mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM users WHERE email = \\$1\\)").
+		WithArgs(email).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(exists))
+}
+
+func expectCityCheck(mock sqlmock.Sqlmock, cityID int, exists bool) {
+	mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM cities WHERE city_id = \\$1\\)").
+		WithArgs(cityID).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(exists))
+}
+
+func expectGenderCheck(mock sqlmock.Sqlmock, gender string, exists bool) {
+	mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM gender_catalog WHERE gender_code = \\$1\\)").
+		WithArgs(gender).
+		WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(exists))
+}
+
+func expectUserInsert(mock sqlmock.Sqlmock, email, fullName string, cityID int, gender string, age int) {
+	mock.ExpectExec("INSERT INTO users").
+		WithArgs(email, sqlmock.AnyArg(), fullName, cityID, gender, age).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+}
 
 func setupTestRouter(t *testing.T) (*gin.Engine, *AuthController, sqlmock.Sqlmock) {
 	// Создаем мок базы данных
@@ -37,24 +60,14 @@ func setupTestRouter(t *testing.T) (*gin.Engine, *AuthController, sqlmock.Sqlmoc
 }
 
 func TestRegister_Success(t *testing.T) {
-    router, _, mock := setupTestRouter(t)
+	router, _, mock := setupTestRouter(t)
 
-    // Проверка существования города
-    mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM cities WHERE city_id = \\$1\\)").
-        WithArgs(1).
-        WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	expectEmailCheck(mock, "test@example.com", false)
+	expectCityCheck(mock, 1, true)
+	expectGenderCheck(mock, "male", true)
+	expectUserInsert(mock, "test@example.com", "Test User", 1, "male", 25)
 
-    // Проверка существования гендера
-    mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM gender_catalog WHERE gender_code = \\$1\\)").
-        WithArgs("male").
-        WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
-
-    // Ожидаем INSERT запрос со всеми полями
-    mock.ExpectExec("INSERT INTO users").
-        WithArgs("test@example.com", sqlmock.AnyArg(), "Test User", 1, "male", 25).
-        WillReturnResult(sqlmock.NewResult(1, 1))
-
-    body := `{
+	body := `{
         "email": "test@example.com",
         "password": "password123",
         "full_name": "Test User",
@@ -62,26 +75,30 @@ func TestRegister_Success(t *testing.T) {
         "gender": "male",
         "age": 25
     }`
-    req, _ := http.NewRequest("POST", "/register", strings.NewReader(body))
-    req.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest("POST", "/register", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 
-    w := httptest.NewRecorder()
-    router.ServeHTTP(w, req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
 
-    assert.Equal(t, http.StatusCreated, w.Code)
-    assert.JSONEq(t, `{"message": "User registered"}`, w.Body.String())
-    assert.NoError(t, mock.ExpectationsWereMet())
+	assert.Equal(t, http.StatusCreated, w.Code)
+	assert.JSONEq(t, `{"message": "User registered"}`, w.Body.String())
+	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestRegister_DuplicateEmail(t *testing.T) {
 	router, _, mock := setupTestRouter(t)
 
-	// Ожидаем ошибку дубликата email
-	mock.ExpectExec("INSERT INTO users").
-		WithArgs("test@example.com", sqlmock.AnyArg()).
-		WillReturnError(errors.New(`pq: duplicate key value violates unique constraint "users_email_key"`))
+	expectEmailCheck(mock, "test@example.com", true)
 
-	body := `{"email": "test@example.com", "password": "password123"}`
+	body := `{
+        "email": "test@example.com",
+        "password": "password123",
+        "full_name": "Test User",
+        "city_id": 1,
+        "gender": "male",
+        "age": 25
+    }`
 	req, _ := http.NewRequest("POST", "/register", strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 
@@ -94,30 +111,30 @@ func TestRegister_DuplicateEmail(t *testing.T) {
 }
 
 func TestRegister_InvalidInput(t *testing.T) {
-    router, _, _ := setupTestRouter(t)
+	router, _, _ := setupTestRouter(t)
 
-    testCases := []struct {
-        name string
-        body string
-    }{
-        {
-            name: "Missing required fields",
-            body: `{"email": "test@example.com", "password": "password123"}`,
-        },
-        {
-            name: "Invalid email",
-            body: `{
-                "email": "invalid-email",
-                "password": "password123",
-                "full_name": "Test User",
-                "city_id": 1,
-                "gender": "male",
-                "age": 25
-            }`,
-        },
-        {
-            name: "Negative age",
-            body: `{
+	testCases := []struct {
+		name string
+		body string
+	}{
+		{
+			name: "Missing required fields",
+			body: `{"email": "test@example.com", "password": "password123"}`,
+		},
+		{
+			name: "Invalid email",
+			body: `{
+		        "email": "invalid-email",
+		        "password": "password123",
+		        "full_name": "Test User",
+		        "city_id": 1,
+		        "gender": "male",
+		        "age": 25
+		    }`,
+		},
+		{
+			name: "Negative age",
+			body: `{
                 "email": "test@example.com",
                 "password": "password123",
                 "full_name": "Test User",
@@ -125,30 +142,29 @@ func TestRegister_InvalidInput(t *testing.T) {
                 "gender": "male",
                 "age": -1
             }`,
-        },
-    }
+		},
+	}
 
-    for _, tc := range testCases {
-        t.Run(tc.name, func(t *testing.T) {
-            req, _ := http.NewRequest("POST", "/register", strings.NewReader(tc.body))
-            req.Header.Set("Content-Type", "application/json")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			req, _ := http.NewRequest("POST", "/register", strings.NewReader(tc.body))
+			req.Header.Set("Content-Type", "application/json")
 
-            w := httptest.NewRecorder()
-            router.ServeHTTP(w, req)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
 
-            assert.Equal(t, http.StatusBadRequest, w.Code)
-        })
-    }
+			assert.Equal(t, http.StatusBadRequest, w.Code)
+		})
+	}
 }
 
 func TestRegister_InvalidCity(t *testing.T) {
-    router, _, mock := setupTestRouter(t)
+	router, _, mock := setupTestRouter(t)
 
-    mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM cities WHERE city_id = \\$1\\)").
-        WithArgs(999).
-        WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
+	expectEmailCheck(mock, "test@example.com", false)
+	expectCityCheck(mock, 999, false)
 
-    body := `{
+	body := `{
         "email": "test@example.com",
         "password": "password123",
         "full_name": "Test User",
@@ -156,29 +172,25 @@ func TestRegister_InvalidCity(t *testing.T) {
         "gender": "male",
         "age": 25
     }`
-    req, _ := http.NewRequest("POST", "/register", strings.NewReader(body))
-    req.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest("POST", "/register", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 
-    w := httptest.NewRecorder()
-    router.ServeHTTP(w, req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
 
-    assert.Equal(t, http.StatusBadRequest, w.Code)
-    assert.JSONEq(t, `{"error": "Invalid city ID"}`, w.Body.String())
-    assert.NoError(t, mock.ExpectationsWereMet())
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.JSONEq(t, `{"error": "Invalid city ID"}`, w.Body.String())
+	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestRegister_InvalidGender(t *testing.T) {
-    router, _, mock := setupTestRouter(t)
+	router, _, mock := setupTestRouter(t)
 
-    mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM cities WHERE city_id = \\$1\\)").
-        WithArgs(1).
-        WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
+	expectEmailCheck(mock, "test@example.com", false)
+	expectCityCheck(mock, 1, true)
+	expectGenderCheck(mock, "invalid_gender", false)
 
-    mock.ExpectQuery("SELECT EXISTS\\(SELECT 1 FROM gender_catalog WHERE gender_code = \\$1\\)").
-        WithArgs("invalid_gender").
-        WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
-
-    body := `{
+	body := `{
         "email": "test@example.com",
         "password": "password123",
         "full_name": "Test User",
@@ -186,15 +198,15 @@ func TestRegister_InvalidGender(t *testing.T) {
         "gender": "invalid_gender",
         "age": 25
     }`
-    req, _ := http.NewRequest("POST", "/register", strings.NewReader(body))
-    req.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest("POST", "/register", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 
-    w := httptest.NewRecorder()
-    router.ServeHTTP(w, req)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
 
-    assert.Equal(t, http.StatusBadRequest, w.Code)
-    assert.JSONEq(t, `{"error": "Invalid gender code"}`, w.Body.String())
-    assert.NoError(t, mock.ExpectationsWereMet())
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.JSONEq(t, `{"error": "Invalid gender code"}`, w.Body.String())
+	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestLogin_Success(t *testing.T) {
