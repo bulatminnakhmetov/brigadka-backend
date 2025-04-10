@@ -3,6 +3,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main]
+  workflow_dispatch: # Добавляем возможность ручного запуска
 
 jobs:
   unit-tests:
@@ -56,7 +57,7 @@ jobs:
   deploy:
     needs: [unit-tests, integration-tests]
     runs-on: ubuntu-latest
-    if: success()
+    if: ${{ github.event_name == 'workflow_dispatch' }} # Запуск только вручную
     
     steps:
       - name: Deploy to Render
