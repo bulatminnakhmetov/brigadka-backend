@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -23,6 +22,10 @@ func init() {
 type credentials struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	FullName string `json:"full_name"`
+	CityID   int    `json:"city_id"`
+	Gender   string `json:"gender"`
+	Age      int    `json:"age"`
 }
 
 type authResponse struct {
@@ -32,13 +35,14 @@ type authResponse struct {
 }
 
 func TestAuthAPI(t *testing.T) {
-	// Ждем, пока сервер запустится
-	time.Sleep(2 * time.Second)
-
 	t.Run("Register new user", func(t *testing.T) {
 		creds := credentials{
 			Email:    "test@example.com",
 			Password: "password123",
+			FullName: "Test User",
+			CityID:   1,
+			Gender:   "male",
+			Age:      25,
 		}
 
 		resp, err := makeRequest("/register", creds)
@@ -51,10 +55,54 @@ func TestAuthAPI(t *testing.T) {
 		assert.Equal(t, "User registered", response.Message)
 	})
 
+	t.Run("Register with invalid city", func(t *testing.T) {
+		creds := credentials{
+			Email:    "test2@example.com",
+			Password: "password123",
+			FullName: "Test User",
+			CityID:   9999, // несуществующий город
+			Gender:   "male",
+			Age:      25,
+		}
+
+		resp, err := makeRequest("/register", creds)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+		var response authResponse
+		err = json.NewDecoder(resp.Body).Decode(&response)
+		assert.NoError(t, err)
+		assert.Equal(t, "Invalid city ID", response.Error)
+	})
+
+	t.Run("Register with invalid gender", func(t *testing.T) {
+		creds := credentials{
+			Email:    "test3@example.com",
+			Password: "password123",
+			FullName: "Test User",
+			CityID:   1,
+			Gender:   "invalid",
+			Age:      25,
+		}
+
+		resp, err := makeRequest("/register", creds)
+		assert.NoError(t, err)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+
+		var response authResponse
+		err = json.NewDecoder(resp.Body).Decode(&response)
+		assert.NoError(t, err)
+		assert.Equal(t, "Invalid gender code", response.Error)
+	})
+
 	t.Run("Register duplicate user", func(t *testing.T) {
 		creds := credentials{
 			Email:    "test@example.com",
 			Password: "password123",
+			FullName: "Test User",
+			CityID:   1,
+			Gender:   "male",
+			Age:      25,
 		}
 
 		resp, err := makeRequest("/register", creds)

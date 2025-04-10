@@ -25,10 +25,10 @@ run-unit-tests:
 KEEP ?= false
 
 start-integration-env:
-	docker compose -f docker-compose.test.yml up -d test-postgres test-migrations test-app
+	docker compose -f docker-compose.test.yml up -d --build test-postgres test-migrations test-app
 
 down-integration-env:
-	docker compose -f docker-compose.test.yml down
+	docker compose -f docker-compose.test.yml down -v
 
 run-integration:
 	docker compose -f docker-compose.test.yml run --rm tests
@@ -59,5 +59,8 @@ migrate-create:
 	migrate create -ext sql -dir db/migrations -seq $$name
 
 # База данных
-db-connect:
+connect-local-db:
 	docker exec -it brigadka-backend-postgres-1 psql -U ${DB_USER} -d ${DB_NAME}
+
+connect-local-test-db:
+	docker exec -it brigadka-backend-test-postgres-1 psql -U ${DB_USER} -d ${DB_NAME}

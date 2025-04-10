@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   test-postgres:
     image: postgres:latest
@@ -63,7 +61,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
       - TEST_APP_URL=http://test-app:8080
-    command: go test -v ./tests/...
+    command: go test -v ./integration/...
     depends_on:
       test-app:
         condition: service_healthy
