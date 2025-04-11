@@ -25,15 +25,19 @@ func main() {
 	}
 
 	// Получаем параметры подключения из переменных окружения
-	dbHost := getEnvOrDefault("DB_HOST", "localhost")
-	dbPort := getEnvOrDefault("DB_PORT", "5432")
-	dbUser := getEnvOrDefault("DB_USER", "postgres")
-	dbPassword := getEnvOrDefault("DB_PASSWORD", "postgres")
-	dbName := getEnvOrDefault("DB_NAME", "yourdb")
+	var connStr string
+	if value := os.Getenv("DB_URL"); value != "" {
+		connStr = value
+	} else {
+		dbHost := getEnvOrDefault("DB_HOST", "localhost")
+		dbPort := getEnvOrDefault("DB_PORT", "5432")
+		dbUser := getEnvOrDefault("DB_USER", "postgres")
+		dbPassword := getEnvOrDefault("DB_PASSWORD", "postgres")
+		dbName := getEnvOrDefault("DB_NAME", "yourdb")
 
-	// Формируем строку подключения
-	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		dbUser, dbPassword, dbHost, dbPort, dbName)
+		connStr = fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+			dbUser, dbPassword, dbHost, dbPort, dbName)
+	}
 
 	// Подключаемся к базе данных
 	db, err := sql.Open("postgres", connStr)
