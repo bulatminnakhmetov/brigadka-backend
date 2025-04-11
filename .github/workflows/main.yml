@@ -41,6 +41,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Create .env file
+        run: |
+          echo "DB_USER=testuser" >> .env
+          echo "DB_PASSWORD=testpass" >> .env
+          echo "DB_NAME=testdb" >> .env
+
       - name: Set up Docker Compose
         run: |
           make start-integration-env
