@@ -25,7 +25,7 @@ down-integration-env:
 	docker compose -f docker-compose.test.yml down -v
 
 run-integration:
-	docker compose -f docker-compose.test.yml run --rm tests
+	docker compose -f docker-compose.test.yml run --build --rm tests
 
 run-integration-tests:
 	@bash -c '\

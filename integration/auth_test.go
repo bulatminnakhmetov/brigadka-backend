@@ -2,16 +2,14 @@ package integration
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"testing"
 
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/database"
-	"github.com/go-chi/chi/v5"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -20,85 +18,15 @@ import (
 // AuthIntegrationTestSuite определяет набор интеграционных тестов для аутентификации
 type AuthIntegrationTestSuite struct {
 	suite.Suite
-	db          *sql.DB
-	router      *chi.Mux
-	appUrl      string
-	authHandler *auth.AuthHandler
-	testEmail   string
-	jwtSecret   string
+	appUrl    string
+	testEmail string
 }
 
 // SetupSuite подготавливает окружение перед запуском всех тестов
 func (s *AuthIntegrationTestSuite) SetupSuite() {
-	// Используем переменные окружения для настройки тестового окружения
-	s.jwtSecret = "test-jwt-secret"
-	dbHost := os.Getenv("DB_HOST")
-	if dbHost == "" {
-		dbHost = "localhost"
-	}
-	dbPort := 5432
-	dbUser := os.Getenv("DB_USER")
-	if dbUser == "" {
-		dbUser = "postgres"
-	}
-	dbPassword := os.Getenv("DB_PASSWORD")
-	if dbPassword == "" {
-		dbPassword = "postgres"
-	}
-	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "brigadka_test"
-	}
-
-	// Подключение к тестовой базе данных
-	dbConfig := &database.Config{
-		Host:     dbHost,
-		Port:     dbPort,
-		User:     dbUser,
-		Password: dbPassword,
-		DBName:   dbName,
-		SSLMode:  "disable",
-	}
-
 	s.appUrl = os.Getenv("TEST_APP_URL")
-
-	// Подключаемся к базе данных
-	var err error
-	s.db, err = database.NewConnection(dbConfig)
-	if err != nil {
-		s.T().Fatalf("Failed to connect to test database: %v", err)
-	}
-
 	// Генерируем уникальный email для тестов
 	s.testEmail = fmt.Sprintf("test_user_%d@example.com", os.Getpid())
-
-	// Инициализация репозитория и обработчика авторизации
-	userRepo := auth.NewPostgresUserRepository(s.db)
-	s.authHandler = auth.NewAuthHandler(userRepo, s.jwtSecret)
-
-	// Настройка маршрутизатора
-	s.router = chi.NewRouter()
-	s.router.Route("/api/auth", func(r chi.Router) {
-		r.Post("/register", s.authHandler.Register)
-		r.Post("/login", s.authHandler.Login)
-		r.Get("/verify", s.authHandler.Verify)
-	})
-
-	// Настройка защищенного маршрута для тестирования middleware
-	s.router.Group(func(r chi.Router) {
-		r.Use(s.authHandler.AuthMiddleware)
-		r.Get("/api/protected", func(w http.ResponseWriter, r *http.Request) {
-			userID := r.Context().Value("user_id").(int)
-			email := r.Context().Value("email").(string)
-			response := map[string]interface{}{
-				"user_id": userID,
-				"email":   email,
-				"message": "protected resource accessed",
-			}
-			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(response)
-		})
-	})
 }
 
 // TestRegisterAndLogin тестирует полный цикл регистрации и входа в систему
@@ -178,11 +106,11 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 
 	assert.Equal(t, http.StatusOK, protectedResp.StatusCode)
 
-	var protectedResult map[string]interface{}
-	err = json.NewDecoder(protectedResp.Body).Decode(&protectedResult)
+	bodyBytes, err := io.ReadAll(protectedResp.Body)
 	assert.NoError(t, err)
-	assert.Equal(t, "protected resource accessed", protectedResult["message"])
-	assert.Equal(t, s.testEmail, protectedResult["email"])
+	protectedResult := string(bodyBytes)
+
+	assert.Equal(t, fmt.Sprintf("Protected resource. User ID: %d, Email: %s", loginResult.User.UserID, loginResult.User.Email), protectedResult)
 }
 
 // TestRegisterWithExistingEmail проверяет обработку ошибки при регистрации с существующим email

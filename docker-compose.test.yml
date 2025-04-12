@@ -49,11 +49,6 @@ services:
       context: .
       dockerfile: Dockerfile
     environment:
-      - DB_HOST=test-postgres
-      - DB_PORT=5432
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
       - TEST_APP_URL=http://test-app:8080
     command: go test -v ./integration/...
     depends_on:

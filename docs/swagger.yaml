@@ -88,74 +88,6 @@ info:
   title: Brigadka API
   version: "1.0"
 paths:
-  /api/auth/login:
-    post:
-      consumes:
-      - application/json
-      description: Аутентификация пользователя по email и паролю
-      parameters:
-      - description: Данные для входа
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/auth.LoginRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.AuthResponse'
-        "400":
-          description: Невалидные данные
-          schema:
-            type: string
-        "401":
-          description: Неверные учетные данные
-          schema:
-            type: string
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      summary: Вход пользователя
-      tags:
-      - auth
-  /api/auth/register:
-    post:
-      consumes:
-      - application/json
-      description: Создание нового пользователя
-      parameters:
-      - description: Данные для регистрации
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/auth.RegisterRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/auth.AuthResponse'
-        "400":
-          description: Невалидные данные
-          schema:
-            type: string
-        "409":
-          description: Email уже зарегистрирован
-          schema:
-            type: string
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      summary: Регистрация пользователя
-      tags:
-      - auth
   /api/auth/verify:
     get:
       consumes:
@@ -213,6 +145,74 @@ paths:
       summary: Создание профиля
       tags:
       - profiles
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Аутентификация пользователя по email и паролю
+      parameters:
+      - description: Данные для входа
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.AuthResponse'
+        "400":
+          description: Невалидные данные
+          schema:
+            type: string
+        "401":
+          description: Неверные учетные данные
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      summary: Вход пользователя
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Создание нового пользователя
+      parameters:
+      - description: Данные для регистрации
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.AuthResponse'
+        "400":
+          description: Невалидные данные
+          schema:
+            type: string
+        "409":
+          description: Email уже зарегистрирован
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      summary: Регистрация пользователя
+      tags:
+      - auth
   /health:
     get:
       description: Возвращает статус сервиса

@@ -69,7 +69,7 @@ func NewAuthHandler(userRepo UserRepository, jwtSecret string) *AuthHandler {
 // @Failure      400      {string}  string  "Невалидные данные"
 // @Failure      401      {string}  string  "Неверные учетные данные"
 // @Failure      500      {string}  string  "Внутренняя ошибка сервера"
-// @Router       /api/auth/login [post]
+// @Router       /auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -118,7 +118,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // @Failure      400      {string}  string  "Невалидные данные"
 // @Failure      409      {string}  string  "Email уже зарегистрирован"
 // @Failure      500      {string}  string  "Внутренняя ошибка сервера"
-// @Router       /api/auth/register [post]
+// @Router       /auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
