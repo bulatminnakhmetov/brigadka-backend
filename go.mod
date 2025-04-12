@@ -1,4 +1,4 @@
-module github.com/Minnakhmetov/brigadka-backend
+module github.com/bulatminnakhmetov/brigadka-backend
 
 go 1.22.2
 

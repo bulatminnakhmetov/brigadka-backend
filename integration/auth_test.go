@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"os"
 	"testing"
 
@@ -23,7 +22,7 @@ type AuthIntegrationTestSuite struct {
 	suite.Suite
 	db          *sql.DB
 	router      *chi.Mux
-	server      *httptest.Server
+	appUrl      string
 	authHandler *auth.AuthHandler
 	testEmail   string
 	jwtSecret   string
@@ -61,6 +60,8 @@ func (s *AuthIntegrationTestSuite) SetupSuite() {
 		SSLMode:  "disable",
 	}
 
+	s.appUrl = os.Getenv("TEST_APP_URL")
+
 	// Подключаемся к базе данных
 	var err error
 	s.db, err = database.NewConnection(dbConfig)
@@ -70,9 +71,6 @@ func (s *AuthIntegrationTestSuite) SetupSuite() {
 
 	// Генерируем уникальный email для тестов
 	s.testEmail = fmt.Sprintf("test_user_%d@example.com", os.Getpid())
-
-	// Подготовка таблиц перед тестами
-	s.prepareTestDatabase()
 
 	// Инициализация репозитория и обработчика авторизации
 	userRepo := auth.NewPostgresUserRepository(s.db)
@@ -101,57 +99,6 @@ func (s *AuthIntegrationTestSuite) SetupSuite() {
 			json.NewEncoder(w).Encode(response)
 		})
 	})
-
-	// Создание тестового сервера
-	s.server = httptest.NewServer(s.router)
-}
-
-// TearDownSuite выполняется после всех тестов
-func (s *AuthIntegrationTestSuite) TearDownSuite() {
-	// Очистка тестовой базы данных
-	s.cleanupTestDatabase()
-
-	// Закрытие соединений
-	if s.server != nil {
-		s.server.Close()
-	}
-	if s.db != nil {
-		s.db.Close()
-	}
-}
-
-// prepareTestDatabase подготавливает базу данных для тестов
-func (s *AuthIntegrationTestSuite) prepareTestDatabase() {
-	// Очистка таблиц перед запуском
-	s.cleanupTestDatabase()
-
-	// Создание необходимых каталогов и справочников для тестов
-	_, err := s.db.Exec(`
-        INSERT INTO gender_catalog (gender_code) VALUES ('male'), ('female')
-        ON CONFLICT (gender_code) DO NOTHING;
-
-        INSERT INTO gender_catalog_translation (gender_code, lang, label) 
-        VALUES ('male', 'ru', 'Мужской'), ('female', 'ru', 'Женский')
-        ON CONFLICT (gender_code, lang) DO NOTHING;
-
-        INSERT INTO cities (name) VALUES ('Test City')
-        ON CONFLICT DO NOTHING RETURNING city_id;
-
-        INSERT INTO activity_type_catalog (activity_type) VALUES ('sports'), ('music'), ('education')
-        ON CONFLICT (activity_type) DO NOTHING;
-    `)
-	if err != nil {
-		s.T().Fatalf("Failed to prepare test database: %v", err)
-	}
-}
-
-// cleanupTestDatabase очищает данные тестов
-func (s *AuthIntegrationTestSuite) cleanupTestDatabase() {
-	// Удаление тестовых пользователей
-	_, err := s.db.Exec("DELETE FROM users WHERE email LIKE 'test_user_%@example.com'")
-	if err != nil {
-		s.T().Logf("Warning: Failed to cleanup test users: %v", err)
-	}
 }
 
 // TestRegisterAndLogin тестирует полный цикл регистрации и входа в систему
@@ -170,7 +117,7 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 
 	// Шаг 1: Регистрация пользователя
 	registerJSON, _ := json.Marshal(registerData)
-	registerReq, _ := http.NewRequest("POST", s.server.URL+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	registerReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
 	registerReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -199,7 +146,7 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 	}
 
 	loginJSON, _ := json.Marshal(loginData)
-	loginReq, _ := http.NewRequest("POST", s.server.URL+"/api/auth/login", bytes.NewBuffer(loginJSON))
+	loginReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/login", bytes.NewBuffer(loginJSON))
 	loginReq.Header.Set("Content-Type", "application/json")
 
 	loginResp, err := client.Do(loginReq)
@@ -209,6 +156,7 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 	assert.Equal(t, http.StatusOK, loginResp.StatusCode)
 
 	var loginResult auth.AuthResponse
+	println("Login response:", loginResp.Body)
 	err = json.NewDecoder(loginResp.Body).Decode(&loginResult)
 	assert.NoError(t, err)
 
@@ -221,7 +169,7 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 	assert.Empty(t, loginResult.User.PasswordHash)
 
 	// Шаг 3: Проверка защищенного ресурса с полученным токеном
-	protectedReq, _ := http.NewRequest("GET", s.server.URL+"/api/protected", nil)
+	protectedReq, _ := http.NewRequest("GET", s.appUrl+"/api/protected", nil)
 	protectedReq.Header.Set("Authorization", "Bearer "+loginResult.Token)
 
 	protectedResp, err := client.Do(protectedReq)
@@ -252,7 +200,7 @@ func (s *AuthIntegrationTestSuite) TestRegisterWithExistingEmail() {
 	}
 
 	registerJSON, _ := json.Marshal(registerData)
-	registerReq, _ := http.NewRequest("POST", s.server.URL+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	registerReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
 	registerReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -275,7 +223,7 @@ func (s *AuthIntegrationTestSuite) TestLoginWithInvalidCredentials() {
 	}
 
 	loginJSON, _ := json.Marshal(loginData)
-	loginReq, _ := http.NewRequest("POST", s.server.URL+"/api/auth/login", bytes.NewBuffer(loginJSON))
+	loginReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/login", bytes.NewBuffer(loginJSON))
 	loginReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -293,7 +241,7 @@ func (s *AuthIntegrationTestSuite) TestLoginWithInvalidCredentials() {
 	}
 
 	loginJSON, _ = json.Marshal(loginData)
-	loginReq, _ = http.NewRequest("POST", s.server.URL+"/api/auth/login", bytes.NewBuffer(loginJSON))
+	loginReq, _ = http.NewRequest("POST", s.appUrl+"/api/auth/login", bytes.NewBuffer(loginJSON))
 	loginReq.Header.Set("Content-Type", "application/json")
 
 	loginResp, err = client.Do(loginReq)
@@ -309,7 +257,7 @@ func (s *AuthIntegrationTestSuite) TestProtectedResourceWithoutAuth() {
 	t := s.T()
 
 	// Запрос к защищенному ресурсу без токена
-	protectedReq, _ := http.NewRequest("GET", s.server.URL+"/api/protected", nil)
+	protectedReq, _ := http.NewRequest("GET", s.appUrl+"/api/protected", nil)
 
 	client := &http.Client{}
 	protectedResp, err := client.Do(protectedReq)
@@ -331,7 +279,7 @@ func (s *AuthIntegrationTestSuite) TestVerifyToken() {
 	}
 
 	loginJSON, _ := json.Marshal(loginData)
-	loginReq, _ := http.NewRequest("POST", s.server.URL+"/api/auth/login", bytes.NewBuffer(loginJSON))
+	loginReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/login", bytes.NewBuffer(loginJSON))
 	loginReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -344,7 +292,7 @@ func (s *AuthIntegrationTestSuite) TestVerifyToken() {
 	assert.NoError(t, err)
 
 	// Проверяем верификацию токена
-	verifyReq, _ := http.NewRequest("GET", s.server.URL+"/api/auth/verify", nil)
+	verifyReq, _ := http.NewRequest("GET", s.appUrl+"/api/auth/verify", nil)
 	verifyReq.Header.Set("Authorization", "Bearer "+loginResult.Token)
 
 	verifyResp, err := client.Do(verifyReq)
@@ -355,7 +303,7 @@ func (s *AuthIntegrationTestSuite) TestVerifyToken() {
 	assert.Equal(t, http.StatusOK, verifyResp.StatusCode)
 
 	// Проверяем верификацию с невалидным токеном
-	verifyReq, _ = http.NewRequest("GET", s.server.URL+"/api/auth/verify", nil)
+	verifyReq, _ = http.NewRequest("GET", s.appUrl+"/api/auth/verify", nil)
 	verifyReq.Header.Set("Authorization", "Bearer invalid-token")
 
 	verifyResp, err = client.Do(verifyReq)

@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
@@ -12,11 +14,78 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	httpSwagger "github.com/swaggo/http-swagger"
 
+	_ "github.com/bulatminnakhmetov/brigadka-backend/docs" // Импорт сгенерированной документации
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/database"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/profile"
 )
+
+// @title           Brigadka API
+// @version         1.0
+// @description     API для сервиса Brigadka
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   API Support
+// @contact.email  support@brigadka.com
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8080
+// @BasePath  /api
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
+
+// HealthResponse представляет ответ от health endpoint
+type HealthResponse struct {
+	Status    string `json:"status"`
+	Version   string `json:"version"`
+	Timestamp string `json:"timestamp"`
+}
+
+// Объявление startTime в глобальной области видимости
+var startTime time.Time
+
+// Инициализация времени запуска при загрузке пакета
+func init() {
+	startTime = time.Now()
+}
+
+// @Summary      Проверка здоровья сервиса
+// @Description  Возвращает статус сервиса
+// @Tags         health
+// @Produce      json
+// @Success      200  {object}  HealthResponse
+// @Failure      503  {object}  HealthResponse
+// @Router       /health [get]
+func healthHandler(w http.ResponseWriter, r *http.Request, db *sql.DB, appVersion string) {
+	// Проверка соединения с базой данных
+	if err := db.Ping(); err != nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		response := HealthResponse{
+			Status:    "error",
+			Version:   appVersion,
+			Timestamp: time.Now().Format(time.RFC3339),
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Если соединение с БД в порядке, возвращаем статус OK
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	response := HealthResponse{
+		Status:    "healthy",
+		Version:   appVersion,
+		Timestamp: time.Now().Format(time.RFC3339),
+	}
+	json.NewEncoder(w).Encode(response)
+}
 
 func main() {
 	// Загрузка конфигурации из переменных окружения
@@ -31,6 +100,7 @@ func main() {
 
 	jwtSecret := getEnv("JWT_SECRET", "your-secret-key-replace-in-production")
 	serverPort := getEnv("SERVER_PORT", "8080")
+	appVersion := getEnv("APP_VERSION", "dev")
 
 	// Подключение к базе данных
 	db, err := database.NewConnection(dbConfig)
@@ -56,15 +126,45 @@ func main() {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Timeout(60 * time.Second))
 
-	// CORS middleware
-	// r.Use(cors.Handler(cors.Options{
-	// 	AllowedOrigins:   []string{"*"}, // В продакшене лучше ограничить конкретными доменами
-	// 	AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-	// 	AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-	// 	ExposedHeaders:   []string{"Link"},
-	// 	AllowCredentials: true,
-	// 	MaxAge:           300, // Maximum value not readily apparent
-	// }))
+	// Подключение Swagger UI
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"), // URL для доступа к API документации
+	))
+
+	// Health endpoint для проверки работоспособности сервиса
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		healthHandler(w, r, db, appVersion)
+	})
+
+	// Расширенный health check с дополнительной информацией
+	r.Get("/health/details", func(w http.ResponseWriter, r *http.Request) {
+		details := map[string]interface{}{
+			"status":      "healthy",
+			"version":     appVersion,
+			"timestamp":   time.Now().Format(time.RFC3339),
+			"environment": getEnv("APP_ENV", "development"),
+			"services": map[string]interface{}{
+				"database": map[string]interface{}{
+					"status": "connected",
+					"host":   dbConfig.Host,
+					"name":   dbConfig.DBName,
+				},
+			},
+			"uptime": time.Since(startTime).String(),
+		}
+
+		// Проверка соединения с базой данных
+		if err := db.Ping(); err != nil {
+			details["status"] = "error"
+			details["services"].(map[string]interface{})["database"].(map[string]interface{})["status"] = "error"
+			w.WriteHeader(http.StatusServiceUnavailable)
+		} else {
+			w.WriteHeader(http.StatusOK)
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(details)
+	})
 
 	// Публичные маршруты аутентификации
 	r.Route("/api/auth", func(r chi.Router) {

@@ -10,8 +10,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - test-network
 
   test-migrations:
     build:
@@ -27,8 +25,6 @@ services:
     depends_on:
       test-postgres:
         condition: service_healthy
-    networks:
-      - test-network
 
   test-app:
     build:
@@ -47,8 +43,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    networks:
-      - test-network
 
   tests:
     build:
@@ -65,9 +59,3 @@ services:
     depends_on:
       test-app:
         condition: service_healthy
-    networks:
-      - test-network
-
-networks:
-  test-network:
-    driver: bridge 

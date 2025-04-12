@@ -59,6 +59,17 @@ func NewAuthHandler(userRepo UserRepository, jwtSecret string) *AuthHandler {
 	}
 }
 
+// @Summary      Вход пользователя
+// @Description  Аутентификация пользователя по email и паролю
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  LoginRequest  true  "Данные для входа"
+// @Success      200      {object}  AuthResponse
+// @Failure      400      {string}  string  "Невалидные данные"
+// @Failure      401      {string}  string  "Неверные учетные данные"
+// @Failure      500      {string}  string  "Внутренняя ошибка сервера"
+// @Router       /api/auth/login [post]
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -97,6 +108,17 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// @Summary      Регистрация пользователя
+// @Description  Создание нового пользователя
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request  body  RegisterRequest  true  "Данные для регистрации"
+// @Success      201      {object}  AuthResponse
+// @Failure      400      {string}  string  "Невалидные данные"
+// @Failure      409      {string}  string  "Email уже зарегистрирован"
+// @Failure      500      {string}  string  "Внутренняя ошибка сервера"
+// @Router       /api/auth/register [post]
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -153,6 +175,15 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(resp)
 }
 
+// @Summary      Проверка токена
+// @Description  Проверка валидности JWT токена
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Success      200      {string}  string  "Токен валиден"
+// @Failure      401      {string}  string  "Невалидный токен"
+// @Router       /api/auth/verify [get]
 func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 	authHeader := r.Header.Get("Authorization")
 	if authHeader == "" {

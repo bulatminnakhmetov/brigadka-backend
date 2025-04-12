@@ -4,12 +4,6 @@ ifneq ("$(wildcard .env)","")
 	export
 endif
 
-run:
-	go run ./cmd/service
-
-build:
-	go build -o bin/app ./cmd/service
-
 build-release:
 	CGO_ENABLED=0 go build -tags netgo -ldflags "-s -w" -o bin/app ./cmd/service
 
@@ -64,3 +58,6 @@ connect-local-db:
 
 connect-local-test-db:
 	docker exec -it brigadka-backend-test-postgres-1 psql -U ${DB_USER} -d ${DB_NAME}
+
+generate-swagger:
+	swag init -g cmd/service/main.go

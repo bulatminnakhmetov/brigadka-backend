@@ -34,7 +34,18 @@ func NewProfileHandler(profileService ProfileService) *ProfileHandler {
 	}
 }
 
-// CreateProfile обрабатывает запрос на создание нового профиля
+// @Summary      Создание профиля
+// @Description  Создает новый профиль для пользователя
+// @Tags         profiles
+// @Accept       json
+// @Produce      json
+// @Security     BearerAuth
+// @Param        request  body  CreateProfileRequest  true  "Данные профиля"
+// @Success      201      {object}  Profile
+// @Failure      400      {string}  string  "Невалидные данные"
+// @Failure      401      {string}  string  "Не авторизован"
+// @Failure      500      {string}  string  "Внутренняя ошибка сервера"
+// @Router       /api/profiles [post]
 func (h *ProfileHandler) CreateProfile(w http.ResponseWriter, r *http.Request) {
 	// Проверяем метод запроса
 	if r.Method != http.MethodPost {

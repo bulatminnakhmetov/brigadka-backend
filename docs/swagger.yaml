@@ -1,0 +1,239 @@
+basePath: /api
+definitions:
+  auth.AuthResponse:
+    properties:
+      token:
+        type: string
+      user:
+        $ref: '#/definitions/auth.User'
+    type: object
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  auth.RegisterRequest:
+    properties:
+      age:
+        type: integer
+      city_id:
+        type: integer
+      email:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      password:
+        type: string
+    type: object
+  auth.User:
+    properties:
+      age:
+        type: integer
+      city_id:
+        type: integer
+      email:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  main.HealthResponse:
+    properties:
+      status:
+        type: string
+      timestamp:
+        type: string
+      version:
+        type: string
+    type: object
+  profile.CreateProfileRequest:
+    properties:
+      activity_type:
+        type: string
+      description:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  profile.Profile:
+    properties:
+      activity_type:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      profile_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@brigadka.com
+    name: API Support
+  description: API для сервиса Brigadka
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Brigadka API
+  version: "1.0"
+paths:
+  /api/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Аутентификация пользователя по email и паролю
+      parameters:
+      - description: Данные для входа
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.AuthResponse'
+        "400":
+          description: Невалидные данные
+          schema:
+            type: string
+        "401":
+          description: Неверные учетные данные
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      summary: Вход пользователя
+      tags:
+      - auth
+  /api/auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Создание нового пользователя
+      parameters:
+      - description: Данные для регистрации
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/auth.AuthResponse'
+        "400":
+          description: Невалидные данные
+          schema:
+            type: string
+        "409":
+          description: Email уже зарегистрирован
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      summary: Регистрация пользователя
+      tags:
+      - auth
+  /api/auth/verify:
+    get:
+      consumes:
+      - application/json
+      description: Проверка валидности JWT токена
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Токен валиден
+          schema:
+            type: string
+        "401":
+          description: Невалидный токен
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Проверка токена
+      tags:
+      - auth
+  /api/profiles:
+    post:
+      consumes:
+      - application/json
+      description: Создает новый профиль для пользователя
+      parameters:
+      - description: Данные профиля
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/profile.CreateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/profile.Profile'
+        "400":
+          description: Невалидные данные
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создание профиля
+      tags:
+      - profiles
+  /health:
+    get:
+      description: Возвращает статус сервиса
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/main.HealthResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/main.HealthResponse'
+      summary: Проверка здоровья сервиса
+      tags:
+      - health
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
