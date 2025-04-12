@@ -1,153 +1,239 @@
 package auth
 
 import (
-	"database/sql"
-	"log"
+	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type RegisterCredentials struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
-	FullName string `json:"full_name" binding:"required"`
-	CityID   int    `json:"city_id" binding:"required"`
-	Gender   string `json:"gender" binding:"required"`
-	Age      int    `json:"age" binding:"required"`
+type AuthHandler struct {
+	userRepository UserRepository
+	jwtSecret      []byte
+	tokenExpiry    time.Duration
 }
 
-type LoginCredentials struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+type UserRepository interface {
+	GetUserByEmail(email string) (*User, error)
+	CreateUser(user *User) error
 }
 
-type Claims struct {
-	UserID int `json:"user_id"`
-	jwt.RegisteredClaims
+type User struct {
+	UserID       int    `json:"user_id"`
+	Email        string `json:"email"`
+	FullName     string `json:"full_name"`
+	PasswordHash string `json:"-"`
+	Gender       string `json:"gender,omitempty"`
+	Age          int    `json:"age,omitempty"`
+	CityID       int    `json:"city_id,omitempty"`
 }
 
-type AuthController struct {
-	DB     *sql.DB
-	JWTKey []byte
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
-func (ac *AuthController) Register(c *gin.Context) {
-	var creds RegisterCredentials
-	if err := c.ShouldBindJSON(&creds); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input. All fields are required"})
-		return
-	}
-
-	// Validate age
-	if creds.Age < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid age value"})
-		return
-	}
-
-	// Check if email already exists
-	var emailExists bool
-	err := ac.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)", creds.Email).Scan(&emailExists)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-	if emailExists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already registered"})
-		return
-	}
-
-	// Validate city exists
-	var cityExists bool
-	err = ac.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM cities WHERE city_id = $1)", creds.CityID).Scan(&cityExists)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-	if !cityExists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid city ID"})
-		return
-	}
-
-	// Check if gender exists in gender_catalog
-	var genderExists bool
-	err = ac.DB.QueryRow("SELECT EXISTS(SELECT 1 FROM gender_catalog WHERE gender_code = $1)", creds.Gender).Scan(&genderExists)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-	if !genderExists {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid gender code"})
-		return
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(creds.Password), bcrypt.DefaultCost)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Hashing failed"})
-		return
-	}
-
-	_, err = ac.DB.Exec(
-		`INSERT INTO users (email, password_hash, full_name, city_id, gender, age) 
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		creds.Email,
-		string(hash),
-		creds.FullName,
-		creds.CityID,
-		creds.Gender,
-		creds.Age,
-	)
-	if err != nil {
-		log.Printf("Database error in Register: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
-		return
-	}
-
-	c.JSON(http.StatusCreated, gin.H{"message": "User registered"})
+type RegisterRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+	FullName string `json:"full_name"`
+	Gender   string `json:"gender,omitempty"`
+	Age      int    `json:"age,omitempty"`
+	CityID   int    `json:"city_id,omitempty"`
 }
 
-func (ac *AuthController) Login(c *gin.Context) {
-	var creds LoginCredentials
-	if err := c.ShouldBindJSON(&creds); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+type AuthResponse struct {
+	Token string `json:"token"`
+	User  *User  `json:"user"`
+}
+
+func NewAuthHandler(userRepo UserRepository, jwtSecret string) *AuthHandler {
+	return &AuthHandler{
+		userRepository: userRepo,
+		jwtSecret:      []byte(jwtSecret),
+		tokenExpiry:    time.Hour * 24, // Токен действителен 24 часа
+	}
+}
+
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	var userID int
-	var storedHash string
-	err := ac.DB.QueryRow("SELECT user_id, password_hash FROM users WHERE email = $1", creds.Email).Scan(&userID, &storedHash)
+	user, err := h.userRepository.GetUserByEmail(req.Email)
 	if err != nil {
-		log.Printf("Database error in Login: %v", err)
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
-		} else {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error"})
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	// Проверка пароля
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.Password)); err != nil {
+		http.Error(w, "Invalid credentials", http.StatusUnauthorized)
+		return
+	}
+
+	// Генерация JWT токена
+	token, err := h.generateToken(user)
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
+	// Очистка чувствительных данных
+	user.PasswordHash = ""
+
+	resp := AuthResponse{
+		Token: token,
+		User:  user,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
+	var req RegisterRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Проверка, что пользователь с таким email не существует
+	existingUser, _ := h.userRepository.GetUserByEmail(req.Email)
+	if existingUser != nil {
+		http.Error(w, "Email already registered", http.StatusConflict)
+		return
+	}
+
+	// Хэширование пароля
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		http.Error(w, "Failed to process request", http.StatusInternalServerError)
+		return
+	}
+
+	newUser := &User{
+		Email:        req.Email,
+		PasswordHash: string(hashedPassword),
+		FullName:     req.FullName,
+		Gender:       req.Gender,
+		Age:          req.Age,
+		CityID:       req.CityID,
+	}
+
+	// Сохранение пользователя в БД
+	if err := h.userRepository.CreateUser(newUser); err != nil {
+		http.Error(w, "Failed to create user", http.StatusInternalServerError)
+		return
+	}
+
+	// Генерация JWT токена
+	token, err := h.generateToken(newUser)
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
+	// Очистка чувствительных данных
+	newUser.PasswordHash = ""
+
+	resp := AuthResponse{
+		Token: token,
+		User:  newUser,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(resp)
+}
+
+func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
+	authHeader := r.Header.Get("Authorization")
+	if authHeader == "" {
+		http.Error(w, "Authorization header required", http.StatusUnauthorized)
+		return
+	}
+
+	// Формат заголовка должен быть: "Bearer {token}"
+	if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+		http.Error(w, "Invalid authorization format", http.StatusUnauthorized)
+		return
+	}
+
+	tokenString := authHeader[7:]
+	claims := jwt.MapClaims{}
+
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		// Проверяем, что алгоритм подписи соответствует ожидаемому
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, errors.New("unexpected signing method")
 		}
+		return h.jwtSecret, nil
+	})
+
+	if err != nil || !token.Valid {
+		http.Error(w, "Invalid token", http.StatusUnauthorized)
 		return
 	}
 
-	if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(creds.Password)); err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid email or password"})
-		return
-	}
+	// Токен валиден
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"valid"}`))
+}
 
-	expirationTime := time.Now().Add(24 * time.Hour)
-	claims := &Claims{
-		UserID: userID,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(expirationTime),
-		},
+func (h *AuthHandler) generateToken(user *User) (string, error) {
+	claims := jwt.MapClaims{
+		"user_id": user.UserID,
+		"email":   user.Email,
+		"exp":     time.Now().Add(h.tokenExpiry).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenStr, err := token.SignedString(ac.JWTKey)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not generate token"})
-		return
-	}
+	return token.SignedString(h.jwtSecret)
+}
 
-	c.JSON(http.StatusOK, gin.H{"token": tokenStr})
+// Middleware для аутентификации
+func (h *AuthHandler) AuthMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			http.Error(w, "Authorization header required", http.StatusUnauthorized)
+			return
+		}
+
+		// Формат заголовка должен быть: "Bearer {token}"
+		if len(authHeader) < 7 || authHeader[:7] != "Bearer " {
+			http.Error(w, "Invalid authorization format", http.StatusUnauthorized)
+			return
+		}
+
+		tokenString := authHeader[7:]
+		claims := jwt.MapClaims{}
+
+		token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+				return nil, errors.New("unexpected signing method")
+			}
+			return h.jwtSecret, nil
+		})
+
+		if err != nil || !token.Valid {
+			http.Error(w, "Invalid token", http.StatusUnauthorized)
+			return
+		}
+
+		// Добавляем данные пользователя в контекст запроса
+		userID := int(claims["user_id"].(float64))
+		ctx := r.Context()
+		ctx = context.WithValue(ctx, "user_id", userID)
+		ctx = context.WithValue(ctx, "email", claims["email"].(string))
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
 }
