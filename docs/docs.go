@@ -383,8 +383,6 @@ var SwaggerInfo = &swag.Spec{
 	Description:      "API для сервиса Brigadka",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
-	LeftDelim:        "{{",
-	RightDelim:       "}}",
 }
 
 func init() {
