@@ -186,6 +186,7 @@ func main() {
 		// Маршруты для работы с профилями (требуют аутентификации)
 		r.Route("/api/profiles", func(r chi.Router) {
 			r.Post("/", profileHandler.CreateProfile)
+			r.Get("/{id}", profileHandler.GetProfile)
 			// Здесь можно добавить другие методы для работы с профилями
 			// r.Get("/{id}", profileHandler.GetProfile)
 			// r.Put("/{id}", profileHandler.UpdateProfile)

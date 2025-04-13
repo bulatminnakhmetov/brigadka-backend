@@ -2,11 +2,11 @@ services:
   test-postgres:
     image: postgres:latest
     environment:
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: test_user
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: test_db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      test: ["CMD-SHELL", "pg_isready -U test_user"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -18,9 +18,9 @@ services:
     environment:
       - DB_HOST=test-postgres
       - DB_PORT=5432
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
+      - DB_USER=test_user
+      - DB_PASSWORD=test_password
+      - DB_NAME=test_db
     command: go run ./cmd/migrate -up
     depends_on:
       test-postgres:
@@ -33,9 +33,9 @@ services:
     environment:
       - DB_HOST=test-postgres
       - DB_PORT=5432
-      - DB_USER=${DB_USER}
-      - DB_PASSWORD=${DB_PASSWORD}
-      - DB_NAME=${DB_NAME}
+      - DB_USER=test_user
+      - DB_PASSWORD=test_password
+      - DB_NAME=test_db
     depends_on:
       - test-migrations
     healthcheck:

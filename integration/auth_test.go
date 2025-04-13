@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
 	_ "github.com/lib/pq"
@@ -18,32 +19,76 @@ import (
 // AuthIntegrationTestSuite определяет набор интеграционных тестов для аутентификации
 type AuthIntegrationTestSuite struct {
 	suite.Suite
-	appUrl    string
-	testEmail string
+	appUrl string
 }
 
 // SetupSuite подготавливает окружение перед запуском всех тестов
 func (s *AuthIntegrationTestSuite) SetupSuite() {
 	s.appUrl = os.Getenv("TEST_APP_URL")
-	// Генерируем уникальный email для тестов
-	s.testEmail = fmt.Sprintf("test_user_%d@example.com", os.Getpid())
+	if s.appUrl == "" {
+		s.appUrl = "http://localhost:8080" // Значение по умолчанию для локального тестирования
+	}
+}
+
+// Вспомогательная функция для генерации уникального email
+func generateUniqueEmail() string {
+	return fmt.Sprintf("test_user_%d_%d@example.com", os.Getpid(), time.Now().UnixNano())
+}
+
+// Вспомогательная функция для регистрации тестового пользователя
+func (s *AuthIntegrationTestSuite) registerTestUser(email, password, fullName, gender string, age, cityID int) (*auth.AuthResponse, error) {
+	registerData := auth.RegisterRequest{
+		Email:    email,
+		Password: password,
+		FullName: fullName,
+		Gender:   gender,
+		Age:      age,
+		CityID:   cityID,
+	}
+
+	registerJSON, _ := json.Marshal(registerData)
+	registerReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	registerReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	registerResp, err := client.Do(registerReq)
+	if err != nil {
+		return nil, err
+	}
+	defer registerResp.Body.Close()
+
+	if registerResp.StatusCode != http.StatusCreated {
+		body, _ := io.ReadAll(registerResp.Body)
+		return nil, fmt.Errorf("failed to register user. Status code: %d, Body: %s", registerResp.StatusCode, string(body))
+	}
+
+	var registerResult auth.AuthResponse
+	err = json.NewDecoder(registerResp.Body).Decode(&registerResult)
+	if err != nil {
+		return nil, err
+	}
+
+	return &registerResult, nil
 }
 
 // TestRegisterAndLogin тестирует полный цикл регистрации и входа в систему
 func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 	t := s.T()
 
-	// Данные для регистрации
+	// Генерируем уникальный email для этого теста
+	email := generateUniqueEmail()
+	password := "TestPassword123"
+
+	// Шаг 1: Регистрация пользователя
 	registerData := auth.RegisterRequest{
-		Email:    s.testEmail,
-		Password: "TestPassword123",
+		Email:    email,
+		Password: password,
 		FullName: "Test User",
 		Gender:   "male",
 		Age:      30,
 		CityID:   1,
 	}
 
-	// Шаг 1: Регистрация пользователя
 	registerJSON, _ := json.Marshal(registerData)
 	registerReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
 	registerReq.Header.Set("Content-Type", "application/json")
@@ -61,7 +106,7 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 
 	// Проверка данных пользователя в ответе
 	assert.NotEmpty(t, registerResult.Token)
-	assert.Equal(t, s.testEmail, registerResult.User.Email)
+	assert.Equal(t, email, registerResult.User.Email)
 	assert.Equal(t, "Test User", registerResult.User.FullName)
 	assert.Equal(t, "male", registerResult.User.Gender)
 	assert.Equal(t, 30, registerResult.User.Age)
@@ -69,8 +114,8 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 
 	// Шаг 2: Вход с зарегистрированными данными
 	loginData := auth.LoginRequest{
-		Email:    s.testEmail,
-		Password: "TestPassword123",
+		Email:    email,
+		Password: password,
 	}
 
 	loginJSON, _ := json.Marshal(loginData)
@@ -83,14 +128,18 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 
 	assert.Equal(t, http.StatusOK, loginResp.StatusCode)
 
+	// Читаем тело ответа для логирования
+	bodyBytes, err := io.ReadAll(loginResp.Body)
+	assert.NoError(t, err)
+
+	// Декодируем тело ответа
 	var loginResult auth.AuthResponse
-	println("Login response:", loginResp.Body)
-	err = json.NewDecoder(loginResp.Body).Decode(&loginResult)
+	err = json.Unmarshal(bodyBytes, &loginResult)
 	assert.NoError(t, err)
 
 	// Проверка данных пользователя в ответе
 	assert.NotEmpty(t, loginResult.Token)
-	assert.Equal(t, s.testEmail, loginResult.User.Email)
+	assert.Equal(t, email, loginResult.User.Email)
 	assert.Equal(t, "Test User", loginResult.User.FullName)
 	assert.Equal(t, "male", loginResult.User.Gender)
 	assert.Equal(t, 30, loginResult.User.Age)
@@ -106,9 +155,9 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 
 	assert.Equal(t, http.StatusOK, protectedResp.StatusCode)
 
-	bodyBytes, err := io.ReadAll(protectedResp.Body)
+	protectedBodyBytes, err := io.ReadAll(protectedResp.Body)
 	assert.NoError(t, err)
-	protectedResult := string(bodyBytes)
+	protectedResult := string(protectedBodyBytes)
 
 	assert.Equal(t, fmt.Sprintf("Protected resource. User ID: %d, Email: %s", loginResult.User.UserID, loginResult.User.Email), protectedResult)
 }
@@ -117,14 +166,21 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 func (s *AuthIntegrationTestSuite) TestRegisterWithExistingEmail() {
 	t := s.T()
 
-	// Используем тот же email, который был зарегистрирован в предыдущем тесте
+	// Генерируем уникальный email для этого теста
+	email := generateUniqueEmail()
+
+	// Сначала регистрируем пользователя
+	_, err := s.registerTestUser(email, "FirstPassword123", "Original User", "male", 30, 1)
+	assert.NoError(t, err, "Failed to register initial user")
+
+	// Пытаемся зарегистрировать еще одного пользователя с тем же email
 	registerData := auth.RegisterRequest{
-		Email:    s.testEmail,
-		Password: "AnotherPassword123",
-		FullName: "Another Test User",
+		Email:    email, // Используем тот же email
+		Password: "SecondPassword456",
+		FullName: "Another User",
 		Gender:   "female",
 		Age:      25,
-		CityID:   1,
+		CityID:   2,
 	}
 
 	registerJSON, _ := json.Marshal(registerData)
@@ -144,9 +200,17 @@ func (s *AuthIntegrationTestSuite) TestRegisterWithExistingEmail() {
 func (s *AuthIntegrationTestSuite) TestLoginWithInvalidCredentials() {
 	t := s.T()
 
-	// Правильный email, неправильный пароль
+	// Генерируем уникальный email для этого теста
+	email := generateUniqueEmail()
+	password := "CorrectPassword123"
+
+	// Сначала регистрируем пользователя
+	_, err := s.registerTestUser(email, password, "Test User", "male", 30, 1)
+	assert.NoError(t, err, "Failed to register user")
+
+	// Проверяем вход с неправильным паролем
 	loginData := auth.LoginRequest{
-		Email:    s.testEmail,
+		Email:    email,
 		Password: "WrongPassword",
 	}
 
@@ -162,9 +226,9 @@ func (s *AuthIntegrationTestSuite) TestLoginWithInvalidCredentials() {
 	// Должен быть статус Unauthorized
 	assert.Equal(t, http.StatusUnauthorized, loginResp.StatusCode)
 
-	// Несуществующий email
+	// Проверяем вход с несуществующим email
 	loginData = auth.LoginRequest{
-		Email:    "nonexistent@example.com",
+		Email:    "nonexistent_" + generateUniqueEmail(),
 		Password: "AnyPassword",
 	}
 
@@ -200,29 +264,22 @@ func (s *AuthIntegrationTestSuite) TestProtectedResourceWithoutAuth() {
 func (s *AuthIntegrationTestSuite) TestVerifyToken() {
 	t := s.T()
 
-	// Сначала логинимся, чтобы получить валидный токен
-	loginData := auth.LoginRequest{
-		Email:    s.testEmail,
-		Password: "TestPassword123",
-	}
+	// Генерируем уникальный email для этого теста
+	email := generateUniqueEmail()
+	password := "TestPassword123"
 
-	loginJSON, _ := json.Marshal(loginData)
-	loginReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/login", bytes.NewBuffer(loginJSON))
-	loginReq.Header.Set("Content-Type", "application/json")
+	// Сначала регистрируем пользователя
+	auth, err := s.registerTestUser(email, password, "Test User", "male", 30, 1)
+	assert.NoError(t, err, "Failed to register user")
 
-	client := &http.Client{}
-	loginResp, err := client.Do(loginReq)
-	assert.NoError(t, err)
-	defer loginResp.Body.Close()
-
-	var loginResult auth.AuthResponse
-	err = json.NewDecoder(loginResp.Body).Decode(&loginResult)
-	assert.NoError(t, err)
+	// Получаем токен из успешной регистрации
+	token := auth.Token
 
 	// Проверяем верификацию токена
 	verifyReq, _ := http.NewRequest("GET", s.appUrl+"/api/auth/verify", nil)
-	verifyReq.Header.Set("Authorization", "Bearer "+loginResult.Token)
+	verifyReq.Header.Set("Authorization", "Bearer "+token)
 
+	client := &http.Client{}
 	verifyResp, err := client.Do(verifyReq)
 	assert.NoError(t, err)
 	defer verifyResp.Body.Close()
