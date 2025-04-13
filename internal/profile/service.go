@@ -21,6 +21,21 @@ var (
 	ErrEmptyInstruments  = errors.New("instruments list cannot be empty for music profile")
 )
 
+// ProfileService интерфейс для работы с профилями
+type ProfileService interface {
+	// Существующие методы
+	CreateImprovProfile(userID int, description string, goal string, styles []string) (*Profile, error)
+	CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*Profile, error)
+	GetProfile(profileID int) (*ProfileResponse, error)
+
+	// Новые методы для справочников
+	GetActivityTypes(lang string) (ActivityTypeCatalog, error)
+	GetImprovStyles(lang string) (ImprovStyleCatalog, error)
+	GetImprovGoals(lang string) (ImprovGoalCatalog, error)
+	GetMusicGenres(lang string) (MusicGenreCatalog, error)
+	GetMusicInstruments(lang string) (MusicInstrumentCatalog, error)
+}
+
 // ProfileServiceImpl реализует интерфейс ProfileService
 type ProfileServiceImpl struct {
 	db *sql.DB
@@ -353,4 +368,156 @@ func (s *ProfileServiceImpl) GetProfile(profileID int) (*ProfileResponse, error)
 	}
 
 	return response, nil
+}
+
+// GetActivityTypes возвращает список типов активности с переводами
+func (s *ProfileServiceImpl) GetActivityTypes(lang string) (ActivityTypeCatalog, error) {
+	if lang == "" {
+		lang = "ru" // Язык по умолчанию
+	}
+
+	query := `
+        SELECT activity_type, description 
+        FROM activity_type_catalog
+    `
+
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	catalog := ActivityTypeCatalog{}
+	for rows.Next() {
+		var item TranslatedItem
+		if err := rows.Scan(&item.Code, &item.Description); err != nil {
+			return nil, err
+		}
+
+		// Используем код в качестве метки, т.к. у activity_type нет отдельных переводов
+		item.Label = item.Code
+		catalog = append(catalog, item)
+	}
+
+	return catalog, nil
+}
+
+// GetImprovStyles возвращает список стилей импровизации с переводами
+func (s *ProfileServiceImpl) GetImprovStyles(lang string) (ImprovStyleCatalog, error) {
+	if lang == "" {
+		lang = "ru" // Язык по умолчанию
+	}
+
+	query := `
+        SELECT isc.style_code, ist.label, ist.description
+        FROM improv_style_catalog isc
+        LEFT JOIN improv_style_translation ist ON isc.style_code = ist.style_code AND ist.lang = $1
+    `
+
+	rows, err := s.db.Query(query, lang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var catalog ImprovStyleCatalog
+	for rows.Next() {
+		var item TranslatedItem
+		if err := rows.Scan(&item.Code, &item.Label, &item.Description); err != nil {
+			return nil, err
+		}
+		catalog = append(catalog, item)
+	}
+
+	return catalog, nil
+}
+
+// GetImprovGoals возвращает список целей импровизации с переводами
+func (s *ProfileServiceImpl) GetImprovGoals(lang string) (ImprovGoalCatalog, error) {
+	if lang == "" {
+		lang = "ru" // Язык по умолчанию
+	}
+
+	query := `
+        SELECT igc.goal_code, igt.label, igt.description
+        FROM improv_goals_catalog igc
+        LEFT JOIN improv_goals_translation igt ON igc.goal_code = igt.goal_code AND igt.lang = $1
+    `
+
+	rows, err := s.db.Query(query, lang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var catalog ImprovGoalCatalog
+	for rows.Next() {
+		var item TranslatedItem
+		if err := rows.Scan(&item.Code, &item.Label, &item.Description); err != nil {
+			return nil, err
+		}
+		catalog = append(catalog, item)
+	}
+
+	return catalog, nil
+}
+
+// GetMusicGenres возвращает список музыкальных жанров с переводами
+func (s *ProfileServiceImpl) GetMusicGenres(lang string) (MusicGenreCatalog, error) {
+	if lang == "" {
+		lang = "ru" // Язык по умолчанию
+	}
+
+	query := `
+        SELECT mgc.genre_code, mgt.label
+        FROM music_genre_catalog mgc
+        LEFT JOIN music_genre_translation mgt ON mgc.genre_code = mgt.genre_code AND mgt.lang = $1
+    `
+
+	rows, err := s.db.Query(query, lang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var catalog MusicGenreCatalog
+	for rows.Next() {
+		var item TranslatedItem
+		if err := rows.Scan(&item.Code, &item.Label); err != nil {
+			return nil, err
+		}
+		catalog = append(catalog, item)
+	}
+
+	return catalog, nil
+}
+
+// GetMusicInstruments возвращает список музыкальных инструментов с переводами
+func (s *ProfileServiceImpl) GetMusicInstruments(lang string) (MusicInstrumentCatalog, error) {
+	if lang == "" {
+		lang = "ru" // Язык по умолчанию
+	}
+
+	query := `
+        SELECT mic.instrument_code, mit.label
+        FROM music_instrument_catalog mic
+        LEFT JOIN music_instrument_translation mit ON mic.instrument_code = mit.instrument_code AND mit.lang = $1
+    `
+
+	rows, err := s.db.Query(query, lang)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var catalog MusicInstrumentCatalog
+	for rows.Next() {
+		var item TranslatedItem
+		if err := rows.Scan(&item.Code, &item.Label); err != nil {
+			return nil, err
+		}
+		catalog = append(catalog, item)
+	}
+
+	return catalog, nil
 }

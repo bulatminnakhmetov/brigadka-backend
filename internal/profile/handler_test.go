@@ -41,6 +41,46 @@ func (m *MockProfileService) GetProfile(profileID int) (*ProfileResponse, error)
 	return args.Get(0).(*ProfileResponse), args.Error(1)
 }
 
+func (m *MockProfileService) GetActivityTypes(lang string) (ActivityTypeCatalog, error) {
+	args := m.Called(lang)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(ActivityTypeCatalog), args.Error(1)
+}
+
+func (m *MockProfileService) GetImprovStyles(lang string) (ImprovStyleCatalog, error) {
+	args := m.Called(lang)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(ImprovStyleCatalog), args.Error(1)
+}
+
+func (m *MockProfileService) GetImprovGoals(lang string) (ImprovGoalCatalog, error) {
+	args := m.Called(lang)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(ImprovGoalCatalog), args.Error(1)
+}
+
+func (m *MockProfileService) GetMusicGenres(lang string) (MusicGenreCatalog, error) {
+	args := m.Called(lang)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(MusicGenreCatalog), args.Error(1)
+}
+
+func (m *MockProfileService) GetMusicInstruments(lang string) (MusicInstrumentCatalog, error) {
+	args := m.Called(lang)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(MusicInstrumentCatalog), args.Error(1)
+}
+
 func TestCreateProfileHandler(t *testing.T) {
 	// Удалены тесты для базового профиля, поскольку теперь функционал не поддерживается
 

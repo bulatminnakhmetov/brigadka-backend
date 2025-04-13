@@ -474,6 +474,45 @@ func (s *ProfileIntegrationTestSuite) TestGetNonExistentProfile() {
 	assert.Equal(t, http.StatusNotFound, getResp.StatusCode, "Should return status 404 Not Found")
 }
 
+// TestGetCatalogs тестирует получение различных каталогов
+func (s *ProfileIntegrationTestSuite) TestGetCatalogs() {
+	t := s.T()
+
+	// Создаем пользователя для авторизации
+	_, token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create test user")
+
+	// Тестовые URL для каталогов
+	catalogURLs := []string{
+		"/api/profiles/catalog/activity-types",
+		"/api/profiles/catalog/improv-styles",
+		"/api/profiles/catalog/improv-goals",
+		"/api/profiles/catalog/music-genres",
+		"/api/profiles/catalog/music-instruments",
+	}
+
+	// Проверяем все каталоги
+	for _, url := range catalogURLs {
+		t.Run(url, func(t *testing.T) {
+			req, _ := http.NewRequest("GET", s.appUrl+url+"?lang=ru", nil)
+			req.Header.Set("Authorization", "Bearer "+token)
+
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			assert.NoError(t, err)
+			defer resp.Body.Close()
+
+			// Проверяем статус ответа
+			assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+			// Проверяем, что в ответе есть данные
+			body, _ := io.ReadAll(resp.Body)
+			assert.True(t, len(body) > 2, "Response body should not be empty")
+			assert.Contains(t, string(body), "[") // Проверяем, что это массив
+		})
+	}
+}
+
 // TestProfileIntegration запускает набор интеграционных тестов для профилей
 func TestProfileIntegration(t *testing.T) {
 	// Пропускаем тесты, если задана переменная окружения SKIP_INTEGRATION_TESTS

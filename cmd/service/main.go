@@ -187,13 +187,16 @@ func main() {
 		r.Route("/api/profiles", func(r chi.Router) {
 			r.Post("/", profileHandler.CreateProfile)
 			r.Get("/{id}", profileHandler.GetProfile)
-			// Здесь можно добавить другие методы для работы с профилями
-			// r.Get("/{id}", profileHandler.GetProfile)
-			// r.Put("/{id}", profileHandler.UpdateProfile)
-			// r.Delete("/{id}", profileHandler.DeleteProfile)
-		})
 
-		// Здесь можно добавить другие защищенные маршруты
+			// Регистрация обработчиков для справочников
+			r.Route("/catalog", func(r chi.Router) {
+				r.Get("/activity-types", profileHandler.GetActivityTypes)
+				r.Get("/improv-styles", profileHandler.GetImprovStyles)
+				r.Get("/improv-goals", profileHandler.GetImprovGoals)
+				r.Get("/music-genres", profileHandler.GetMusicGenres)
+				r.Get("/music-instruments", profileHandler.GetMusicInstruments)
+			})
+		})
 	})
 
 	// Запуск сервера с корректной обработкой graceful shutdown
