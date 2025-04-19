@@ -19,6 +19,7 @@ import (
 	_ "github.com/bulatminnakhmetov/brigadka-backend/docs" // Импорт сгенерированной документации
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/database"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/media" // Новый импорт
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/profile"
 )
 
@@ -117,6 +118,25 @@ func main() {
 	profileService := profile.NewProfileService(db)
 	profileHandler := profile.NewProfileHandler(profileService)
 
+	// Инициализация S3-совместимого хранилища для Backblaze B2
+	s3Storage, err := media.NewS3StorageProvider(
+		getEnv("B2_ACCESS_KEY_ID", ""),
+		getEnv("B2_SECRET_ACCESS_KEY", ""),
+		getEnv("B2_ENDPOINT", "s3.us-west-004.backblazeb2.com"), // Выберите нужный регион
+		getEnv("B2_BUCKET_NAME", ""),
+		getEnv("CLOUDFLARE_CDN_DOMAIN", ""),
+		"media", // Путь для загрузки в бакете
+	)
+	if err != nil {
+		log.Fatalf("Failed to initialize S3 storage: %v", err)
+	}
+
+	// Инициализация сервиса медиа
+	mediaService := media.NewMediaService(db, s3Storage)
+
+	// Инициализация хендлера медиа
+	mediaHandler := media.NewMediaHandler(mediaService)
+
 	// Создание роутера
 	r := chi.NewRouter()
 
@@ -196,6 +216,16 @@ func main() {
 				r.Get("/music-genres", profileHandler.GetMusicGenres)
 				r.Get("/music-instruments", profileHandler.GetMusicInstruments)
 			})
+
+			// Новый маршрут для получения медиа профиля
+			r.Get("/{id}/media", mediaHandler.GetMediaByProfile)
+		})
+
+		// Маршруты для работы с медиа (требуют аутентификации)
+		r.Route("/api/media", func(r chi.Router) {
+			r.Post("/upload", mediaHandler.UploadMedia)
+			r.Get("/{id}", mediaHandler.GetMedia)
+			r.Delete("/{id}", mediaHandler.DeleteMedia)
 		})
 	})
 

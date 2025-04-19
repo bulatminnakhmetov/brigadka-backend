@@ -15,6 +15,21 @@ services:
       timeout: 5s
       retries: 5
 
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${B2_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${B2_SECRET_ACCESS_KEY}
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   migrations:
     build:
       context: .
@@ -42,8 +57,14 @@ services:
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_NAME=${DB_NAME}
+      - B2_ACCESS_KEY_ID=${B2_ACCESS_KEY_ID}
+      - B2_SECRET_ACCESS_KEY=${B2_SECRET_ACCESS_KEY}
+      - B2_ENDPOINT=${B2_ENDPOINT}
+      - B2_BUCKET_NAME=${B2_BUCKET_NAME}
+      - CLOUDFLARE_CDN_DOMAIN=${CLOUDFLARE_CDN_DOMAIN}
     depends_on:
       - migrations
+      - minio
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
       interval: 5s
