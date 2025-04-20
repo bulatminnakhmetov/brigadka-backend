@@ -89,7 +89,7 @@ services:
       - B2_SECRET_ACCESS_KEY=${B2_SECRET_ACCESS_KEY:?B2_SECRET_ACCESS_KEY is not set}
       - B2_ENDPOINT=${B2_ENDPOINT:?B2_ENDPOINT is not set}
       - B2_BUCKET_NAME=${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set}
-      - CLOUDFLARE_CDN_DOMAIN=${CLOUDFLARE_CDN_DOMAIN:?CLOUDFLARE_CDN_DOMAIN is not set}
+      - CLOUDFLARE_CDN_DOMAIN=${CLOUDFLARE_CDN_DOMAIN}
     depends_on:
       migrations:
         condition: service_completed_successfully

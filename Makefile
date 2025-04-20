@@ -28,6 +28,7 @@ run-unit-tests:
 	go test ./internal/...
 
 run-integration-tests:
+	cp .env.example .env
 	# Запуск интеграционных тестов в Docker
 	@docker compose --profile test up --build --force-recreate --remove-orphans -d || { \
 		echo "❌ Ошибка во время запуска тестов"; exit 1; } ; \
