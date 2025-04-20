@@ -15,4 +15,4 @@ subjectAltName = @alt_names
 
 [ alt_names ]
 DNS.1 = minio
-IP.1 = {{COLIMA_IP}}
+IP.1 = {{DOCKER_HOST_IP}}
