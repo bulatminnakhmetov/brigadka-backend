@@ -2,5 +2,7 @@
 .env
 .idea
 /certs/*
+!/certs/minio/
+/certs/minio/*
 !/certs/minio/openssl.cnf.template
 /.vscode*

@@ -27,7 +27,7 @@ run-unit-tests:
 	# Запуск юнит-тестов
 	go test ./internal/...
 
-run-integration-tests:
+run-integration-tests: generate-local-ca
 	cp .env.example .env
 	# Запуск интеграционных тестов в Docker
 	@docker compose --profile test up --build --force-recreate --remove-orphans -d || { \
