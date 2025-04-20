@@ -23,7 +23,7 @@ type CatalogIntegrationTestSuite struct {
 
 // SetupSuite подготавливает общее окружение перед запуском всех тестов
 func (s *CatalogIntegrationTestSuite) SetupSuite() {
-	s.appUrl = os.Getenv("TEST_APP_URL")
+	s.appUrl = os.Getenv("APP_URL")
 	if s.appUrl == "" {
 		s.appUrl = "http://localhost:8080" // Значение по умолчанию для локального тестирования
 	}

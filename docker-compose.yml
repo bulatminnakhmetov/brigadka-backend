@@ -1,0 +1,121 @@
+services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: ${DB_USER:?DB_USER is not set}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is not set}
+      POSTGRES_DB: ${DB_NAME:?DB_NAME is not set}
+    ports:
+      - "${DB_PORT:?DB_PORT is not set}:5432"
+    profiles:
+      - debug
+      - test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:?DB_USER is not set}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${B2_ACCESS_KEY_ID:?B2_ACCESS_KEY_ID is not set}
+      MINIO_ROOT_PASSWORD: ${B2_SECRET_ACCESS_KEY:?B2_SECRET_ACCESS_KEY is not set}
+    command: server /data --console-address ":9001"
+    profiles:
+      - debug
+      - test
+    healthcheck:
+      test: ["CMD", "curl", "-kf", "https://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - ./certs/minio/public.crt:/root/.minio/certs/public.crt:ro
+      - ./certs/minio/private.key:/root/.minio/certs/private.key:ro
+
+  minio-init:
+    image: minio/mc
+    depends_on:
+      minio:
+        condition: service_healthy
+    profiles:
+      - debug
+      - test
+    environment:
+      SSL_CERT_FILE: /usr/local/share/ca-certificates/minio-ca.crt
+    volumes:
+      - ./certs/ca/ca.crt:/usr/local/share/ca-certificates/minio-ca.crt:ro
+    entrypoint: >
+      /bin/sh -c "
+        mc alias set minio https://minio:9000 ${B2_ACCESS_KEY_ID:?B2_ACCESS_KEY_ID is not set} ${B2_SECRET_ACCESS_KEY:?B2_SECRET_ACCESS_KEY is not set} &&
+        mc mb -p minio/${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set} || true
+      "
+
+  migrations:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - DB_HOST=${DB_HOST:?DB_HOST is not set}
+      - DB_PORT=${DB_PORT:?DB_PORT is not set}
+      - DB_USER=${DB_USER:?DB_USER is not set}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is not set}
+      - DB_NAME=${DB_NAME:?DB_NAME is not set}
+    command: go run ./cmd/migrate -up
+    profiles:
+      - debug
+      - test
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${APP_PORT:?APP_PORT is not set}:8080"
+    environment:
+      - DB_HOST=${DB_HOST:?DB_HOST is not set}
+      - DB_PORT=${DB_PORT:?DB_PORT is not set}
+      - DB_USER=${DB_USER:?DB_USER is not set}
+      - DB_PASSWORD=${DB_PASSWORD:?DB_PASSWORD is not set}
+      - DB_NAME=${DB_NAME:?DB_NAME is not set}
+      - B2_ACCESS_KEY_ID=${B2_ACCESS_KEY_ID:?B2_ACCESS_KEY_ID is not set}
+      - B2_SECRET_ACCESS_KEY=${B2_SECRET_ACCESS_KEY:?B2_SECRET_ACCESS_KEY is not set}
+      - B2_ENDPOINT=${B2_ENDPOINT:?B2_ENDPOINT is not set}
+      - B2_BUCKET_NAME=${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set}
+      - CLOUDFLARE_CDN_DOMAIN=${CLOUDFLARE_CDN_DOMAIN:?CLOUDFLARE_CDN_DOMAIN is not set}
+    depends_on:
+      migrations:
+        condition: service_completed_successfully
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./certs/ca/ca.crt:/usr/local/share/ca-certificates/minio-ca.crt:ro
+    profiles:
+      - test
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - APP_URL=http://app:8080
+    command: go test -v ./integration/...
+    profiles:
+      - test
+    depends_on:
+      app:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully

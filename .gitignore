@@ -1,5 +1,6 @@
 /bin*
 .env
 .idea
-/certs*
+/certs/*
+!/certs/minio/openssl.cnf.template
 /.vscode*

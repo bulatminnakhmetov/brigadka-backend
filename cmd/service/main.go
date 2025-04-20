@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/joho/godotenv"
 	httpSwagger "github.com/swaggo/http-swagger"
 
 	_ "github.com/bulatminnakhmetov/brigadka-backend/docs" // Импорт сгенерированной документации
@@ -89,17 +90,18 @@ func healthHandler(w http.ResponseWriter, r *http.Request, db *sql.DB, appVersio
 }
 
 func main() {
+	_ = godotenv.Load()
 	// Загрузка конфигурации из переменных окружения
 	dbConfig := &database.Config{
-		Host:     getEnv("DB_HOST", "localhost"),
+		Host:     getEnv("DB_HOST", ""),
 		Port:     getEnvAsInt("DB_PORT", 5432),
-		User:     getEnv("DB_USER", "postgres"),
-		Password: getEnv("DB_PASSWORD", "postgres"),
-		DBName:   getEnv("DB_NAME", "brigadka"),
+		User:     getEnv("DB_USER", ""),
+		Password: getEnv("DB_PASSWORD", ""),
+		DBName:   getEnv("DB_NAME", ""),
 		SSLMode:  getEnv("DB_SSL_MODE", "disable"),
 	}
 
-	jwtSecret := getEnv("JWT_SECRET", "your-secret-key-replace-in-production")
+	jwtSecret := getEnv("JWT_SECRET", "")
 	serverPort := getEnv("SERVER_PORT", "8080")
 	appVersion := getEnv("APP_VERSION", "dev")
 
@@ -122,7 +124,7 @@ func main() {
 	s3Storage, err := media.NewS3StorageProvider(
 		getEnv("B2_ACCESS_KEY_ID", ""),
 		getEnv("B2_SECRET_ACCESS_KEY", ""),
-		getEnv("B2_ENDPOINT", "s3.us-west-004.backblazeb2.com"), // Выберите нужный регион
+		getEnv("B2_ENDPOINT", ""), // Выберите нужный регион
 		getEnv("B2_BUCKET_NAME", ""),
 		getEnv("CLOUDFLARE_CDN_DOMAIN", ""),
 		"media", // Путь для загрузки в бакете
@@ -266,6 +268,9 @@ func main() {
 func getEnv(key, fallback string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
+	}
+	if fallback == "" {
+		panic(fmt.Sprintf("Environment variable %s is not set and no fallback provided", key))
 	}
 	return fallback
 }

@@ -21,44 +21,18 @@ jobs:
         run: go test ./internal/...
 
   integration-tests:
-    needs: unit-tests
     runs-on: ubuntu-latest
-
-    services:
-      postgres:
-        image: postgres:15
-        ports: [5432:5432]
-        env:
-          POSTGRES_USER: testuser
-          POSTGRES_PASSWORD: testpass
-          POSTGRES_DB: testdb
-        options: >-
-          --health-cmd="pg_isready"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Create .env file
         run: |
-          echo "DB_USER=testuser" >> .env
-          echo "DB_PASSWORD=testpass" >> .env
-          echo "DB_NAME=testdb" >> .env
-
-      - name: Set up Docker Compose
-        run: |
-          make start-integration-env
+          cp .env.example .env
 
       - name: Run Integration Tests
         run: |
-          make run-integration
-          
-      - name: Clean up
-        if: always()
-        run: |
-          make down-integration-env
+          make run-integration-tests
 
   deploy:
     needs: [unit-tests, integration-tests]
