@@ -69,29 +69,26 @@ prepare-debug-env: generate-local-ca
 	# Копируем пример .env в рабочий .env
 	cp .env.example .env
 	@echo "Detecting Docker environment..."
-	# Получаем IP-адрес Colima, если он используется, иначе используем localhost (Docker Desktop)
-	@DOCKER_HOST_IP=$$(colima status --json 2>/dev/null | jq -r '.ip_address' || echo ""); \
-	if [ -z "$$DOCKER_HOST_IP" ] || [ "$$DOCKER_HOST_IP" = "null" ]; then \
-		echo "Colima не найден, используем localhost для Docker Desktop"; \
-		DOCKER_HOST_IP=localhost; \
-	else \
-		echo "Colima IP: $$DOCKER_HOST_IP"; \
-	fi; \
-	# Абсолютный путь к CA-сертификату
-	ABS_CERT_PATH=$$(cd certs/ca && pwd)/ca.crt; \
-	# Обновляем DB_HOST в .env на IP Docker-хоста
-	echo "Updating .env with DB_HOST=$$DOCKER_HOST_IP"; \
-	sed -i.bak "s/^DB_HOST=.*/DB_HOST=$$DOCKER_HOST_IP/" .env && rm .env.bak; \
-	# Обновляем B2_ENDPOINT в .env на IP Docker-хоста с портом 9000
-	echo "Updating .env with B2_ENDPOINT=$$DOCKER_HOST_IP:9000"; \
-	sed -i.bak "s/^B2_ENDPOINT=.*/B2_ENDPOINT=$$DOCKER_HOST_IP:9000/" .env && rm .env.bak; \
-	# Обновляем или добавляем SSL_CERT_FILE в .env на путь к CA-сертификату
-	echo "Updating .env with SSL_CERT_FILE=$$ABS_CERT_PATH"; \
-	if grep -q '^SSL_CERT_FILE=' .env; then \
-		sed -i.bak "s|^SSL_CERT_FILE=.*|SSL_CERT_FILE=$$ABS_CERT_PATH|" .env && rm .env.bak; \
-	else \
-		echo "SSL_CERT_FILE=$$ABS_CERT_PATH" >> .env; \
-	fi
+	@bash -c ' \
+		DOCKER_HOST_IP=$$(colima status --json 2>/dev/null | jq -r ".ip_address" || echo ""); \
+		if [ -z "$$DOCKER_HOST_IP" ] || [ "$$DOCKER_HOST_IP" = "null" ]; then \
+			echo "Colima не найден, используем localhost для Docker Desktop"; \
+			DOCKER_HOST_IP=localhost; \
+		else \
+			echo "Colima IP: $$DOCKER_HOST_IP"; \
+		fi; \
+		ABS_CERT_PATH=$$(cd certs/ca && pwd)/ca.crt; \
+		echo "Updating .env with DB_HOST=$$DOCKER_HOST_IP"; \
+		sed -i.bak "s/^DB_HOST=.*/DB_HOST=$$DOCKER_HOST_IP/" .env && rm .env.bak; \
+		echo "Updating .env with B2_ENDPOINT=$$DOCKER_HOST_IP:9000"; \
+		sed -i.bak "s/^B2_ENDPOINT=.*/B2_ENDPOINT=$$DOCKER_HOST_IP:9000/" .env && rm .env.bak; \
+		echo "Updating .env with SSL_CERT_FILE=$$ABS_CERT_PATH"; \
+		if grep -q "^SSL_CERT_FILE=" .env; then \
+			sed -i.bak "s|^SSL_CERT_FILE=.*|SSL_CERT_FILE=$$ABS_CERT_PATH|" .env && rm .env.bak; \
+		else \
+			echo "SSL_CERT_FILE=$$ABS_CERT_PATH" >> .env; \
+		fi \
+	'
 
 start-debug-env: prepare-debug-env
 	# Запуск всех сервисов кроме приложения для отладки

@@ -22,6 +22,7 @@ import (
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/database"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/media" // Новый импорт
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/profile"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/search" // Добавляем импорт пакета search
 )
 
 // @title           Brigadka API
@@ -139,6 +140,10 @@ func main() {
 	// Инициализация хендлера медиа
 	mediaHandler := media.NewMediaHandler(mediaService)
 
+	// Инициализация сервиса и хендлера поиска
+	searchService := search.NewSearchService(db)
+	searchHandler := search.NewSearchHandler(searchService)
+
 	// Создание роутера
 	r := chi.NewRouter()
 
@@ -221,6 +226,12 @@ func main() {
 
 			// Новый маршрут для получения медиа профиля
 			r.Get("/{id}/media", mediaHandler.GetMediaByProfile)
+		})
+
+		// Маршруты для работы с поиском (требуют аутентификации)
+		r.Route("/api/search", func(r chi.Router) {
+			r.Get("/profiles", searchHandler.SearchProfilesGet)
+			r.Post("/profiles", searchHandler.SearchProfiles)
 		})
 
 		// Маршруты для работы с медиа (требуют аутентификации)
