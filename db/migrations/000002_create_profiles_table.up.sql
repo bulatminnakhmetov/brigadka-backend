@@ -12,10 +12,11 @@ INSERT INTO activity_type_catalog (activity_type, description) VALUES
 -- Базовая таблица профилей
 CREATE TABLE profiles (
     profile_id SERIAL PRIMARY KEY,
-    user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
+    user_id INT REFERENCES users(id) ON DELETE CASCADE,
     description TEXT,
     activity_type VARCHAR(50) REFERENCES activity_type_catalog(activity_type),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (user_id, activity_type)
 );
 
 -- ИМПРОВИЗАЦИЯ

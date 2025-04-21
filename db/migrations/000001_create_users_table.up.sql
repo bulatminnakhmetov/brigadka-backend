@@ -24,9 +24,9 @@ CREATE TABLE gender_catalog_translation (
 
 -- Таблица пользователей
 CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
     full_name VARCHAR(255) NOT NULL, -- реальное имя пользователя
     city_id INT REFERENCES cities(city_id), -- ссылка на город
-    user_id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     gender VARCHAR(50) REFERENCES gender_catalog(gender_code),

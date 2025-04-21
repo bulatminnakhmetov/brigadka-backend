@@ -17,12 +17,13 @@ import (
 	"github.com/joho/godotenv"
 	httpSwagger "github.com/swaggo/http-swagger"
 
-	_ "github.com/bulatminnakhmetov/brigadka-backend/docs" // Импорт сгенерированной документации
+	_ "github.com/bulatminnakhmetov/brigadka-backend/docs"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/database"
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/media" // Новый импорт
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/media"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/messaging"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/profile"
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/search" // Добавляем импорт пакета search
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/search"
 )
 
 // @title           Brigadka API
@@ -144,6 +145,9 @@ func main() {
 	searchService := search.NewSearchService(db)
 	searchHandler := search.NewSearchHandler(searchService)
 
+	// Инициализация хендлера сообщений
+	messagingHandler := messaging.NewHandler(db)
+
 	// Создание роутера
 	r := chi.NewRouter()
 
@@ -240,6 +244,7 @@ func main() {
 			r.Get("/{id}", mediaHandler.GetMedia)
 			r.Delete("/{id}", mediaHandler.DeleteMedia)
 		})
+
 	})
 
 	// Запуск сервера с корректной обработкой graceful shutdown
