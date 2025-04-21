@@ -25,6 +25,7 @@ func TestCreateImprovProfile(t *testing.T) {
 		description := "Test description"
 		goal := "Hobby"
 		styles := []string{"Short Form", "Harold"}
+		lookingForTeam := true
 		now := time.Now()
 
 		// Ожидаем запрос на проверку существования пользователя
@@ -60,7 +61,7 @@ func TestCreateImprovProfile(t *testing.T) {
 
 		// Ожидаем запрос на создание профиля импровизации
 		mock.ExpectExec("INSERT INTO improv_profiles").
-			WithArgs(1, goal).
+			WithArgs(1, goal, lookingForTeam).
 			WillReturnResult(sqlmock.NewResult(0, 1))
 
 		// Ожидаем запросы на добавление стилей импровизации
@@ -74,7 +75,7 @@ func TestCreateImprovProfile(t *testing.T) {
 		mock.ExpectCommit()
 
 		// Вызываем тестируемый метод
-		profile, err := service.CreateImprovProfile(userID, description, goal, styles)
+		profile, err := service.CreateImprovProfile(userID, description, goal, styles, lookingForTeam)
 
 		// Проверяем результаты
 		assert.NoError(t, err)
@@ -94,6 +95,7 @@ func TestCreateImprovProfile(t *testing.T) {
 		description := "Test description"
 		goal := "Hobby"
 		styles := []string{"Short Form"}
+		lookingForTeam := true
 
 		// Ожидаем запрос на проверку существования пользователя
 		mock.ExpectQuery("SELECT EXISTS").
@@ -101,7 +103,7 @@ func TestCreateImprovProfile(t *testing.T) {
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Вызываем тестируемый метод
-		profile, err := service.CreateImprovProfile(userID, description, goal, styles)
+		profile, err := service.CreateImprovProfile(userID, description, goal, styles, lookingForTeam)
 
 		// Проверяем результаты
 		assert.Error(t, err)
@@ -118,6 +120,7 @@ func TestCreateImprovProfile(t *testing.T) {
 		description := "Test description"
 		goal := "Hobby"
 		styles := []string{"Short Form"}
+		lookingForTeam := true
 
 		// Ожидаем запрос на проверку существования пользователя
 		mock.ExpectQuery("SELECT EXISTS").
@@ -130,7 +133,7 @@ func TestCreateImprovProfile(t *testing.T) {
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 		// Вызываем тестируемый метод
-		profile, err := service.CreateImprovProfile(userID, description, goal, styles)
+		profile, err := service.CreateImprovProfile(userID, description, goal, styles, lookingForTeam)
 
 		// Проверяем результаты
 		assert.Error(t, err)
@@ -147,6 +150,7 @@ func TestCreateImprovProfile(t *testing.T) {
 		description := "Test description"
 		goal := "InvalidGoal"
 		styles := []string{"Short Form"}
+		lookingForTeam := true
 
 		// Ожидаем запрос на проверку существования пользователя
 		mock.ExpectQuery("SELECT EXISTS").
@@ -164,7 +168,7 @@ func TestCreateImprovProfile(t *testing.T) {
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Вызываем тестируемый метод
-		profile, err := service.CreateImprovProfile(userID, description, goal, styles)
+		profile, err := service.CreateImprovProfile(userID, description, goal, styles, lookingForTeam)
 
 		// Проверяем результаты
 		assert.Error(t, err)
@@ -181,6 +185,7 @@ func TestCreateImprovProfile(t *testing.T) {
 		description := "Test description"
 		goal := "Hobby"
 		styles := []string{"Short Form", "InvalidStyle"}
+		lookingForTeam := true
 
 		// Ожидаем запрос на проверку существования пользователя
 		mock.ExpectQuery("SELECT EXISTS").
@@ -208,7 +213,7 @@ func TestCreateImprovProfile(t *testing.T) {
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Вызываем тестируемый метод
-		profile, err := service.CreateImprovProfile(userID, description, goal, styles)
+		profile, err := service.CreateImprovProfile(userID, description, goal, styles, lookingForTeam)
 
 		// Проверяем результаты
 		assert.Error(t, err)
@@ -225,6 +230,7 @@ func TestCreateImprovProfile(t *testing.T) {
 		description := "Test description"
 		goal := "Hobby"
 		styles := []string{"Short Form"}
+		lookingForTeam := true
 
 		// Ожидаем запрос на проверку существования пользователя
 		mock.ExpectQuery("SELECT EXISTS").
@@ -260,7 +266,7 @@ func TestCreateImprovProfile(t *testing.T) {
 		mock.ExpectRollback()
 
 		// Вызываем тестируемый метод
-		profile, err := service.CreateImprovProfile(userID, description, goal, styles)
+		profile, err := service.CreateImprovProfile(userID, description, goal, styles, lookingForTeam)
 
 		// Проверяем результаты
 		assert.Error(t, err)
@@ -542,6 +548,7 @@ func TestGetProfile(t *testing.T) {
 		now := time.Now()
 		goal := "Hobby"
 		styles := []string{"Short Form", "Harold"}
+		lookingForTeam := true
 
 		// Ожидаем запрос на получение базового профиля
 		mock.ExpectQuery("SELECT profile_id, user_id, description, activity_type, created_at").
@@ -549,10 +556,10 @@ func TestGetProfile(t *testing.T) {
 			WillReturnRows(sqlmock.NewRows([]string{"profile_id", "user_id", "description", "activity_type", "created_at"}).
 				AddRow(profileID, userID, description, activityType, now))
 
-		// Ожидаем запрос на получение цели импровизации
-		mock.ExpectQuery("SELECT goal").
+		// Expect query to get improv goal and looking_for_team flag
+		mock.ExpectQuery("SELECT goal, looking_for_team").
 			WithArgs(profileID).
-			WillReturnRows(sqlmock.NewRows([]string{"goal"}).AddRow(goal))
+			WillReturnRows(sqlmock.NewRows([]string{"goal", "looking_for_team"}).AddRow(goal, lookingForTeam))
 
 		// Ожидаем запрос на получение стилей импровизации
 		mock.ExpectQuery("SELECT style").
@@ -567,14 +574,17 @@ func TestGetProfile(t *testing.T) {
 		// Проверяем результаты
 		assert.NoError(t, err)
 		assert.NotNil(t, profileResp)
-		assert.Equal(t, profileID, profileResp.Profile.ProfileID)
-		assert.Equal(t, userID, profileResp.Profile.UserID)
-		assert.Equal(t, description, profileResp.Profile.Description)
-		assert.Equal(t, activityType, profileResp.Profile.ActivityType)
-		assert.NotNil(t, profileResp.ImprovDetail)
-		assert.Equal(t, goal, profileResp.ImprovDetail.Goal)
-		assert.ElementsMatch(t, styles, profileResp.ImprovDetail.Styles)
-		assert.Nil(t, profileResp.MusicDetail)
+		assert.NotNil(t, profileResp.ImprovProfile)
+		assert.Nil(t, profileResp.MusicProfile)
+
+		// Check improv profile details
+		assert.Equal(t, profileID, profileResp.ImprovProfile.ProfileID)
+		assert.Equal(t, userID, profileResp.ImprovProfile.UserID)
+		assert.Equal(t, description, profileResp.ImprovProfile.Description)
+		assert.Equal(t, activityType, profileResp.ImprovProfile.ActivityType)
+		assert.Equal(t, goal, profileResp.ImprovProfile.Goal)
+		assert.ElementsMatch(t, styles, profileResp.ImprovProfile.Styles)
+		assert.Equal(t, lookingForTeam, profileResp.ImprovProfile.LookingForTeam)
 
 		// Проверяем, что все ожидаемые запросы были выполнены
 		err = mock.ExpectationsWereMet()
@@ -616,14 +626,16 @@ func TestGetProfile(t *testing.T) {
 		// Проверяем результаты
 		assert.NoError(t, err)
 		assert.NotNil(t, profileResp)
-		assert.Equal(t, profileID, profileResp.Profile.ProfileID)
-		assert.Equal(t, userID, profileResp.Profile.UserID)
-		assert.Equal(t, description, profileResp.Profile.Description)
-		assert.Equal(t, activityType, profileResp.Profile.ActivityType)
-		assert.Nil(t, profileResp.ImprovDetail)
-		assert.NotNil(t, profileResp.MusicDetail)
-		assert.ElementsMatch(t, genres, profileResp.MusicDetail.Genres)
-		assert.ElementsMatch(t, instruments, profileResp.MusicDetail.Instruments)
+		assert.NotNil(t, profileResp.MusicProfile)
+		assert.Nil(t, profileResp.ImprovProfile)
+
+		// Check music profile details
+		assert.Equal(t, profileID, profileResp.MusicProfile.ProfileID)
+		assert.Equal(t, userID, profileResp.MusicProfile.UserID)
+		assert.Equal(t, description, profileResp.MusicProfile.Description)
+		assert.Equal(t, activityType, profileResp.MusicProfile.ActivityType)
+		assert.ElementsMatch(t, genres, profileResp.MusicProfile.Genres)
+		assert.ElementsMatch(t, instruments, profileResp.MusicProfile.Instruments)
 
 		// Проверяем, что все ожидаемые запросы были выполнены
 		err = mock.ExpectationsWereMet()

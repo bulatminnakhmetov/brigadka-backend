@@ -26,14 +26,15 @@ type Profile struct {
 
 // ImprovProfile представляет профиль пользователя для импровизации
 type ImprovProfile struct {
-	Profile *Profile `json:"base_profile"`
-	Goal    string   `json:"goal"`
-	Styles  []string `json:"styles"`
+	Profile
+	Goal           string   `json:"goal"`
+	Styles         []string `json:"styles"`
+	LookingForTeam bool     `json:"looking_for_team"`
 }
 
 // MusicProfile представляет профиль пользователя для музыки
 type MusicProfile struct {
-	Profile     *Profile `json:"base_profile"`
+	Profile
 	Genres      []string `json:"genres,omitempty"`
 	Instruments []string `json:"instruments,omitempty"`
 }
@@ -48,8 +49,9 @@ type CreateProfileRequest struct {
 // CreateImprovProfileRequest представляет запрос на создание профиля импровизации
 type CreateImprovProfileRequest struct {
 	CreateProfileRequest
-	Goal   string   `json:"goal"`
-	Styles []string `json:"styles"`
+	Goal           string   `json:"goal"`
+	Styles         []string `json:"styles"`
+	LookingForTeam bool     `json:"looking_for_team"`
 }
 
 // CreateMusicProfileRequest представляет запрос на создание музыкального профиля
@@ -61,9 +63,8 @@ type CreateMusicProfileRequest struct {
 
 // ProfileResponse представляет универсальный ответ для различных типов профилей
 type ProfileResponse struct {
-	Profile      *Profile       `json:"base_profile"`
-	ImprovDetail *ImprovProfile `json:"improv_detail,omitempty"`
-	MusicDetail  *MusicProfile  `json:"music_detail,omitempty"`
+	ImprovProfile *ImprovProfile `json:"improv_profile,omitempty"`
+	MusicProfile  *MusicProfile  `json:"music_profile,omitempty"`
 }
 
 // ProfileHandler обрабатывает запросы, связанные с профилями
@@ -111,9 +112,6 @@ func (h *ProfileHandler) CreateProfile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var profile *Profile
-	var err error
-
 	// В зависимости от типа активности, создаем соответствующий профиль
 	switch activityType {
 	case ActivityTypeImprov:
@@ -139,7 +137,23 @@ func (h *ProfileHandler) CreateProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		profile, err = h.profileService.CreateImprovProfile(req.UserID, req.Description, req.Goal, req.Styles)
+		profile, err := h.profileService.CreateImprovProfile(
+			req.UserID,
+			req.Description,
+			req.Goal,
+			req.Styles,
+			req.LookingForTeam,
+		)
+
+		if err != nil {
+			handleError(w, err)
+			return
+		}
+
+		// Формируем ответ
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(profile)
 
 	case ActivityTypeMusic:
 		var req CreateMusicProfileRequest
@@ -159,43 +173,48 @@ func (h *ProfileHandler) CreateProfile(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		profile, err = h.profileService.CreateMusicProfile(req.UserID, req.Description, req.Genres, req.Instruments)
+		profile, err := h.profileService.CreateMusicProfile(req.UserID, req.Description, req.Genres, req.Instruments)
+
+		if err != nil {
+			handleError(w, err)
+			return
+		}
+
+		// Формируем ответ
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusCreated)
+		json.NewEncoder(w).Encode(profile)
 
 	default:
 		// Возвращаем ошибку вместо создания базового профиля
 		http.Error(w, "Unsupported activity type", http.StatusBadRequest)
 		return
 	}
+}
 
-	if err != nil {
-		// Возвращаем различные коды состояния HTTP в зависимости от типа ошибки
-		switch {
-		case errors.Is(err, ErrUserNotFound):
-			http.Error(w, "User not found", http.StatusNotFound)
-		case errors.Is(err, ErrInvalidActivityType):
-			http.Error(w, "Invalid activity type", http.StatusBadRequest)
-		case errors.Is(err, ErrProfileAlreadyExists):
-			http.Error(w, "Profile already exists for this user", http.StatusConflict)
-		case errors.Is(err, ErrInvalidImprovGoal):
-			http.Error(w, "Invalid improv goal", http.StatusBadRequest)
-		case errors.Is(err, ErrInvalidImprovStyle):
-			http.Error(w, "Invalid improv style", http.StatusBadRequest)
-		case errors.Is(err, ErrInvalidMusicGenre):
-			http.Error(w, "Invalid music genre", http.StatusBadRequest)
-		case errors.Is(err, ErrInvalidInstrument):
-			http.Error(w, "Invalid instrument", http.StatusBadRequest)
-		case errors.Is(err, ErrEmptyInstruments):
-			http.Error(w, "At least one instrument is required", http.StatusBadRequest)
-		default:
-			http.Error(w, "Failed to create profile: "+err.Error(), http.StatusInternalServerError)
-		}
-		return
+// handleError обрабатывает ошибки и возвращает соответствующий HTTP-статус
+func handleError(w http.ResponseWriter, err error) {
+	// Возвращаем различные коды состояния HTTP в зависимости от типа ошибки
+	switch {
+	case errors.Is(err, ErrUserNotFound):
+		http.Error(w, "User not found", http.StatusNotFound)
+	case errors.Is(err, ErrInvalidActivityType):
+		http.Error(w, "Invalid activity type", http.StatusBadRequest)
+	case errors.Is(err, ErrProfileAlreadyExists):
+		http.Error(w, "Profile already exists for this user", http.StatusConflict)
+	case errors.Is(err, ErrInvalidImprovGoal):
+		http.Error(w, "Invalid improv goal", http.StatusBadRequest)
+	case errors.Is(err, ErrInvalidImprovStyle):
+		http.Error(w, "Invalid improv style", http.StatusBadRequest)
+	case errors.Is(err, ErrInvalidMusicGenre):
+		http.Error(w, "Invalid music genre", http.StatusBadRequest)
+	case errors.Is(err, ErrInvalidInstrument):
+		http.Error(w, "Invalid instrument", http.StatusBadRequest)
+	case errors.Is(err, ErrEmptyInstruments):
+		http.Error(w, "At least one instrument is required", http.StatusBadRequest)
+	default:
+		http.Error(w, "Failed to create profile: "+err.Error(), http.StatusInternalServerError)
 	}
-
-	// Формируем ответ
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(profile)
 }
 
 // @Summary      Получение профиля

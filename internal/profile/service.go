@@ -23,12 +23,10 @@ var (
 
 // ProfileService интерфейс для работы с профилями
 type ProfileService interface {
-	// Существующие методы
-	CreateImprovProfile(userID int, description string, goal string, styles []string) (*Profile, error)
-	CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*Profile, error)
+	CreateImprovProfile(userID int, description string, goal string, styles []string, lookingForTeam bool) (*ImprovProfile, error)
+	CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*MusicProfile, error)
 	GetProfile(profileID int) (*ProfileResponse, error)
 
-	// Новые методы для справочников
 	GetActivityTypes(lang string) (ActivityTypeCatalog, error)
 	GetImprovStyles(lang string) (ImprovStyleCatalog, error)
 	GetImprovGoals(lang string) (ImprovGoalCatalog, error)
@@ -49,7 +47,7 @@ func NewProfileService(db *sql.DB) ProfileService {
 }
 
 // CreateImprovProfile создает новый профиль импровизации
-func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string, goal string, styles []string) (*Profile, error) {
+func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string, goal string, styles []string, lookingForTeam bool) (*ImprovProfile, error) {
 	// Проверяем существование пользователя
 	var exists bool
 	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", userID).Scan(&exists)
@@ -114,11 +112,11 @@ func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string,
 		return nil, err
 	}
 
-	// Создаем профиль импровизации
+	// Создаем профиль импровизации с флагом looking_for_team
 	_, err = tx.Exec(`
-        INSERT INTO improv_profiles (profile_id, goal)
-        VALUES ($1, $2)
-    `, profileID, goal)
+        INSERT INTO improv_profiles (profile_id, goal, looking_for_team)
+        VALUES ($1, $2, $3)
+    `, profileID, goal, lookingForTeam)
 	if err != nil {
 		return nil, err
 	}
@@ -135,17 +133,22 @@ func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string,
 	}
 
 	// Возвращаем созданный профиль
-	return &Profile{
-		ProfileID:    profileID,
-		UserID:       userID,
-		Description:  description,
-		ActivityType: ActivityTypeImprov,
-		CreatedAt:    createdAt,
+	return &ImprovProfile{
+		Profile: Profile{
+			ProfileID:    profileID,
+			UserID:       userID,
+			Description:  description,
+			ActivityType: ActivityTypeImprov,
+			CreatedAt:    createdAt,
+		},
+		Goal:           goal,
+		Styles:         styles,
+		LookingForTeam: lookingForTeam,
 	}, nil
 }
 
 // CreateMusicProfile создает новый музыкальный профиль
-func (s *ProfileServiceImpl) CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*Profile, error) {
+func (s *ProfileServiceImpl) CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*MusicProfile, error) {
 	// Проверяем существование пользователя
 	var exists bool
 	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", userID).Scan(&exists)
@@ -244,12 +247,16 @@ func (s *ProfileServiceImpl) CreateMusicProfile(userID int, description string, 
 	}
 
 	// Возвращаем созданный профиль
-	return &Profile{
-		ProfileID:    profileID,
-		UserID:       userID,
-		Description:  description,
-		ActivityType: ActivityTypeMusic,
-		CreatedAt:    createdAt,
+	return &MusicProfile{
+		Profile: Profile{
+			ProfileID:    profileID,
+			UserID:       userID,
+			Description:  description,
+			ActivityType: ActivityTypeMusic,
+			CreatedAt:    createdAt,
+		},
+		Genres:      genres,
+		Instruments: instruments,
 	}, nil
 }
 
@@ -268,37 +275,25 @@ func (s *ProfileServiceImpl) GetProfile(profileID int) (*ProfileResponse, error)
 		return nil, err
 	}
 
-	// Создаем ответ с базовым профилем
-	response := &ProfileResponse{
-		Profile: &profile,
-	}
+	// Создаем ответ
+	response := &ProfileResponse{}
 
 	// В зависимости от типа активности, добавляем детальную информацию
 	switch profile.ActivityType {
 	case ActivityTypeImprov:
-		var improvProfile ImprovProfile
-		improvProfile.Profile = &profile
-
-		// Получаем цель импровизации
-		var goal sql.NullString
-		err := s.db.QueryRow(`
-            SELECT goal 
-            FROM improv_profiles 
-            WHERE profile_id = $1
-        `, profileID).Scan(&goal)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		// Получаем детали импровизации, включая флаг looking_for_team
+		var goal string
+		var lookingForTeam bool
+		err = s.db.QueryRow(`
+            SELECT goal, looking_for_team FROM improv_profiles WHERE profile_id = $1
+        `, profileID).Scan(&goal, &lookingForTeam)
+		if err != nil {
 			return nil, err
-		}
-
-		if goal.Valid {
-			improvProfile.Goal = goal.String
 		}
 
 		// Получаем стили импровизации
 		rows, err := s.db.Query(`
-            SELECT style 
-            FROM improv_profile_styles 
-            WHERE profile_id = $1
+            SELECT style FROM improv_profile_styles WHERE profile_id = $1
         `, profileID)
 		if err != nil {
 			return nil, err
@@ -308,19 +303,20 @@ func (s *ProfileServiceImpl) GetProfile(profileID int) (*ProfileResponse, error)
 		var styles []string
 		for rows.Next() {
 			var style string
-			if err := rows.Scan(&style); err != nil {
+			if err = rows.Scan(&style); err != nil {
 				return nil, err
 			}
 			styles = append(styles, style)
 		}
 
-		improvProfile.Styles = styles
-		response.ImprovDetail = &improvProfile
+		response.ImprovProfile = &ImprovProfile{
+			Profile:        profile,
+			Goal:           goal,
+			Styles:         styles,
+			LookingForTeam: lookingForTeam,
+		}
 
 	case ActivityTypeMusic:
-		var musicProfile MusicProfile
-		musicProfile.Profile = &profile
-
 		// Получаем жанры музыки
 		genreRows, err := s.db.Query(`
             SELECT genre_code 
@@ -340,8 +336,6 @@ func (s *ProfileServiceImpl) GetProfile(profileID int) (*ProfileResponse, error)
 			}
 			genres = append(genres, genre)
 		}
-
-		musicProfile.Genres = genres
 
 		// Получаем инструменты
 		instrumentRows, err := s.db.Query(`
@@ -363,8 +357,11 @@ func (s *ProfileServiceImpl) GetProfile(profileID int) (*ProfileResponse, error)
 			instruments = append(instruments, instrument)
 		}
 
-		musicProfile.Instruments = instruments
-		response.MusicDetail = &musicProfile
+		response.MusicProfile = &MusicProfile{
+			Profile:     profile,
+			Genres:      genres,
+			Instruments: instruments,
+		}
 	}
 
 	return response, nil

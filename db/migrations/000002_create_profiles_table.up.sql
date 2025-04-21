@@ -76,7 +76,8 @@ INSERT INTO improv_goals_translation (goal_code, lang, label, description) VALUE
 -- Таблица профиля для импровизации
 CREATE TABLE improv_profiles (
     profile_id INT PRIMARY KEY REFERENCES profiles(profile_id) ON DELETE CASCADE,
-    goal VARCHAR(50) REFERENCES improv_goals_catalog(goal_code)
+    goal VARCHAR(50) REFERENCES improv_goals_catalog(goal_code),
+    looking_for_team BOOLEAN DEFAULT FALSE -- Флаг "Ищу команду" перемещен сюда
 );
 
 -- Таблица соответствий профилей и стилей импровизации

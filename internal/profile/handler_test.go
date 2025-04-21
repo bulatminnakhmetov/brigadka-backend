@@ -17,20 +17,20 @@ type MockProfileService struct {
 	mock.Mock
 }
 
-func (m *MockProfileService) CreateImprovProfile(userID int, description string, goal string, styles []string) (*Profile, error) {
-	args := m.Called(userID, description, goal, styles)
+func (m *MockProfileService) CreateImprovProfile(userID int, description string, goal string, styles []string, lookingForTeam bool) (*ImprovProfile, error) {
+	args := m.Called(userID, description, goal, styles, lookingForTeam)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*Profile), args.Error(1)
+	return args.Get(0).(*ImprovProfile), args.Error(1)
 }
 
-func (m *MockProfileService) CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*Profile, error) {
+func (m *MockProfileService) CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*MusicProfile, error) {
 	args := m.Called(userID, description, genres, instruments)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*Profile), args.Error(1)
+	return args.Get(0).(*MusicProfile), args.Error(1)
 }
 
 func (m *MockProfileService) GetProfile(profileID int) (*ProfileResponse, error) {
@@ -173,16 +173,21 @@ func TestCreateProfileHandler(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Создаем тестовый профиль
-		testProfile := &Profile{
-			ProfileID:    1,
-			UserID:       1,
-			Description:  "Test Description",
-			ActivityType: ActivityTypeImprov,
-			CreatedAt:    time.Now(),
+		testProfile := &ImprovProfile{
+			Profile: Profile{
+				ProfileID:    1,
+				UserID:       1,
+				Description:  "Test Description",
+				ActivityType: ActivityTypeImprov,
+				CreatedAt:    time.Now(),
+			},
+			Goal:           "Hobby",
+			Styles:         []string{"Short Form"},
+			LookingForTeam: true,
 		}
 
-		// Настраиваем поведение мока
-		mockService.On("CreateImprovProfile", 1, "Test Description", "Hobby", []string{"Short Form"}).Return(testProfile, nil)
+		// Настраиваем поведение мока с looking_for_team как последним параметром
+		mockService.On("CreateImprovProfile", 1, "Test Description", "Hobby", []string{"Short Form"}, true).Return(testProfile, nil)
 
 		// Создаем тестовый запрос
 		reqData := CreateImprovProfileRequest{
@@ -191,8 +196,9 @@ func TestCreateProfileHandler(t *testing.T) {
 				Description:  "Test Description",
 				ActivityType: ActivityTypeImprov,
 			},
-			Goal:   "Hobby",
-			Styles: []string{"Short Form"},
+			Goal:           "Hobby",
+			Styles:         []string{"Short Form"},
+			LookingForTeam: true, // Устанавливаем флаг
 		}
 		reqBody, _ := json.Marshal(reqData)
 		req, _ := http.NewRequest("POST", "/api/profiles", bytes.NewReader(reqBody))
@@ -211,13 +217,16 @@ func TestCreateProfileHandler(t *testing.T) {
 		mockService.AssertExpectations(t)
 
 		// Проверяем тело ответа
-		var response Profile
+		var response ImprovProfile
 		err := json.Unmarshal(rr.Body.Bytes(), &response)
 		assert.NoError(t, err)
 		assert.Equal(t, testProfile.ProfileID, response.ProfileID)
 		assert.Equal(t, testProfile.UserID, response.UserID)
 		assert.Equal(t, testProfile.Description, response.Description)
 		assert.Equal(t, testProfile.ActivityType, response.ActivityType)
+		assert.Equal(t, testProfile.Goal, response.Goal)
+		assert.Equal(t, testProfile.Styles, response.Styles)
+		assert.Equal(t, testProfile.LookingForTeam, response.LookingForTeam)
 	})
 
 	// Тест на создание музыкального профиля
@@ -226,12 +235,16 @@ func TestCreateProfileHandler(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Создаем тестовый профиль
-		testProfile := &Profile{
-			ProfileID:    1,
-			UserID:       1,
-			Description:  "Test Description",
-			ActivityType: ActivityTypeMusic,
-			CreatedAt:    time.Now(),
+		testProfile := &MusicProfile{
+			Profile: Profile{
+				ProfileID:    1,
+				UserID:       1,
+				Description:  "Test Description",
+				ActivityType: ActivityTypeMusic,
+				CreatedAt:    time.Now(),
+			},
+			Genres:      []string{"rock"},
+			Instruments: []string{"guitar"},
 		}
 
 		// Настраиваем поведение мока
@@ -264,13 +277,15 @@ func TestCreateProfileHandler(t *testing.T) {
 		mockService.AssertExpectations(t)
 
 		// Проверяем тело ответа
-		var response Profile
+		var response MusicProfile
 		err := json.Unmarshal(rr.Body.Bytes(), &response)
 		assert.NoError(t, err)
 		assert.Equal(t, testProfile.ProfileID, response.ProfileID)
 		assert.Equal(t, testProfile.UserID, response.UserID)
 		assert.Equal(t, testProfile.Description, response.Description)
 		assert.Equal(t, testProfile.ActivityType, response.ActivityType)
+		assert.Equal(t, testProfile.Genres, response.Genres)
+		assert.Equal(t, testProfile.Instruments, response.Instruments)
 	})
 
 	// Тест на попытку создания профиля с неподдерживаемым типом активности
@@ -307,7 +322,7 @@ func TestCreateProfileHandler(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Настраиваем мок на возврат ошибки
-		mockService.On("CreateImprovProfile", 1, "Test Description", "Hobby", []string{"Short Form"}).Return(nil, ErrUserNotFound)
+		mockService.On("CreateImprovProfile", 1, "Test Description", "Hobby", []string{"Short Form"}, true).Return(nil, ErrUserNotFound)
 
 		// Создаем тестовый запрос
 		reqData := CreateImprovProfileRequest{
@@ -316,8 +331,9 @@ func TestCreateProfileHandler(t *testing.T) {
 				Description:  "Test Description",
 				ActivityType: ActivityTypeImprov,
 			},
-			Goal:   "Hobby",
-			Styles: []string{"Short Form"},
+			Goal:           "Hobby",
+			Styles:         []string{"Short Form"},
+			LookingForTeam: true, // Устанавливаем флаг
 		}
 		reqBody, _ := json.Marshal(reqData)
 		req, _ := http.NewRequest("POST", "/api/profiles", bytes.NewReader(reqBody))
@@ -434,28 +450,28 @@ func TestCreateProfileHandler(t *testing.T) {
 }
 
 func TestGetProfileHandler(t *testing.T) {
-	// Тест успешного получения профиля
-	t.Run("Success", func(t *testing.T) {
+	// Тест успешного получения профиля импровизации
+	t.Run("Success - Improv Profile", func(t *testing.T) {
 		mockService := new(MockProfileService)
 		handler := NewProfileHandler(mockService)
 
-		// Создаем тестовый профиль
-		testProfile := &Profile{
-			ProfileID:    1,
-			UserID:       1,
-			Description:  "Test Description",
-			ActivityType: ActivityTypeImprov,
-			CreatedAt:    time.Now(),
+		// Создаем тестовый профиль импровизации
+		improvProfile := &ImprovProfile{
+			Profile: Profile{
+				ProfileID:    1,
+				UserID:       1,
+				Description:  "Test Description",
+				ActivityType: ActivityTypeImprov,
+				CreatedAt:    time.Now(),
+			},
+			Goal:           "Hobby",
+			Styles:         []string{"Short Form"},
+			LookingForTeam: true,
 		}
 
 		// Создаем тестовый ответ
 		testResponse := &ProfileResponse{
-			Profile: testProfile,
-			ImprovDetail: &ImprovProfile{
-				Profile: testProfile,
-				Goal:    "Hobby",
-				Styles:  []string{"Short Form"},
-			},
+			ImprovProfile: improvProfile,
 		}
 
 		// Настраиваем поведение мока
@@ -480,9 +496,64 @@ func TestGetProfileHandler(t *testing.T) {
 		var response ProfileResponse
 		err := json.Unmarshal(rr.Body.Bytes(), &response)
 		assert.NoError(t, err)
-		assert.Equal(t, testResponse.Profile.ProfileID, response.Profile.ProfileID)
-		assert.Equal(t, testResponse.ImprovDetail.Goal, response.ImprovDetail.Goal)
-		assert.Equal(t, testResponse.ImprovDetail.Styles, response.ImprovDetail.Styles)
+		assert.NotNil(t, response.ImprovProfile)
+		assert.Equal(t, improvProfile.ProfileID, response.ImprovProfile.ProfileID)
+		assert.Equal(t, improvProfile.Goal, response.ImprovProfile.Goal)
+		assert.Equal(t, improvProfile.Styles, response.ImprovProfile.Styles)
+		assert.Equal(t, improvProfile.LookingForTeam, response.ImprovProfile.LookingForTeam)
+		assert.Nil(t, response.MusicProfile)
+	})
+
+	// Тест успешного получения музыкального профиля
+	t.Run("Success - Music Profile", func(t *testing.T) {
+		mockService := new(MockProfileService)
+		handler := NewProfileHandler(mockService)
+
+		// Создаем тестовый музыкальный профиль
+		musicProfile := &MusicProfile{
+			Profile: Profile{
+				ProfileID:    2,
+				UserID:       2,
+				Description:  "Music Profile",
+				ActivityType: ActivityTypeMusic,
+				CreatedAt:    time.Now(),
+			},
+			Genres:      []string{"rock", "jazz"},
+			Instruments: []string{"guitar", "piano"},
+		}
+
+		// Создаем тестовый ответ
+		testResponse := &ProfileResponse{
+			MusicProfile: musicProfile,
+		}
+
+		// Настраиваем поведение мока
+		mockService.On("GetProfile", 2).Return(testResponse, nil)
+
+		// Создаем тестовый запрос
+		req, _ := http.NewRequest("GET", "/api/profiles/2", nil)
+
+		// Создаем ResponseRecorder для записи ответа
+		rr := httptest.NewRecorder()
+
+		// Вызываем обработчик
+		handler.GetProfile(rr, req)
+
+		// Проверяем статус ответа
+		assert.Equal(t, http.StatusOK, rr.Code)
+
+		// Проверяем, что мок был вызван с ожидаемыми аргументами
+		mockService.AssertExpectations(t)
+
+		// Проверяем тело ответа
+		var response ProfileResponse
+		err := json.Unmarshal(rr.Body.Bytes(), &response)
+		assert.NoError(t, err)
+		assert.NotNil(t, response.MusicProfile)
+		assert.Equal(t, musicProfile.ProfileID, response.MusicProfile.ProfileID)
+		assert.Equal(t, musicProfile.Genres, response.MusicProfile.Genres)
+		assert.Equal(t, musicProfile.Instruments, response.MusicProfile.Instruments)
+		assert.Nil(t, response.ImprovProfile)
 	})
 
 	// Тест обработки ошибки "профиль не найден"

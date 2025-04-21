@@ -87,8 +87,9 @@ func (s *ProfileIntegrationTestSuite) TestCreateImprovProfile() {
 			Description:  "Test improv profile description",
 			ActivityType: profile.ActivityTypeImprov,
 		},
-		Goal:   "Hobby",
-		Styles: []string{"Short Form"},
+		Goal:           "Hobby",
+		Styles:         []string{"Short Form"},
+		LookingForTeam: true,
 	}
 
 	createJSON, _ := json.Marshal(createData)
@@ -400,8 +401,9 @@ func (s *ProfileIntegrationTestSuite) TestGetProfile() {
 			Description:  "Test improv profile for get",
 			ActivityType: profile.ActivityTypeImprov,
 		},
-		Goal:   "Hobby",
-		Styles: []string{"Short Form"},
+		Goal:           "Hobby",
+		Styles:         []string{"Short Form"},
+		LookingForTeam: true,
 	}
 
 	createJSON, _ := json.Marshal(createData)
@@ -440,16 +442,16 @@ func (s *ProfileIntegrationTestSuite) TestGetProfile() {
 	assert.NoError(t, err)
 
 	// Проверяем поля полученного профиля
-	assert.NotNil(t, profileResp.Profile)
-	assert.Equal(t, profileID, profileResp.Profile.ProfileID)
-	assert.Equal(t, userID, profileResp.Profile.UserID)
-	assert.Equal(t, "Test improv profile for get", profileResp.Profile.Description)
-	assert.Equal(t, profile.ActivityTypeImprov, profileResp.Profile.ActivityType)
+	assert.NotNil(t, profileResp.ImprovProfile)
+	assert.Equal(t, profileID, profileResp.ImprovProfile.ProfileID)
+	assert.Equal(t, userID, profileResp.ImprovProfile.UserID)
+	assert.Equal(t, "Test improv profile for get", profileResp.ImprovProfile.Description)
+	assert.Equal(t, profile.ActivityTypeImprov, profileResp.ImprovProfile.ActivityType)
 
 	// Проверяем детали профиля импровизации
-	assert.NotNil(t, profileResp.ImprovDetail)
-	assert.Equal(t, "Hobby", profileResp.ImprovDetail.Goal)
-	assert.Contains(t, profileResp.ImprovDetail.Styles, "Short Form")
+	assert.Equal(t, "Hobby", profileResp.ImprovProfile.Goal)
+	assert.Contains(t, profileResp.ImprovProfile.Styles, "Short Form")
+	assert.True(t, profileResp.ImprovProfile.LookingForTeam)
 }
 
 // TestGetNonExistentProfile тестирует получение несуществующего профиля
