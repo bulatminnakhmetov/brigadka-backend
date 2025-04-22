@@ -12,7 +12,7 @@ INSERT INTO role_catalog (role, description) VALUES
 
 -- Таблица медиа
 CREATE TABLE media (
-    profile_id INT REFERENCES profiles(profile_id) ON DELETE CASCADE,
+    profile_id INT REFERENCES profiles(id) ON DELETE CASCADE,
     id SERIAL PRIMARY KEY,
     type VARCHAR(50),
     role VARCHAR(50) REFERENCES role_catalog(role),

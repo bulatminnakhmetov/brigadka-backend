@@ -50,7 +50,7 @@ func NewProfileService(db *sql.DB) ProfileService {
 func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string, goal string, styles []string, lookingForTeam bool) (*ImprovProfile, error) {
 	// Проверяем существование пользователя
 	var exists bool
-	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", userID).Scan(&exists)
+	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", userID).Scan(&exists)
 	if err != nil {
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string,
 	err = tx.QueryRow(`
         INSERT INTO profiles (user_id, description, activity_type) 
         VALUES ($1, $2, $3) 
-        RETURNING profile_id, created_at
+        RETURNING id, created_at
     `, userID, description, ActivityTypeImprov).Scan(&profileID, &createdAt)
 	if err != nil {
 		return nil, err
@@ -151,7 +151,7 @@ func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string,
 func (s *ProfileServiceImpl) CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*MusicProfile, error) {
 	// Проверяем существование пользователя
 	var exists bool
-	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE user_id = $1)", userID).Scan(&exists)
+	err := s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM users WHERE id = $1)", userID).Scan(&exists)
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +218,7 @@ func (s *ProfileServiceImpl) CreateMusicProfile(userID int, description string, 
 	err = tx.QueryRow(`
         INSERT INTO profiles (user_id, description, activity_type) 
         VALUES ($1, $2, $3) 
-        RETURNING profile_id, created_at
+        RETURNING id, created_at
     `, userID, description, ActivityTypeMusic).Scan(&profileID, &createdAt)
 	if err != nil {
 		return nil, err
@@ -265,8 +265,8 @@ func (s *ProfileServiceImpl) GetProfile(profileID int) (*ProfileResponse, error)
 	// Получаем базовый профиль
 	var profile Profile
 	err := s.db.QueryRow(`
-        SELECT profile_id, user_id, description, activity_type, created_at 
-        FROM profiles WHERE profile_id = $1
+        SELECT id, user_id, description, activity_type, created_at 
+        FROM profiles WHERE id = $1
     `, profileID).Scan(&profile.ProfileID, &profile.UserID, &profile.Description, &profile.ActivityType, &profile.CreatedAt)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

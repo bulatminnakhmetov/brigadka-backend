@@ -23,7 +23,7 @@ type UserRepository interface {
 }
 
 type User struct {
-	UserID       int    `json:"user_id"`
+	ID           int    `json:"id"`
 	Email        string `json:"email"`
 	FullName     string `json:"full_name"`
 	PasswordHash string `json:"-"`
@@ -220,7 +220,7 @@ func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
 
 func (h *AuthHandler) generateToken(user *User) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": user.UserID,
+		"user_id": user.ID,
 		"email":   user.Email,
 		"exp":     time.Now().Add(h.tokenExpiry).Unix(),
 	}

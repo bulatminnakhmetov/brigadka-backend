@@ -75,7 +75,7 @@ func (s *MediaIntegrationTestSuite) createTestUserAndProfile() (int, int, string
 	// Создаем тестовый профиль для пользователя
 	createProfileData := profile.CreateImprovProfileRequest{
 		CreateProfileRequest: profile.CreateProfileRequest{
-			UserID:       registerResult.User.UserID,
+			UserID:       registerResult.User.ID,
 			Description:  "Test profile for media tests",
 			ActivityType: profile.ActivityTypeImprov,
 		},
@@ -105,7 +105,7 @@ func (s *MediaIntegrationTestSuite) createTestUserAndProfile() (int, int, string
 		return 0, 0, "", fmt.Errorf("failed to decode create profile response: %w", err)
 	}
 
-	return registerResult.User.UserID, createdProfile.ProfileID, registerResult.Token, nil
+	return registerResult.User.ID, createdProfile.ProfileID, registerResult.Token, nil
 }
 
 // Вспомогательная функция для создания временного файла изображения

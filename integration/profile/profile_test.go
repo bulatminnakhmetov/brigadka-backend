@@ -1,4 +1,4 @@
-package integration
+package profile
 
 import (
 	"bytes"
@@ -69,7 +69,7 @@ func (s *ProfileIntegrationTestSuite) createTestUser() (int, string, error) {
 		return 0, "", fmt.Errorf("failed to decode register response: %v", err)
 	}
 
-	return registerResult.User.UserID, registerResult.Token, nil
+	return registerResult.User.ID, registerResult.Token, nil
 }
 
 // TestCreateImprovProfile тестирует создание профиля импровизации

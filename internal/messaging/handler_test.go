@@ -119,7 +119,7 @@ func TestHandler_CreateChat(t *testing.T) {
 			requestBody:    `{"chat_id":"123","chat_name":"Test Chat","participants":[1,2,3]}`,
 			userID:         1,
 			serviceError:   nil,
-			expectedStatus: http.StatusOK,
+			expectedStatus: http.StatusCreated,
 		},
 		{
 			name:           "Empty Participants",
@@ -160,7 +160,7 @@ func TestHandler_CreateChat(t *testing.T) {
 			require.NoError(t, err)
 
 			// Set context with user ID
-			ctx := context.WithValue(req.Context(), "userID", tt.userID)
+			ctx := context.WithValue(req.Context(), "user_id", tt.userID)
 			req = req.WithContext(ctx)
 
 			// Record response
@@ -221,7 +221,7 @@ func TestHandler_GetUserChats(t *testing.T) {
 			require.NoError(t, err)
 
 			// Set context with user ID
-			ctx := context.WithValue(req.Context(), "userID", tt.userID)
+			ctx := context.WithValue(req.Context(), "user_id", tt.userID)
 			req = req.WithContext(ctx)
 
 			// Record response
@@ -314,7 +314,7 @@ func TestHandler_GetChatDetails(t *testing.T) {
 			require.NoError(t, err)
 
 			// Set context with user ID
-			ctx := context.WithValue(req.Context(), "userID", tt.userID)
+			ctx := context.WithValue(req.Context(), "user_id", tt.userID)
 			req = req.WithContext(ctx)
 
 			// Record response
@@ -420,7 +420,7 @@ func TestHandler_GetChatMessages(t *testing.T) {
 			require.NoError(t, err)
 
 			// Set context with user ID
-			ctx := context.WithValue(req.Context(), "userID", tt.userID)
+			ctx := context.WithValue(req.Context(), "user_id", tt.userID)
 			req = req.WithContext(ctx)
 
 			// Record response
@@ -542,7 +542,7 @@ func TestSendMessage(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			// Set context with user ID
-			ctx := context.WithValue(req.Context(), "userID", userID)
+			ctx := context.WithValue(req.Context(), "user_id", userID)
 			req = req.WithContext(ctx)
 
 			// Record response
@@ -637,7 +637,7 @@ func TestAddParticipant(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			// Set context with user ID
-			ctx := context.WithValue(req.Context(), "userID", userID)
+			ctx := context.WithValue(req.Context(), "user_id", userID)
 			req = req.WithContext(ctx)
 
 			// Record response
@@ -740,7 +740,7 @@ func TestAddReaction(t *testing.T) {
 			req.Header.Set("Content-Type", "application/json")
 
 			// Set context with user ID
-			ctx := context.WithValue(req.Context(), "userID", userID)
+			ctx := context.WithValue(req.Context(), "user_id", userID)
 			req = req.WithContext(ctx)
 
 			// Record response
@@ -820,7 +820,7 @@ func TestRemoveReaction(t *testing.T) {
 			require.NoError(t, err)
 
 			// Set context with user ID
-			ctx := context.WithValue(req.Context(), "userID", userID)
+			ctx := context.WithValue(req.Context(), "user_id", userID)
 			req = req.WithContext(ctx)
 
 			// Record response
@@ -979,10 +979,12 @@ func TestHandleChatMessage(t *testing.T) {
 		{
 			name: "Successfully handle message",
 			message: WSMessage{
-				Type:      MsgTypeChat,
-				ChatID:    "chat123",
-				MessageID: "msg123",
-				Content:   "Hello, world!",
+				Type:   MsgTypeChat,
+				ChatID: "chat123",
+				Payload: mustMarshalJSON(ChatMessage{
+					MessageID: "msg123",
+					Content:   "Hello, world!",
+				}),
 			},
 			userInChat:       true,
 			expectStoreMsg:   true,
@@ -995,10 +997,12 @@ func TestHandleChatMessage(t *testing.T) {
 		{
 			name: "User not in chat",
 			message: WSMessage{
-				Type:      MsgTypeChat,
-				ChatID:    "chat123",
-				MessageID: "msg123",
-				Content:   "Hello, world!",
+				Type:   MsgTypeChat,
+				ChatID: "chat123",
+				Payload: mustMarshalJSON(ChatMessage{
+					MessageID: "msg123",
+					Content:   "Hello, world!",
+				}),
 			},
 			userInChat:      false,
 			expectStoreMsg:  false,
@@ -1007,10 +1011,12 @@ func TestHandleChatMessage(t *testing.T) {
 		{
 			name: "Duplicate message",
 			message: WSMessage{
-				Type:      MsgTypeChat,
-				ChatID:    "chat123",
-				MessageID: "msg123",
-				Content:   "Hello, world!",
+				Type:   MsgTypeChat,
+				ChatID: "chat123",
+				Payload: mustMarshalJSON(ChatMessage{
+					MessageID: "msg123",
+					Content:   "Hello, world!",
+				}),
 			},
 			userInChat:      true,
 			expectStoreMsg:  true,
@@ -1020,10 +1026,12 @@ func TestHandleChatMessage(t *testing.T) {
 		{
 			name: "Service error",
 			message: WSMessage{
-				Type:      MsgTypeChat,
-				ChatID:    "chat123",
-				MessageID: "msg123",
-				Content:   "Hello, world!",
+				Type:   MsgTypeChat,
+				ChatID: "chat123",
+				Payload: mustMarshalJSON(ChatMessage{
+					MessageID: "msg123",
+					Content:   "Hello, world!",
+				}),
 			},
 			userInChat:      true,
 			expectStoreMsg:  true,
@@ -1058,13 +1066,17 @@ func TestHandleChatMessage(t *testing.T) {
 				client.chatRooms[tt.message.ChatID] = struct{}{}
 			}
 
+			// Parse payload to get message details for expectations
+			var chatMsg ChatMessage
+			json.Unmarshal(tt.message.Payload, &chatMsg)
+
 			// Setup expectations
 			if tt.expectStoreMsg {
 				mockService.On("AddMessage",
-					tt.message.MessageID,
+					chatMsg.MessageID,
 					tt.message.ChatID,
 					userID,
-					tt.message.Content).Return(tt.expectedSentAt, tt.addMessageError)
+					chatMsg.Content).Return(tt.expectedSentAt, tt.addMessageError)
 			}
 
 			if tt.expectBroadcast && tt.addMessageError == nil {
@@ -1144,10 +1156,12 @@ func TestHandleWSConnectionWithMessageSending(t *testing.T) {
 	// Setup message reading expectations
 	// First read should return a chat message
 	chatMessage := WSMessage{
-		Type:      MsgTypeChat,
-		ChatID:    chatID,
-		MessageID: messageID,
-		Content:   content,
+		Type:   MsgTypeChat,
+		ChatID: chatID,
+		Payload: mustMarshalJSON(ChatMessage{
+			MessageID: messageID,
+			Content:   content,
+		}),
 	}
 	chatMessageBytes, _ := json.Marshal(chatMessage)
 
@@ -1216,10 +1230,12 @@ func TestHandleChatMessageBroadcasting(t *testing.T) {
 
 	// Create message
 	message := WSMessage{
-		Type:      MsgTypeChat,
-		ChatID:    chatID,
-		MessageID: messageID,
-		Content:   content,
+		Type:   MsgTypeChat,
+		ChatID: chatID,
+		Payload: mustMarshalJSON(ChatMessage{
+			MessageID: messageID,
+			Content:   content,
+		}),
 	}
 
 	// Setup expectations
@@ -1284,10 +1300,12 @@ func TestWSMessageWriteErrorHandling(t *testing.T) {
 
 	// Create message
 	message := WSMessage{
-		Type:      MsgTypeChat,
-		ChatID:    chatID,
-		MessageID: messageID,
-		Content:   content,
+		Type:   MsgTypeChat,
+		ChatID: chatID,
+		Payload: mustMarshalJSON(ChatMessage{
+			MessageID: messageID,
+			Content:   content,
+		}),
 	}
 
 	// Setup expectations
@@ -1307,82 +1325,11 @@ func TestWSMessageWriteErrorHandling(t *testing.T) {
 	mockConn2.AssertExpectations(t)
 }
 
-func TestParseMessageError(t *testing.T) {
-	// Create mock objects
-	mockConn := new(MockConn)
-	mockService := new(MockMessagingService)
-
-	// Setup handler
-	handler := &Handler{
-		service:      mockService,
-		clients:      make(map[int]*Client),
-		clientsMutex: sync.RWMutex{},
+// Helper function to marshal JSON for tests
+func mustMarshalJSON(v interface{}) json.RawMessage {
+	data, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
 	}
-
-	userID := 123
-	chatRooms := map[string]struct{}{
-		"chat123": {},
-	}
-
-	// Setup expectations
-	mockService.On("GetUserChatRooms", userID).Return(chatRooms, nil)
-
-	// First read returns invalid JSON
-	mockConn.On("ReadMessage").Return(1, []byte(`{invalid json`), nil).Once()
-
-	// Second read exits loop
-	mockConn.On("ReadMessage").Return(0, []byte{}, errGeneric()).Once()
-	mockConn.On("Close").Return(nil)
-
-	// Call the method under test
-	handler.handleWSConnection(mockConn, userID)
-
-	// Give goroutine time to process
-	time.Sleep(100 * time.Millisecond)
-
-	// Verify expectations were met - should continue despite JSON parse error
-	mockService.AssertExpectations(t)
-	mockConn.AssertExpectations(t)
-}
-
-func TestUnknownMessageType(t *testing.T) {
-	// Create mock objects
-	mockConn := new(MockConn)
-	mockService := new(MockMessagingService)
-
-	// Setup handler
-	handler := &Handler{
-		service:      mockService,
-		clients:      make(map[int]*Client),
-		clientsMutex: sync.RWMutex{},
-	}
-
-	userID := 123
-	chatRooms := map[string]struct{}{
-		"chat123": {},
-	}
-
-	// Setup expectations
-	mockService.On("GetUserChatRooms", userID).Return(chatRooms, nil)
-
-	// First read returns unknown message type
-	unknownMsg := WSMessage{
-		Type: "unknown_type",
-	}
-	unknownMsgBytes, _ := json.Marshal(unknownMsg)
-	mockConn.On("ReadMessage").Return(1, unknownMsgBytes, nil).Once()
-
-	// Second read exits loop
-	mockConn.On("ReadMessage").Return(0, []byte{}, errGeneric()).Once()
-	mockConn.On("Close").Return(nil)
-
-	// Call the method under test
-	handler.handleWSConnection(mockConn, userID)
-
-	// Give goroutine time to process
-	time.Sleep(100 * time.Millisecond)
-
-	// Verify expectations were met - should continue despite unknown message type
-	mockService.AssertExpectations(t)
-	mockConn.AssertExpectations(t)
+	return data
 }

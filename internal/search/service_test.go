@@ -25,7 +25,7 @@ func TestSearchServiceImpl_SearchProfiles(t *testing.T) {
 
 	t.Run("Basic name search", func(t *testing.T) {
 		// Setup expected query and response
-		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.profile_id\\)").
+		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.id\\)").
 			WithArgs("%John%").
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
@@ -95,7 +95,7 @@ func TestSearchServiceImpl_SearchProfiles(t *testing.T) {
 		ageMax := 40
 
 		// Setup expected query and response for count
-		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.profile_id\\)").
+		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.id\\)").
 			// Fix parameter order to match actual service implementation
 			WithArgs("%rock%", ageMin, ageMax, "music", "guitar").
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
@@ -174,7 +174,7 @@ func TestSearchServiceImpl_SearchProfiles(t *testing.T) {
 		}
 
 		// Setup expected query and response for count
-		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.profile_id\\)").
+		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.id\\)").
 			// Fix parameter order to match actual implementation
 			WithArgs("%Sarah%", "improv", styleParams[0], styleParams[1], improvGoal, improvLookingForTeam).
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
@@ -262,7 +262,7 @@ func TestSearchServiceImpl_SearchProfiles(t *testing.T) {
 		mock.ExpectationsWereMet()
 
 		// Setup error for count query
-		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.profile_id\\)").
+		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.id\\)").
 			WithArgs("%error%"). // Updated to match actual parameter format
 			WillReturnError(errors.New("database error"))
 
@@ -286,7 +286,7 @@ func TestSearchServiceImpl_SearchProfiles(t *testing.T) {
 		mock.ExpectationsWereMet()
 
 		// Setup successful count but error for main query
-		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.profile_id\\)").
+		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.id\\)").
 			WithArgs("%error%"). // Updated to match actual parameter format
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 
@@ -314,7 +314,7 @@ func TestSearchServiceImpl_SearchProfiles(t *testing.T) {
 		mock.ExpectationsWereMet()
 
 		// Setup successful count but error when scanning rows
-		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.profile_id\\)").
+		mock.ExpectQuery("SELECT COUNT\\(DISTINCT p.id\\)").
 			WithArgs("%error%"). // Updated to match actual parameter format
 			WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
 

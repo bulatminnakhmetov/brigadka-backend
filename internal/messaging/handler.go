@@ -58,12 +58,9 @@ const (
 
 // WebSocket message structure
 type WSMessage struct {
-	Type       string          `json:"type"`
-	ChatID     string          `json:"chat_id,omitempty"`
-	MessageID  string          `json:"message_id,omitempty"`
-	Content    string          `json:"content,omitempty"`
-	Payload    json.RawMessage `json:"payload,omitempty"`
-	ReactionID string          `json:"reaction_id,omitempty"`
+	Type    string          `json:"type"`
+	ChatID  string          `json:"chat_id,omitempty"`
+	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
 // Chat message structure
@@ -96,7 +93,7 @@ type Chat struct {
 // HandleWebSocket upgrades HTTP connection to WebSocket and handles chat messages
 func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	// Extract user ID from context (assuming auth middleware sets this)
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -185,6 +182,14 @@ func (h *Handler) handleClient(client *Client) {
 
 // handleChatMessage handles a chat message from a client
 func (h *Handler) handleChatMessage(client *Client, msg WSMessage) {
+	// Parse payload to get message details
+	var chatMsg ChatMessage
+	if err := json.Unmarshal(msg.Payload, &chatMsg); err != nil {
+		log.Printf("Error parsing chat message: %v", err)
+		return
+	}
+
+	log.Printf("Received chat message from user %d: %s", client.userID, chatMsg.Content)
 	// Check if client is in the chat
 	if _, ok := client.chatRooms[msg.ChatID]; !ok {
 		log.Printf("User %d not in chat %s", client.userID, msg.ChatID)
@@ -192,25 +197,21 @@ func (h *Handler) handleChatMessage(client *Client, msg WSMessage) {
 	}
 
 	// Store message using the service
-	sentAt, err := h.service.AddMessage(msg.MessageID, msg.ChatID, client.userID, msg.Content)
+	sentAt, err := h.service.AddMessage(chatMsg.MessageID, msg.ChatID, client.userID, chatMsg.Content)
 	if err != nil {
 		// Check if it's a duplicate message (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
-			log.Printf("Duplicate message detected (ID: %s), ignoring", msg.MessageID)
+			log.Printf("Duplicate message detected (ID: %s), ignoring", chatMsg.MessageID)
 			return
 		}
 		log.Printf("Error storing message: %v", err)
 		return
 	}
 
-	// Create chat message
-	chatMsg := ChatMessage{
-		MessageID: msg.MessageID,
-		ChatID:    msg.ChatID,
-		SenderID:  client.userID,
-		Content:   msg.Content,
-		SentAt:    sentAt,
-	}
+	// Update the sent time in the message
+	chatMsg.SentAt = sentAt
+	chatMsg.SenderID = client.userID
+	chatMsg.ChatID = msg.ChatID
 
 	// Marshal message to JSON
 	msgBytes, err := json.Marshal(chatMsg)
@@ -221,10 +222,9 @@ func (h *Handler) handleChatMessage(client *Client, msg WSMessage) {
 
 	// Create WebSocket message
 	wsMsg := WSMessage{
-		Type:      MsgTypeChat,
-		ChatID:    msg.ChatID,
-		MessageID: msg.MessageID,
-		Payload:   msgBytes,
+		Type:    MsgTypeChat,
+		ChatID:  msg.ChatID,
+		Payload: msgBytes,
 	}
 
 	// Marshal WebSocket message
@@ -269,7 +269,7 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user ID from context
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -303,13 +303,14 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 
 	// Return created chat
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"chat_id": req.ChatID})
 }
 
 // Handler for getting user's chats
 func (h *Handler) GetUserChats(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -331,7 +332,7 @@ func (h *Handler) GetUserChats(w http.ResponseWriter, r *http.Request) {
 // Handler for getting chat details
 func (h *Handler) GetChatDetails(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -360,7 +361,7 @@ func (h *Handler) GetChatDetails(w http.ResponseWriter, r *http.Request) {
 // GetChatMessages retrieves messages for a chat with pagination
 func (h *Handler) GetChatMessages(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -409,7 +410,7 @@ func (h *Handler) GetChatMessages(w http.ResponseWriter, r *http.Request) {
 // AddParticipant adds a participant to a chat
 func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -453,7 +454,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 // RemoveParticipant removes a participant from a chat
 func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -500,7 +501,7 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 // AddReaction adds a reaction to a message
 func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -557,11 +558,9 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 
 		reactionData, _ := json.Marshal(reaction)
 		msgData, _ := json.Marshal(WSMessage{
-			Type:       MsgTypeReaction,
-			ChatID:     chatID,
-			MessageID:  messageID,
-			ReactionID: req.ReactionID,
-			Payload:    reactionData,
+			Type:    MsgTypeReaction,
+			ChatID:  chatID,
+			Payload: reactionData,
 		})
 
 		h.broadcastToChat(chatID, msgData)
@@ -577,7 +576,7 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 // RemoveReaction removes a reaction from a message
 func (h *Handler) RemoveReaction(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -620,10 +619,9 @@ func (h *Handler) RemoveReaction(w http.ResponseWriter, r *http.Request) {
 
 		removalBytes, _ := json.Marshal(removal)
 		msgData, _ := json.Marshal(WSMessage{
-			Type:      "reaction_removed",
-			ChatID:    chatID,
-			MessageID: messageID,
-			Payload:   removalBytes,
+			Type:    "reaction_removed",
+			ChatID:  chatID,
+			Payload: removalBytes,
 		})
 
 		h.broadcastToChat(chatID, msgData)
@@ -753,21 +751,10 @@ func (h *Handler) handleLeaveChat(client *Client, msg WSMessage) {
 // handleReaction handles client adding a reaction via WebSocket
 func (h *Handler) handleReaction(client *Client, msg WSMessage) {
 	// Parse payload to get reaction details
-	type ReactionRequest struct {
-		MessageID    string `json:"message_id"`
-		ReactionID   string `json:"reaction_id"`
-		ReactionCode string `json:"reaction_code"`
-	}
-
-	var req ReactionRequest
+	var req Reaction
 	if err := json.Unmarshal(msg.Payload, &req); err != nil {
 		log.Printf("Error parsing reaction request: %v", err)
 		return
-	}
-
-	// If ReactionID isn't in the payload, use the one from the message
-	if req.ReactionID == "" {
-		req.ReactionID = msg.ReactionID
 	}
 
 	// Add reaction using service
@@ -807,11 +794,9 @@ func (h *Handler) handleReaction(client *Client, msg WSMessage) {
 
 	// Create WebSocket message
 	wsMsg := WSMessage{
-		Type:       MsgTypeReaction,
-		ChatID:     chatID,
-		MessageID:  req.MessageID,
-		ReactionID: req.ReactionID,
-		Payload:    reactionBytes,
+		Type:    MsgTypeReaction,
+		ChatID:  chatID,
+		Payload: reactionBytes,
 	}
 
 	// Marshal WebSocket message
@@ -959,10 +944,9 @@ func (h *Handler) handleReadReceipt(client *Client, msg WSMessage) {
 
 	// Create WebSocket message
 	wsMsg := WSMessage{
-		Type:      MsgTypeReadReceipt,
-		ChatID:    msg.ChatID,
-		MessageID: req.MessageID,
-		Payload:   notificationBytes,
+		Type:    MsgTypeReadReceipt,
+		ChatID:  msg.ChatID,
+		Payload: notificationBytes,
 	}
 
 	// Marshal WebSocket message
@@ -979,7 +963,7 @@ func (h *Handler) handleReadReceipt(client *Client, msg WSMessage) {
 // SendMessage handles HTTP requests to send a message
 func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context
-	userID, ok := r.Context().Value("userID").(int)
+	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -1035,10 +1019,9 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	// Marshal message for broadcasting
 	msgBytes, _ := json.Marshal(chatMsg)
 	wsMsg := WSMessage{
-		Type:      MsgTypeChat,
-		ChatID:    chatID,
-		MessageID: req.MessageID,
-		Payload:   msgBytes,
+		Type:    MsgTypeChat,
+		ChatID:  chatID,
+		Payload: msgBytes,
 	}
 
 	msgData, _ := json.Marshal(wsMsg)

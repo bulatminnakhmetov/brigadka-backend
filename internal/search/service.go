@@ -61,7 +61,7 @@ func (s *SearchServiceImpl) SearchProfiles(ctx context.Context, req ProfileSearc
 	// Improv-specific filters
 	if len(req.ImprovStyles) > 0 {
 		// Join the improv_profile_styles table
-		queryBuilder.addJoin("LEFT JOIN improv_profile_styles ips ON p.profile_id = ips.profile_id")
+		queryBuilder.addJoin("LEFT JOIN improv_profile_styles ips ON p.id = ips.profile_id")
 
 		// Build an IN clause for styles
 		placeholders := make([]string, len(req.ImprovStyles))
@@ -74,19 +74,19 @@ func (s *SearchServiceImpl) SearchProfiles(ctx context.Context, req ProfileSearc
 	}
 
 	if req.ImprovGoal != "" {
-		queryBuilder.addJoin("LEFT JOIN improv_profiles ip ON p.profile_id = ip.profile_id")
+		queryBuilder.addJoin("LEFT JOIN improv_profiles ip ON p.id = ip.profile_id")
 		queryBuilder.addFilter("p.activity_type = 'improv' AND ip.goal = $%d", req.ImprovGoal)
 	}
 
 	if req.ImprovLookingForTeam != nil {
-		queryBuilder.addJoin("LEFT JOIN improv_profiles ip ON p.profile_id = ip.profile_id")
+		queryBuilder.addJoin("LEFT JOIN improv_profiles ip ON p.id = ip.profile_id")
 		queryBuilder.addFilter("p.activity_type = 'improv' AND ip.looking_for_team = $%d", *req.ImprovLookingForTeam)
 	}
 
 	// Music-specific filters
 	if len(req.MusicGenres) > 0 {
 		// Join the music_profile_genres table
-		queryBuilder.addJoin("LEFT JOIN music_profile_genres mpg ON p.profile_id = mpg.profile_id")
+		queryBuilder.addJoin("LEFT JOIN music_profile_genres mpg ON p.id = mpg.profile_id")
 
 		// Build an IN clause for genres
 		placeholders := make([]string, len(req.MusicGenres))
@@ -100,7 +100,7 @@ func (s *SearchServiceImpl) SearchProfiles(ctx context.Context, req ProfileSearc
 
 	if len(req.MusicInstruments) > 0 {
 		// Join the music_profile_instruments table
-		queryBuilder.addJoin("LEFT JOIN music_profile_instruments mpi ON p.profile_id = mpi.profile_id")
+		queryBuilder.addJoin("LEFT JOIN music_profile_instruments mpi ON p.id = mpi.profile_id")
 
 		// Build an IN clause for instruments
 		placeholders := make([]string, len(req.MusicInstruments))
@@ -346,7 +346,7 @@ func newQueryBuilder() *queryBuilder {
 func (qb *queryBuilder) baseJoin() {
 	qb.joins = append(qb.joins, `
         FROM profiles p
-        JOIN users u ON p.user_id = u.user_id
+        JOIN users u ON p.user_id = u.id
         LEFT JOIN cities c ON u.city_id = c.city_id
     `)
 }
@@ -390,8 +390,8 @@ func (qb *queryBuilder) addPagination(limit, offset int) {
 func (qb *queryBuilder) buildQuery() string {
 	query := `
         SELECT 
-            p.profile_id, 
-            u.user_id, 
+            p.id, 
+            u.id, 
             u.full_name, 
             c.name as city, 
             u.gender, 
@@ -421,7 +421,7 @@ func (qb *queryBuilder) buildQuery() string {
 
 // Build a query to count total results
 func (qb *queryBuilder) buildCountQuery() string {
-	query := "SELECT COUNT(DISTINCT p.profile_id) "
+	query := "SELECT COUNT(DISTINCT p.id) "
 
 	// Add joins
 	query += strings.Join(qb.joins, " ")

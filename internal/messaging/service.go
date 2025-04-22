@@ -292,12 +292,20 @@ func (s *ServiceImpl) StoreTypingIndicator(userID int, chatID string) error {
 
 // StoreReadReceipt records that a user has read messages up to a certain point
 func (s *ServiceImpl) StoreReadReceipt(userID int, chatID string, messageID string) error {
-	_, err := s.db.Exec(`
-        INSERT INTO message_read_receipts (user_id, chat_id, last_read_message_id, read_at)
+	// First, get the sequence number for the message
+	var seq int64
+	err := s.db.QueryRow("SELECT seq FROM messages WHERE id = $1", messageID).Scan(&seq)
+	if err != nil {
+		return err
+	}
+
+	// Now update the read receipt with the sequence number
+	_, err = s.db.Exec(`
+        INSERT INTO message_read_receipts (user_id, chat_id, last_read_seq, read_at)
         VALUES ($1, $2, $3, NOW())
         ON CONFLICT (user_id, chat_id) DO UPDATE 
-        SET last_read_message_id = $3, read_at = NOW()
-    `, userID, chatID, messageID)
+        SET last_read_seq = $3, read_at = NOW()
+    `, userID, chatID, seq)
 	return err
 }
 

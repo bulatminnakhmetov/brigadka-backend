@@ -50,7 +50,7 @@ func TestLogin(t *testing.T) {
 
 		// Создаем тестового пользователя
 		user := &User{
-			UserID:       1,
+			ID:           1,
 			Email:        "test@example.com",
 			PasswordHash: string(hashedPassword),
 			FullName:     "Test User",
@@ -86,7 +86,7 @@ func TestLogin(t *testing.T) {
 		assert.NotEmpty(t, response.Token)
 
 		// Проверяем пользователя в ответе
-		assert.Equal(t, user.UserID, response.User.UserID)
+		assert.Equal(t, user.ID, response.User.ID)
 		assert.Equal(t, user.Email, response.User.Email)
 		assert.Equal(t, user.FullName, response.User.FullName)
 		assert.Empty(t, response.User.PasswordHash) // Пароль не должен быть в ответе
@@ -138,7 +138,7 @@ func TestLogin(t *testing.T) {
 		hashedPassword, _ := bcrypt.GenerateFromPassword([]byte(correctPassword), bcrypt.DefaultCost)
 
 		user := &User{
-			UserID:       1,
+			ID:           1,
 			Email:        "test@example.com",
 			PasswordHash: string(hashedPassword),
 			FullName:     "Test User",
@@ -184,7 +184,7 @@ func TestRegister(t *testing.T) {
 		// При создании пользователя в репозитории будет установлен ID
 		mockRepo.On("CreateUser", mock.Anything).Run(func(args mock.Arguments) {
 			user := args.Get(0).(*User)
-			user.UserID = 1 // Симулируем установку ID после создания
+			user.ID = 1 // Симулируем установку ID после создания
 		}).Return(nil).Once()
 
 		body, _ := json.Marshal(registerReq)
@@ -202,7 +202,7 @@ func TestRegister(t *testing.T) {
 		assert.NoError(t, err)
 
 		assert.NotEmpty(t, response.Token)
-		assert.Equal(t, 1, response.User.UserID)
+		assert.Equal(t, 1, response.User.ID)
 		assert.Equal(t, registerReq.Email, response.User.Email)
 		assert.Equal(t, registerReq.FullName, response.User.FullName)
 		assert.Empty(t, response.User.PasswordHash) // Пароль не должен быть в ответе
@@ -224,7 +224,7 @@ func TestRegister(t *testing.T) {
 
 	t.Run("Email already exists", func(t *testing.T) {
 		existingUser := &User{
-			UserID:   1,
+			ID:       1,
 			Email:    "existing@example.com",
 			FullName: "Existing User",
 		}
@@ -440,8 +440,8 @@ func TestGenerateToken(t *testing.T) {
 	handler := NewAuthHandler(mockRepo, jwtSecret)
 
 	user := &User{
-		UserID: 1,
-		Email:  "test@example.com",
+		ID:    1,
+		Email: "test@example.com",
 	}
 
 	// Вызываем приватный метод через reflection или временно сделав его публичным
@@ -457,7 +457,7 @@ func TestGenerateToken(t *testing.T) {
 	})
 
 	assert.NoError(t, err)
-	assert.Equal(t, float64(user.UserID), claims["user_id"])
+	assert.Equal(t, float64(user.ID), claims["user_id"])
 	assert.Equal(t, user.Email, claims["email"])
 	assert.NotEmpty(t, claims["exp"])
 }

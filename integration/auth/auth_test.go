@@ -1,4 +1,4 @@
-package integration
+package auth
 
 import (
 	"bytes"
@@ -159,7 +159,7 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 	assert.NoError(t, err)
 	protectedResult := string(protectedBodyBytes)
 
-	assert.Equal(t, fmt.Sprintf("Protected resource. User ID: %d, Email: %s", loginResult.User.UserID, loginResult.User.Email), protectedResult)
+	assert.Equal(t, fmt.Sprintf("Protected resource. User ID: %d, Email: %s", loginResult.User.ID, loginResult.User.Email), protectedResult)
 }
 
 // TestRegisterWithExistingEmail проверяет обработку ошибки при регистрации с существующим email

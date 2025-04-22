@@ -27,14 +27,42 @@ run-unit-tests:
 	# Запуск юнит-тестов
 	go test ./internal/...
 
+# --- Тесты ---
 run-integration-tests: generate-local-ca
 	cp .env.example .env
 	# Запуск интеграционных тестов в Docker
-	@docker compose --profile test up --build --force-recreate --remove-orphans -d || { \
-		echo "❌ Ошибка во время запуска тестов"; exit 1; } ; \
-	docker compose logs -f tests & \
-	docker compose wait tests; \
-	docker compose --profile test down -v --remove-orphans
+ifdef DEBUG-ENV
+	# Запуск с выводом логов в консоль
+	@( \
+		cleanup() { \
+			echo "🧹 Очистка тестового окружения..."; \
+			docker compose --profile test down -v --remove-orphans; \
+		}; \
+		trap cleanup EXIT INT TERM; \
+		echo "🔍 Запуск в режиме отладки (Ctrl+C для остановки)"; \
+		docker compose --profile test up --build --force-recreate --remove-orphans; \
+	)
+else
+	# Запуск в фоновом режиме с отслеживанием логов тестов
+	@( \
+		cleanup() { \
+			echo "🧹 Очистка тестового окружения..."; \
+			docker compose --profile test down -v --remove-orphans; \
+		}; \
+		trap cleanup EXIT INT TERM; \
+		docker compose --profile test up --build --force-recreate --remove-orphans -d || { \
+			echo "❌ Ошибка во время запуска тестового окружения"; \
+			echo "Чтобы посмотреть логи, запустите make run-integration-tests DEBUG-ENV=1"; \
+			exit 1; \
+		}; \
+		docker compose logs -f tests & \
+		TEST_LOGS_PID=$$!; \
+		docker compose wait tests; \
+		TEST_EXIT_CODE=$$?; \
+		kill $$TEST_LOGS_PID 2>/dev/null || true; \
+		exit $$TEST_EXIT_CODE; \
+	)
+endif
 
 # --- Миграции базы данных ---
 migrate-up:

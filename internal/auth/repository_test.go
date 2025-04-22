@@ -23,7 +23,7 @@ func TestGetUserByEmail(t *testing.T) {
 		// Тестовые данные
 		email := "test@example.com"
 		expectedUser := &User{
-			UserID:       1,
+			ID:           1,
 			Email:        email,
 			PasswordHash: "hashed_password",
 			FullName:     "Test User",
@@ -34,9 +34,9 @@ func TestGetUserByEmail(t *testing.T) {
 
 		// Настраиваем mock
 		rows := sqlmock.NewRows([]string{"user_id", "email", "password_hash", "full_name", "gender", "age", "city_id"}).
-			AddRow(expectedUser.UserID, expectedUser.Email, expectedUser.PasswordHash, expectedUser.FullName, expectedUser.Gender, expectedUser.Age, expectedUser.CityID)
+			AddRow(expectedUser.ID, expectedUser.Email, expectedUser.PasswordHash, expectedUser.FullName, expectedUser.Gender, expectedUser.Age, expectedUser.CityID)
 
-		mock.ExpectQuery("SELECT user_id, email, password_hash, full_name, gender, age, city_id FROM users WHERE email = \\$1").
+		mock.ExpectQuery("SELECT id, email, password_hash, full_name, gender, age, city_id FROM users WHERE email = \\$1").
 			WithArgs(email).
 			WillReturnRows(rows)
 
@@ -46,7 +46,7 @@ func TestGetUserByEmail(t *testing.T) {
 		// Проверяем результаты
 		assert.NoError(t, err)
 		assert.NotNil(t, user)
-		assert.Equal(t, expectedUser.UserID, user.UserID)
+		assert.Equal(t, expectedUser.ID, user.ID)
 		assert.Equal(t, expectedUser.Email, user.Email)
 		assert.Equal(t, expectedUser.PasswordHash, user.PasswordHash)
 		assert.Equal(t, expectedUser.FullName, user.FullName)
@@ -61,7 +61,7 @@ func TestGetUserByEmail(t *testing.T) {
 	t.Run("User not found", func(t *testing.T) {
 		email := "nonexistent@example.com"
 
-		mock.ExpectQuery("SELECT user_id, email, password_hash, full_name, gender, age, city_id FROM users WHERE email = \\$1").
+		mock.ExpectQuery("SELECT id, email, password_hash, full_name, gender, age, city_id FROM users WHERE email = \\$1").
 			WithArgs(email).
 			WillReturnError(sql.ErrNoRows)
 
@@ -76,7 +76,7 @@ func TestGetUserByEmail(t *testing.T) {
 	t.Run("Database error", func(t *testing.T) {
 		email := "test@example.com"
 
-		mock.ExpectQuery("SELECT user_id, email, password_hash, full_name, gender, age, city_id FROM users WHERE email = \\$1").
+		mock.ExpectQuery("SELECT id, email, password_hash, full_name, gender, age, city_id FROM users WHERE email = \\$1").
 			WithArgs(email).
 			WillReturnError(sql.ErrConnDone)
 
@@ -112,7 +112,7 @@ func TestCreateUser(t *testing.T) {
 		}
 
 		// Настраиваем mock
-		mock.ExpectQuery("INSERT INTO users \\(email, password_hash, full_name, gender, age, city_id\\) VALUES \\(\\$1, \\$2, \\$3, \\$4, \\$5, \\$6\\) RETURNING user_id").
+		mock.ExpectQuery("INSERT INTO users \\(email, password_hash, full_name, gender, age, city_id\\) VALUES \\(\\$1, \\$2, \\$3, \\$4, \\$5, \\$6\\) RETURNING id").
 			WithArgs(user.Email, user.PasswordHash, user.FullName, user.Gender, user.Age, user.CityID).
 			WillReturnRows(sqlmock.NewRows([]string{"user_id"}).AddRow(1))
 
@@ -121,7 +121,7 @@ func TestCreateUser(t *testing.T) {
 
 		// Проверяем результаты
 		assert.NoError(t, err)
-		assert.Equal(t, 1, user.UserID) // ID должен быть установлен после создания
+		assert.Equal(t, 1, user.ID) // ID должен быть установлен после создания
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
@@ -135,7 +135,7 @@ func TestCreateUser(t *testing.T) {
 			CityID:       2,
 		}
 
-		mock.ExpectQuery("INSERT INTO users \\(email, password_hash, full_name, gender, age, city_id\\) VALUES \\(\\$1, \\$2, \\$3, \\$4, \\$5, \\$6\\) RETURNING user_id").
+		mock.ExpectQuery("INSERT INTO users \\(email, password_hash, full_name, gender, age, city_id\\) VALUES \\(\\$1, \\$2, \\$3, \\$4, \\$5, \\$6\\) RETURNING id").
 			WithArgs(user.Email, user.PasswordHash, user.FullName, user.Gender, user.Age, user.CityID).
 			WillReturnError(sql.ErrConnDone)
 

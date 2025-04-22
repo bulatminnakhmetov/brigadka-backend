@@ -19,14 +19,14 @@ func NewPostgresUserRepository(db *sql.DB) *PostgresUserRepository {
 // GetUserByEmail получает пользователя по email
 func (r *PostgresUserRepository) GetUserByEmail(email string) (*User, error) {
 	query := `
-        SELECT user_id, email, password_hash, full_name, gender, age, city_id 
+        SELECT id, email, password_hash, full_name, gender, age, city_id 
         FROM users 
         WHERE email = $1
     `
 
 	var user User
 	err := r.db.QueryRow(query, email).Scan(
-		&user.UserID,
+		&user.ID,
 		&user.Email,
 		&user.PasswordHash,
 		&user.FullName,
@@ -50,7 +50,7 @@ func (r *PostgresUserRepository) CreateUser(user *User) error {
 	query := `
         INSERT INTO users (email, password_hash, full_name, gender, age, city_id)
         VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING user_id
+        RETURNING id
     `
 
 	err := r.db.QueryRow(
@@ -61,7 +61,7 @@ func (r *PostgresUserRepository) CreateUser(user *User) error {
 		user.Gender,
 		user.Age,
 		user.CityID,
-	).Scan(&user.UserID)
+	).Scan(&user.ID)
 
 	if err != nil {
 		return err

@@ -11,7 +11,7 @@ INSERT INTO activity_type_catalog (activity_type, description) VALUES
 
 -- Базовая таблица профилей
 CREATE TABLE profiles (
-    profile_id SERIAL PRIMARY KEY,
+    id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(id) ON DELETE CASCADE,
     description TEXT,
     activity_type VARCHAR(50) REFERENCES activity_type_catalog(activity_type),
@@ -76,14 +76,14 @@ INSERT INTO improv_goals_translation (goal_code, lang, label, description) VALUE
 
 -- Таблица профиля для импровизации
 CREATE TABLE improv_profiles (
-    profile_id INT PRIMARY KEY REFERENCES profiles(profile_id) ON DELETE CASCADE,
+    profile_id INT PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,
     goal VARCHAR(50) REFERENCES improv_goals_catalog(goal_code),
     looking_for_team BOOLEAN DEFAULT FALSE -- Флаг "Ищу команду" перемещен сюда
 );
 
 -- Таблица соответствий профилей и стилей импровизации
 CREATE TABLE improv_profile_styles (
-    profile_id INT REFERENCES profiles(profile_id) ON DELETE CASCADE,
+    profile_id INT REFERENCES profiles(id) ON DELETE CASCADE,
     style VARCHAR(50) REFERENCES improv_style_catalog(style_code) ON DELETE CASCADE,
     PRIMARY KEY (profile_id, style)
 );
@@ -190,14 +190,14 @@ INSERT INTO music_genre_translation (genre_code, lang, label) VALUES
 
 -- Таблица соответствий профилей и жанров
 CREATE TABLE music_profile_genres (
-    profile_id INT REFERENCES profiles(profile_id) ON DELETE CASCADE,
+    profile_id INT REFERENCES profiles(id) ON DELETE CASCADE,
     genre_code VARCHAR(100) REFERENCES music_genre_catalog(genre_code) ON DELETE CASCADE,
     PRIMARY KEY (profile_id, genre_code)
 );
 
 -- Таблица соответствий профилей и инструментов
 CREATE TABLE music_profile_instruments (
-    profile_id INT REFERENCES profiles(profile_id) ON DELETE CASCADE,
+    profile_id INT REFERENCES profiles(id) ON DELETE CASCADE,
     instrument_code VARCHAR(100) REFERENCES music_instrument_catalog(instrument_code) ON DELETE CASCADE,
     PRIMARY KEY (profile_id, instrument_code)
 );

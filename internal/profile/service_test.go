@@ -56,7 +56,7 @@ func TestCreateImprovProfile(t *testing.T) {
 		// Ожидаем запрос на создание базового профиля
 		mock.ExpectQuery("INSERT INTO profiles").
 			WithArgs(userID, description, ActivityTypeImprov).
-			WillReturnRows(sqlmock.NewRows([]string{"profile_id", "created_at"}).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).
 				AddRow(1, now))
 
 		// Ожидаем запрос на создание профиля импровизации
@@ -327,7 +327,7 @@ func TestCreateMusicProfile(t *testing.T) {
 		// Ожидаем запрос на создание базового профиля
 		mock.ExpectQuery("INSERT INTO profiles").
 			WithArgs(userID, description, ActivityTypeMusic).
-			WillReturnRows(sqlmock.NewRows([]string{"profile_id", "created_at"}).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).
 				AddRow(1, now))
 
 		// Ожидаем запросы на добавление жанров
@@ -551,9 +551,9 @@ func TestGetProfile(t *testing.T) {
 		lookingForTeam := true
 
 		// Ожидаем запрос на получение базового профиля
-		mock.ExpectQuery("SELECT profile_id, user_id, description, activity_type, created_at").
+		mock.ExpectQuery("SELECT id, user_id, description, activity_type, created_at").
 			WithArgs(profileID).
-			WillReturnRows(sqlmock.NewRows([]string{"profile_id", "user_id", "description", "activity_type", "created_at"}).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "description", "activity_type", "created_at"}).
 				AddRow(profileID, userID, description, activityType, now))
 
 		// Expect query to get improv goal and looking_for_team flag
@@ -601,9 +601,9 @@ func TestGetProfile(t *testing.T) {
 		instruments := []string{"guitar", "piano"}
 
 		// Ожидаем запрос на получение базового профиля
-		mock.ExpectQuery("SELECT profile_id, user_id, description, activity_type, created_at").
+		mock.ExpectQuery("SELECT id, user_id, description, activity_type, created_at").
 			WithArgs(profileID).
-			WillReturnRows(sqlmock.NewRows([]string{"profile_id", "user_id", "description", "activity_type", "created_at"}).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "description", "activity_type", "created_at"}).
 				AddRow(profileID, userID, description, activityType, now))
 
 		// Ожидаем запрос на получение жанров музыки
@@ -646,7 +646,7 @@ func TestGetProfile(t *testing.T) {
 		profileID := 999
 
 		// Ожидаем запрос на получение базового профиля с ошибкой
-		mock.ExpectQuery("SELECT profile_id, user_id, description, activity_type, created_at").
+		mock.ExpectQuery("SELECT id, user_id, description, activity_type, created_at").
 			WithArgs(profileID).
 			WillReturnError(sql.ErrNoRows)
 
