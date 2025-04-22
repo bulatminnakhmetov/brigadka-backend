@@ -101,7 +101,7 @@ prepare-debug-env: generate-local-ca
 		DOCKER_HOST_IP=$$(colima status --json 2>/dev/null | jq -r ".ip_address" || echo ""); \
 		if [ -z "$$DOCKER_HOST_IP" ] || [ "$$DOCKER_HOST_IP" = "null" ]; then \
 			echo "Colima не найден, используем localhost для Docker Desktop"; \
-			DOCKER_HOST_IP=localhost; \
+			DOCKER_HOST_IP=127.0.0.1; \
 		else \
 			echo "Colima IP: $$DOCKER_HOST_IP"; \
 		fi; \
@@ -146,7 +146,7 @@ generate-local-ca:
 		DOCKER_HOST_IP=$$(colima status --json 2>/dev/null | jq -r '.ip_address' || echo ""); \
 		if [ -z "$$DOCKER_HOST_IP" ] || [ "$$DOCKER_HOST_IP" = "null" ]; then \
 			echo "Colima не найден, используем localhost для Docker Desktop"; \
-			DOCKER_HOST_IP=localhost; \
+			DOCKER_HOST_IP=127.0.0.1; \
 		else \
 			echo "Colima IP: $$DOCKER_HOST_IP"; \
 		fi; \
