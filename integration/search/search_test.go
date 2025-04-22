@@ -235,124 +235,124 @@ func (s *SearchIntegrationTestSuite) createMusicProfile(userID int, token, descr
 func (s *SearchIntegrationTestSuite) TestSearchProfilesPOST() {
 	t := s.T()
 
-	// t.Run("Basic search", func(t *testing.T) {
-	// 	// Make a basic search request
-	// 	reqBody := search.ProfileSearchRequest{
-	// 		Limit: 10,
-	// 	}
-	// 	body, err := json.Marshal(reqBody)
-	// 	assert.NoError(t, err)
+	t.Run("Basic search", func(t *testing.T) {
+		// Make a basic search request
+		reqBody := search.ProfileSearchRequest{
+			Limit: 10,
+		}
+		body, err := json.Marshal(reqBody)
+		assert.NoError(t, err)
 
-	// 	// Create request with authentication
-	// 	req, err := http.NewRequest("POST", s.appUrl+"/api/search/profiles", bytes.NewBuffer(body))
-	// 	assert.NoError(t, err)
-	// 	req.Header.Set("Content-Type", "application/json")
-	// 	req.Header.Set("Authorization", "Bearer "+s.testUsers["improv_user"].Token)
+		// Create request with authentication
+		req, err := http.NewRequest("POST", s.appUrl+"/api/search/profiles", bytes.NewBuffer(body))
+		assert.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+s.testUsers["improv_user"].Token)
 
-	// 	client := &http.Client{}
-	// 	resp, err := client.Do(req)
-	// 	assert.NoError(t, err)
-	// 	defer resp.Body.Close()
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		assert.NoError(t, err)
+		defer resp.Body.Close()
 
-	// 	// Check response status
-	// 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+		// Check response status
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// 	// Parse response
-	// 	var result search.ProfileSearchResponse
-	// 	err = json.NewDecoder(resp.Body).Decode(&result)
-	// 	assert.NoError(t, err)
+		// Parse response
+		var result search.ProfileSearchResponse
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		assert.NoError(t, err)
 
-	// 	// Verify we have results (should include our test users)
-	// 	assert.GreaterOrEqual(t, result.TotalCount, 3, "Should find at least our 3 test users")
-	// 	assert.Greater(t, len(result.Results), 0, "Should have at least one result")
+		// Verify we have results (should include our test users)
+		assert.GreaterOrEqual(t, result.TotalCount, 3, "Should find at least our 3 test users")
+		assert.Greater(t, len(result.Results), 0, "Should have at least one result")
 
-	// 	// Check pagination values
-	// 	assert.GreaterOrEqual(t, result.TotalPages, 1)
-	// 	assert.Equal(t, 1, result.CurrentPage)
-	// 	assert.Equal(t, 10, result.PageSize)
-	// })
+		// Check pagination values
+		assert.GreaterOrEqual(t, result.TotalPages, 1)
+		assert.Equal(t, 1, result.CurrentPage)
+		assert.Equal(t, 10, result.PageSize)
+	})
 
-	// t.Run("Filtered search by activity type", func(t *testing.T) {
-	// 	// Search for improv profiles
-	// 	reqBody := search.ProfileSearchRequest{
-	// 		ActivityType: profile.ActivityTypeImprov,
-	// 		Limit:        10,
-	// 	}
-	// 	body, err := json.Marshal(reqBody)
-	// 	assert.NoError(t, err)
+	t.Run("Filtered search by activity type", func(t *testing.T) {
+		// Search for improv profiles
+		reqBody := search.ProfileSearchRequest{
+			ActivityType: profile.ActivityTypeImprov,
+			Limit:        10,
+		}
+		body, err := json.Marshal(reqBody)
+		assert.NoError(t, err)
 
-	// 	// Create request with authentication
-	// 	req, err := http.NewRequest("POST", s.appUrl+"/api/search/profiles", bytes.NewBuffer(body))
-	// 	assert.NoError(t, err)
-	// 	req.Header.Set("Content-Type", "application/json")
-	// 	req.Header.Set("Authorization", "Bearer "+s.testUsers["improv_user"].Token)
+		// Create request with authentication
+		req, err := http.NewRequest("POST", s.appUrl+"/api/search/profiles", bytes.NewBuffer(body))
+		assert.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+s.testUsers["improv_user"].Token)
 
-	// 	client := &http.Client{}
-	// 	resp, err := client.Do(req)
-	// 	assert.NoError(t, err)
-	// 	defer resp.Body.Close()
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		assert.NoError(t, err)
+		defer resp.Body.Close()
 
-	// 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// 	var result search.ProfileSearchResponse
-	// 	err = json.NewDecoder(resp.Body).Decode(&result)
-	// 	assert.NoError(t, err)
+		var result search.ProfileSearchResponse
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		assert.NoError(t, err)
 
-	// 	// Verify all results are improv profiles
-	// 	for _, item := range result.Results {
-	// 		assert.Equal(t, profile.ActivityTypeImprov, item.ActivityType)
-	// 	}
+		// Verify all results are improv profiles
+		for _, item := range result.Results {
+			assert.Equal(t, profile.ActivityTypeImprov, item.ActivityType)
+		}
 
-	// 	// Verify our test user is among results
-	// 	found := false
-	// 	for _, res := range result.Results {
-	// 		if res.ProfileID == s.testUsers["improv_user"].ProfileID {
-	// 			found = true
-	// 			break
-	// 		}
-	// 	}
-	// 	assert.True(t, found, "Improv test user should be found in results")
-	// })
+		// Verify our test user is among results
+		found := false
+		for _, res := range result.Results {
+			if res.ProfileID == s.testUsers["improv_user"].ProfileID {
+				found = true
+				break
+			}
+		}
+		assert.True(t, found, "Improv test user should be found in results")
+	})
 
-	// t.Run("Filtered search by name", func(t *testing.T) {
-	// 	// Use a user we created with a specific name
-	// 	user := s.testUsers["filtered_user"]
+	t.Run("Filtered search by name", func(t *testing.T) {
+		// Use a user we created with a specific name
+		user := s.testUsers["filtered_user"]
 
-	// 	reqBody := search.ProfileSearchRequest{
-	// 		FullName: "Smith",
-	// 		Limit:    10,
-	// 	}
-	// 	body, err := json.Marshal(reqBody)
-	// 	assert.NoError(t, err)
+		reqBody := search.ProfileSearchRequest{
+			FullName: "Smith",
+			Limit:    10,
+		}
+		body, err := json.Marshal(reqBody)
+		assert.NoError(t, err)
 
-	// 	// Create request with authentication
-	// 	req, err := http.NewRequest("POST", s.appUrl+"/api/search/profiles", bytes.NewBuffer(body))
-	// 	assert.NoError(t, err)
-	// 	req.Header.Set("Content-Type", "application/json")
-	// 	req.Header.Set("Authorization", "Bearer "+s.testUsers["filtered_user"].Token)
+		// Create request with authentication
+		req, err := http.NewRequest("POST", s.appUrl+"/api/search/profiles", bytes.NewBuffer(body))
+		assert.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+s.testUsers["filtered_user"].Token)
 
-	// 	client := &http.Client{}
-	// 	resp, err := client.Do(req)
-	// 	assert.NoError(t, err)
-	// 	defer resp.Body.Close()
+		client := &http.Client{}
+		resp, err := client.Do(req)
+		assert.NoError(t, err)
+		defer resp.Body.Close()
 
-	// 	assert.Equal(t, http.StatusOK, resp.StatusCode)
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
 
-	// 	var result search.ProfileSearchResponse
-	// 	err = json.NewDecoder(resp.Body).Decode(&result)
-	// 	assert.NoError(t, err)
+		var result search.ProfileSearchResponse
+		err = json.NewDecoder(resp.Body).Decode(&result)
+		assert.NoError(t, err)
 
-	// 	// Verify the filtered user is found
-	// 	found := false
-	// 	for _, res := range result.Results {
-	// 		if res.ProfileID == user.ProfileID {
-	// 			found = true
-	// 			assert.Contains(t, res.FullName, "Smith", "Name should contain 'Smith'")
-	// 			break
-	// 		}
-	// 	}
-	// 	assert.True(t, found, "User with 'Smith' in name should be found")
-	// })
+		// Verify the filtered user is found
+		found := false
+		for _, res := range result.Results {
+			if res.ProfileID == user.ProfileID {
+				found = true
+				assert.Contains(t, res.FullName, "Smith", "Name should contain 'Smith'")
+				break
+			}
+		}
+		assert.True(t, found, "User with 'Smith' in name should be found")
+	})
 
 	t.Run("Search with improv criteria", func(t *testing.T) {
 		improvUser := s.testUsers["improv_user"]
