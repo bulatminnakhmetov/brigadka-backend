@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-type Service interface {
+type MessagingService interface {
 	GetUserChats(userID int) ([]Chat, error)
 	GetChatDetails(chatID string, userID int) (*Chat, error)
 	CreateChat(ctx context.Context, chatID string, creatorID int, chatName string, participants []int) error
@@ -22,6 +22,8 @@ type Service interface {
 	GetChatMessages(chatID string, userID int, limit, offset int) ([]ChatMessage, error)
 	StoreTypingIndicator(userID int, chatID string) error
 	StoreReadReceipt(userID int, chatID string, messageID string) error
+	GetUserChatRooms(userID int) (map[string]struct{}, error)
+	GetChatParticipantsForBroadcast(chatID string) ([]int, error)
 }
 
 // ServiceImpl encapsulates database operations for messaging
@@ -297,4 +299,29 @@ func (s *ServiceImpl) StoreReadReceipt(userID int, chatID string, messageID stri
         SET last_read_message_id = $3, read_at = NOW()
     `, userID, chatID, messageID)
 	return err
+}
+
+// GetUserChatRooms retrieves all chat IDs a user is part of
+func (s *ServiceImpl) GetUserChatRooms(userID int) (map[string]struct{}, error) {
+	rows, err := s.db.Query("SELECT chat_id FROM chat_participants WHERE user_id = $1", userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	chatRooms := make(map[string]struct{})
+	for rows.Next() {
+		var chatID string
+		if err := rows.Scan(&chatID); err != nil {
+			return nil, err
+		}
+		chatRooms[chatID] = struct{}{}
+	}
+
+	return chatRooms, nil
+}
+
+// GetChatParticipantsForBroadcast retrieves all participants of a chat for broadcasting
+func (s *ServiceImpl) GetChatParticipantsForBroadcast(chatID string) ([]int, error) {
+	return s.GetChatParticipants(chatID)
 }

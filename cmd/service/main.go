@@ -145,8 +145,9 @@ func main() {
 	searchService := search.NewSearchService(db)
 	searchHandler := search.NewSearchHandler(searchService)
 
-	// Инициализация хендлера сообщений
-	messagingHandler := messaging.NewHandler(db)
+	// Инициализация сервиса и хендлера сообщений
+	messagingService := messaging.NewService(db)
+	messagingHandler := messaging.NewHandler(messagingService)
 
 	// Создание роутера
 	r := chi.NewRouter()
@@ -208,43 +209,56 @@ func main() {
 	r.Group(func(r chi.Router) {
 		r.Use(authHandler.AuthMiddleware)
 
-		r.Get("/api/protected", func(w http.ResponseWriter, r *http.Request) {
-			userID := r.Context().Value("user_id").(int)
-			email := r.Context().Value("email").(string)
-			w.Write([]byte(fmt.Sprintf("Protected resource. User ID: %d, Email: %s", userID, email)))
-		})
-
-		// Маршруты для работы с профилями (требуют аутентификации)
-		r.Route("/api/profiles", func(r chi.Router) {
-			r.Post("/", profileHandler.CreateProfile)
-			r.Get("/{id}", profileHandler.GetProfile)
-
-			// Регистрация обработчиков для справочников
-			r.Route("/catalog", func(r chi.Router) {
-				r.Get("/activity-types", profileHandler.GetActivityTypes)
-				r.Get("/improv-styles", profileHandler.GetImprovStyles)
-				r.Get("/improv-goals", profileHandler.GetImprovGoals)
-				r.Get("/music-genres", profileHandler.GetMusicGenres)
-				r.Get("/music-instruments", profileHandler.GetMusicInstruments)
+		r.Route("/api", func(r chi.Router) {
+			r.Get("/protected", func(w http.ResponseWriter, r *http.Request) {
+				userID := r.Context().Value("user_id").(int)
+				email := r.Context().Value("email").(string)
+				w.Write([]byte(fmt.Sprintf("Protected resource. User ID: %d, Email: %s", userID, email)))
 			})
 
-			// Новый маршрут для получения медиа профиля
-			r.Get("/{id}/media", mediaHandler.GetMediaByProfile)
-		})
+			// Маршруты для работы с профилями (требуют аутентификации)
+			r.Route("/profiles", func(r chi.Router) {
+				r.Post("/", profileHandler.CreateProfile)
+				r.Get("/{id}", profileHandler.GetProfile)
 
-		// Маршруты для работы с поиском (требуют аутентификации)
-		r.Route("/api/search", func(r chi.Router) {
-			r.Get("/profiles", searchHandler.SearchProfilesGet)
-			r.Post("/profiles", searchHandler.SearchProfiles)
-		})
+				// Регистрация обработчиков для справочников
+				r.Route("/catalog", func(r chi.Router) {
+					r.Get("/activity-types", profileHandler.GetActivityTypes)
+					r.Get("/improv-styles", profileHandler.GetImprovStyles)
+					r.Get("/improv-goals", profileHandler.GetImprovGoals)
+					r.Get("/music-genres", profileHandler.GetMusicGenres)
+					r.Get("/music-instruments", profileHandler.GetMusicInstruments)
+				})
 
-		// Маршруты для работы с медиа (требуют аутентификации)
-		r.Route("/api/media", func(r chi.Router) {
-			r.Post("/upload", mediaHandler.UploadMedia)
-			r.Get("/{id}", mediaHandler.GetMedia)
-			r.Delete("/{id}", mediaHandler.DeleteMedia)
-		})
+				// Новый маршрут для получения медиа профиля
+				r.Get("/{id}/media", mediaHandler.GetMediaByProfile)
+			})
 
+			// Маршруты для работы с поиском (требуют аутентификации)
+			r.Route("/search", func(r chi.Router) {
+				r.Get("/profiles", searchHandler.SearchProfilesGet)
+				r.Post("/profiles", searchHandler.SearchProfiles)
+			})
+
+			// Маршруты для работы с медиа (требуют аутентификации)
+			r.Route("/media", func(r chi.Router) {
+				r.Post("/upload", mediaHandler.UploadMedia)
+				r.Get("/{id}", mediaHandler.GetMedia)
+				r.Delete("/{id}", mediaHandler.DeleteMedia)
+			})
+
+			// Маршруты для работы с сообщениями (требуют аутентификации)
+			r.Post("/chats", messagingHandler.CreateChat)
+			r.Get("/chats", messagingHandler.GetUserChats)
+			r.Get("/chats/{chatID}", messagingHandler.GetChatDetails)
+			r.Get("/chats/{chatID}/messages", messagingHandler.GetChatMessages)
+			r.Post("/chats/{chatID}/messages", messagingHandler.SendMessage)
+			r.Post("/chats/{chatID}/participants", messagingHandler.AddParticipant)
+			r.Delete("/chats/{chatID}/participants/{userID}", messagingHandler.RemoveParticipant)
+			r.Post("/messages/{messageID}/reactions", messagingHandler.AddReaction)
+			r.Delete("/messages/{messageID}/reactions/{reactionCode}", messagingHandler.RemoveReaction)
+			r.HandleFunc("/ws/chat", messagingHandler.HandleWebSocket)
+		})
 	})
 
 	// Запуск сервера с корректной обработкой graceful shutdown

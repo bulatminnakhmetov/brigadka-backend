@@ -1,7 +1,6 @@
 package messaging
 
 import (
-	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -14,22 +13,27 @@ import (
 )
 
 type Handler struct {
-	db           *sql.DB
-	service      *ServiceImpl
+	service      MessagingService
 	upgrader     websocket.Upgrader
 	clients      map[int]*Client // Map of userID to client connection
 	clientsMutex sync.RWMutex
 }
 
+// WSConn is an interface for websocket.Conn to allow mocking in tests.
+type WSConn interface {
+	ReadMessage() (messageType int, p []byte, err error)
+	WriteMessage(messageType int, data []byte) error
+	Close() error
+}
+
 type Client struct {
-	conn      *websocket.Conn
+	conn      WSConn
 	userID    int
 	chatRooms map[string]struct{} // Set of chatIDs the client is in
 }
 
-func NewHandler(service Service) *Handler {
+func NewHandler(service MessagingService) *Handler {
 	return &Handler{
-		db:      db,
 		service: service,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
@@ -40,19 +44,6 @@ func NewHandler(service Service) *Handler {
 		},
 		clients: make(map[int]*Client),
 	}
-}
-
-// RegisterRoutes registers all chat-related routes
-func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Post("/chats", h.CreateChat)
-	r.Get("/chats", h.GetUserChats)
-	r.Get("/chats/{chatID}", h.GetChatDetails)
-	r.Get("/chats/{chatID}/messages", h.GetChatMessages)
-	r.Post("/chats/{chatID}/messages", h.SendMessage)
-	r.Post("/chats/{chatID}/participants", h.AddParticipant)
-	r.Delete("/chats/{chatID}/participants/{userID}", h.RemoveParticipant)
-	r.Post("/messages/{messageID}/reactions", h.AddReaction)
-	r.Delete("/messages/{messageID}/reactions/{reactionCode}", h.RemoveReaction)
 }
 
 // Message types for WebSocket communication
@@ -118,6 +109,10 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.handleWSConnection(conn, userID)
+}
+
+func (h *Handler) handleWSConnection(conn WSConn, userID int) {
 	// Create new client
 	client := &Client{
 		conn:      conn,
@@ -131,19 +126,11 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	h.clientsMutex.Unlock()
 
 	// Get user's chats and add them to chatRooms
-	rows, err := h.db.Query("SELECT chat_id FROM chat_participants WHERE user_id = $1", userID)
+	chatRooms, err := h.service.GetUserChatRooms(userID)
 	if err != nil {
 		log.Printf("Error fetching user chats: %v", err)
 	} else {
-		defer rows.Close()
-		for rows.Next() {
-			var chatID string
-			if err := rows.Scan(&chatID); err != nil {
-				log.Printf("Error scanning chat ID: %v", err)
-				continue
-			}
-			client.chatRooms[chatID] = struct{}{}
-		}
+		client.chatRooms = chatRooms
 	}
 
 	// Handle WebSocket connection
@@ -254,21 +241,10 @@ func (h *Handler) handleChatMessage(client *Client, msg WSMessage) {
 // broadcastToChat sends a message to all clients in a chat
 func (h *Handler) broadcastToChat(chatID string, message []byte) {
 	// Get all participants in the chat
-	rows, err := h.db.Query("SELECT user_id FROM chat_participants WHERE chat_id = $1", chatID)
+	participants, err := h.service.GetChatParticipantsForBroadcast(chatID)
 	if err != nil {
 		log.Printf("Error fetching chat participants: %v", err)
 		return
-	}
-	defer rows.Close()
-
-	var participants []int
-	for rows.Next() {
-		var userID int
-		if err := rows.Scan(&userID); err != nil {
-			log.Printf("Error scanning participant ID: %v", err)
-			continue
-		}
-		participants = append(participants, userID)
 	}
 
 	// Send message to all online participants
@@ -339,32 +315,12 @@ func (h *Handler) GetUserChats(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get user's chats
-	rows, err := h.db.Query(`
-        SELECT c.id, c.chat_name, c.created_at,
-               (SELECT COUNT(*) > 2 FROM chat_participants WHERE chat_id = c.id) AS is_group
-        FROM chats c
-        JOIN chat_participants cp ON c.id = cp.chat_id
-        WHERE cp.user_id = $1
-        ORDER BY c.created_at DESC
-    `, userID)
+	// Get user's chats using the service
+	chats, err := h.service.GetUserChats(userID)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error fetching chats: %v", err)
 		return
-	}
-	defer rows.Close()
-
-	// Parse results
-	var chats []Chat
-	for rows.Next() {
-		var chat Chat
-		if err := rows.Scan(&chat.ChatID, &chat.ChatName, &chat.CreatedAt, &chat.IsGroup); err != nil {
-			http.Error(w, "Server error", http.StatusInternalServerError)
-			log.Printf("Error scanning chat: %v", err)
-			return
-		}
-		chats = append(chats, chat)
 	}
 
 	// Return chats
@@ -384,49 +340,16 @@ func (h *Handler) GetChatDetails(w http.ResponseWriter, r *http.Request) {
 	// Get chat ID from URL
 	chatID := chi.URLParam(r, "chatID")
 
-	// Check if user is a participant in the chat
-	var count int
-	err := h.db.QueryRow("SELECT COUNT(*) FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID).Scan(&count)
+	// Get chat details from the service
+	chat, err := h.service.GetChatDetails(chatID, userID)
 	if err != nil {
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		log.Printf("Error checking chat participation: %v", err)
-		return
-	}
-	if count == 0 {
-		http.Error(w, "Chat not found", http.StatusNotFound)
-		return
-	}
-
-	// Get chat details
-	var chat Chat
-	err = h.db.QueryRow(`
-        SELECT c.id, c.chat_name, c.created_at,
-               (SELECT COUNT(*) > 2 FROM chat_participants WHERE chat_id = c.id) AS is_group
-        FROM chats c WHERE c.id = $1
-    `, chatID).Scan(&chat.ChatID, &chat.ChatName, &chat.CreatedAt, &chat.IsGroup)
-	if err != nil {
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		log.Printf("Error fetching chat details: %v", err)
-		return
-	}
-
-	// Get chat participants
-	rows, err := h.db.Query("SELECT user_id FROM chat_participants WHERE chat_id = $1", chatID)
-	if err != nil {
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		log.Printf("Error fetching chat participants: %v", err)
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var participantID int
-		if err := rows.Scan(&participantID); err != nil {
+		if err.Error() == "user not in chat" {
+			http.Error(w, "Chat not found", http.StatusNotFound)
+		} else {
 			http.Error(w, "Server error", http.StatusInternalServerError)
-			log.Printf("Error scanning participant: %v", err)
-			return
+			log.Printf("Error fetching chat details: %v", err)
 		}
-		chat.Participants = append(chat.Participants, participantID)
+		return
 	}
 
 	// Return chat details
@@ -538,7 +461,8 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 
 	// Get chat ID and target user ID from URL
 	chatID := chi.URLParam(r, "chatID")
-	targetUserID, err := parseInt(vars["userID"])
+	targetUserID, err := parseInt(chi.URLParam(r, "userID"))
+
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
