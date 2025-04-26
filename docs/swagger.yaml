@@ -41,7 +41,7 @@ definitions:
         type: string
       gender:
         type: string
-      user_id:
+      id:
         type: integer
     type: object
   main.HealthResponse:
@@ -53,12 +53,81 @@ definitions:
       version:
         type: string
     type: object
+  media.Media:
+    properties:
+      id:
+        type: integer
+      profile_id:
+        type: integer
+      role:
+        type: string
+      type:
+        type: string
+      uploaded_at:
+        type: string
+      url:
+        type: string
+    type: object
+  media.MediaListResponse:
+    properties:
+      media:
+        items:
+          $ref: '#/definitions/media.Media'
+        type: array
+    type: object
+  media.MediaResponse:
+    properties:
+      media:
+        $ref: '#/definitions/media.Media'
+    type: object
   profile.CreateProfileRequest:
     properties:
       activity_type:
         type: string
       description:
         type: string
+      user_id:
+        type: integer
+    type: object
+  profile.ImprovProfile:
+    properties:
+      activity_type:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      goal:
+        type: string
+      looking_for_team:
+        type: boolean
+      profile_id:
+        type: integer
+      styles:
+        items:
+          type: string
+        type: array
+      user_id:
+        type: integer
+    type: object
+  profile.MusicProfile:
+    properties:
+      activity_type:
+        type: string
+      created_at:
+        type: string
+      description:
+        type: string
+      genres:
+        items:
+          type: string
+        type: array
+      instruments:
+        items:
+          type: string
+        type: array
+      profile_id:
+        type: integer
       user_id:
         type: integer
     type: object
@@ -70,6 +139,122 @@ definitions:
         type: string
       description:
         type: string
+      profile_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  profile.ProfileResponse:
+    properties:
+      improv_profile:
+        $ref: '#/definitions/profile.ImprovProfile'
+      music_profile:
+        $ref: '#/definitions/profile.MusicProfile'
+    type: object
+  profile.TranslatedItem:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      label:
+        type: string
+    type: object
+  search.ProfileSearchRequest:
+    properties:
+      activity_type:
+        description: Activity type (improv, music)
+        type: string
+      age_max:
+        description: Maximum age
+        type: integer
+      age_min:
+        description: Minimum age
+        type: integer
+      city_id:
+        description: City ID
+        type: integer
+      full_name:
+        description: General search parameters
+        type: string
+      gender:
+        description: Gender code
+        type: string
+      improv_goal:
+        description: Improv profile parameters
+        type: string
+      improv_looking_for_team:
+        description: Looking for team flag
+        type: boolean
+      improv_styles:
+        description: Array of style codes
+        items:
+          type: string
+        type: array
+      limit:
+        description: Pagination
+        type: integer
+      music_genres:
+        description: Music profile parameters
+        items:
+          type: string
+        type: array
+      music_instruments:
+        description: Array of instrument codes
+        items:
+          type: string
+        type: array
+      offset:
+        description: 'Default: 0'
+        type: integer
+    type: object
+  search.ProfileSearchResponse:
+    properties:
+      current_page:
+        type: integer
+      page_size:
+        type: integer
+      results:
+        items:
+          $ref: '#/definitions/search.ProfileSearchResult'
+        type: array
+      total_count:
+        type: integer
+      total_pages:
+        type: integer
+    type: object
+  search.ProfileSearchResult:
+    properties:
+      activity_type:
+        type: string
+      age:
+        type: integer
+      city:
+        type: string
+      description:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      improv_goal:
+        description: Improv-specific fields (will be null for music profiles)
+        type: string
+      improv_looking_for_team:
+        type: boolean
+      improv_styles:
+        items:
+          type: string
+        type: array
+      music_genres:
+        description: Music-specific fields (will be null for improv profiles)
+        items:
+          type: string
+        type: array
+      music_instruments:
+        items:
+          type: string
+        type: array
       profile_id:
         type: integer
       user_id:
@@ -109,6 +294,130 @@ paths:
       summary: Проверка токена
       tags:
       - auth
+  /api/media/{id}:
+    delete:
+      description: Удаляет медиа файл
+      parameters:
+      - description: ID медиа
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: No Content
+          schema:
+            type: string
+        "400":
+          description: Невалидный ID
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "404":
+          description: Медиа не найдено
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удаление медиа
+      tags:
+      - media
+    get:
+      description: Возвращает информацию о медиа по ID
+      parameters:
+      - description: ID медиа
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/media.MediaResponse'
+        "400":
+          description: Невалидный ID
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "404":
+          description: Медиа не найдено
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получение медиа по ID
+      tags:
+      - media
+  /api/media/upload:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Загружает медиа файл для профиля
+      parameters:
+      - description: ID профиля
+        in: formData
+        name: profile_id
+        required: true
+        type: integer
+      - description: Роль медиа (avatar, gallery, cover)
+        in: formData
+        name: role
+        required: true
+        type: string
+      - description: Файл для загрузки
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/media.MediaResponse'
+        "400":
+          description: Невалидные данные
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "413":
+          description: Файл слишком большой
+          schema:
+            type: string
+        "415":
+          description: Неподдерживаемый тип файла
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Загрузка медиа файла
+      tags:
+      - media
   /api/profiles:
     post:
       consumes:
@@ -145,6 +454,300 @@ paths:
       summary: Создание профиля
       tags:
       - profiles
+  /api/profiles/{id}:
+    get:
+      description: Получает профиль пользователя по ID
+      parameters:
+      - description: ID профиля
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.ProfileResponse'
+        "400":
+          description: Невалидный ID
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "404":
+          description: Профиль не найден
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получение профиля
+      tags:
+      - profiles
+  /api/profiles/{profile_id}/media:
+    get:
+      description: Возвращает список медиа файлов для профиля
+      parameters:
+      - description: ID профиля
+        in: path
+        name: profile_id
+        required: true
+        type: integer
+      - description: Роль медиа (фильтр)
+        in: query
+        name: role
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/media.MediaListResponse'
+        "400":
+          description: Невалидный ID профиля
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получение медиа для профиля
+      tags:
+      - media
+  /api/profiles/catalog/activity-types:
+    get:
+      description: Возвращает список доступных типов активности профиля
+      parameters:
+      - description: Код языка (по умолчанию 'ru')
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/profile.TranslatedItem'
+            type: array
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получение типов активности
+      tags:
+      - profiles
+  /api/profiles/catalog/improv-goals:
+    get:
+      description: Возвращает список доступных целей для занятий импровизацией
+      parameters:
+      - description: Код языка (по умолчанию 'ru')
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/profile.TranslatedItem'
+            type: array
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получение целей импровизации
+      tags:
+      - profiles
+  /api/profiles/catalog/improv-styles:
+    get:
+      description: Возвращает список доступных стилей импровизации
+      parameters:
+      - description: Код языка (по умолчанию 'ru')
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/profile.TranslatedItem'
+            type: array
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получение стилей импровизации
+      tags:
+      - profiles
+  /api/profiles/catalog/music-genres:
+    get:
+      description: Возвращает список доступных музыкальных жанров
+      parameters:
+      - description: Код языка (по умолчанию 'ru')
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/profile.TranslatedItem'
+            type: array
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получение музыкальных жанров
+      tags:
+      - profiles
+  /api/profiles/catalog/music-instruments:
+    get:
+      description: Возвращает список доступных музыкальных инструментов
+      parameters:
+      - description: Код языка (по умолчанию 'ru')
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/profile.TranslatedItem'
+            type: array
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получение музыкальных инструментов
+      tags:
+      - profiles
+  /api/search/profiles:
+    get:
+      description: Search profiles by query parameters (simplified version)
+      parameters:
+      - description: Full name to search
+        in: query
+        name: full_name
+        type: string
+      - description: City ID
+        in: query
+        name: city_id
+        type: integer
+      - description: Activity type (improv, music)
+        in: query
+        name: activity_type
+        type: string
+      - description: Looking for team
+        in: query
+        name: improv_looking_for_team
+        type: boolean
+      - description: Improv goal code
+        in: query
+        name: improv_goal
+        type: string
+      - description: Improv style code (can be used multiple times)
+        in: query
+        name: improv_style
+        type: string
+      - description: Music genre code (can be used multiple times)
+        in: query
+        name: music_genre
+        type: string
+      - description: Music instrument code (can be used multiple times)
+        in: query
+        name: music_instrument
+        type: string
+      - description: Results per page (default 20, max 100)
+        in: query
+        name: limit
+        type: integer
+      - description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/search.ProfileSearchResponse'
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Search profiles (GET version)
+      tags:
+      - search
+    post:
+      consumes:
+      - application/json
+      description: Search profiles by various criteria
+      parameters:
+      - description: Search parameters
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/search.ProfileSearchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/search.ProfileSearchResponse'
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Search profiles
+      tags:
+      - search
   /auth/login:
     post:
       consumes:

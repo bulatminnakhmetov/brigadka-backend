@@ -57,6 +57,198 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/media/upload": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Загружает медиа файл для профиля",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "Загрузка медиа файла",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID профиля",
+                        "name": "profile_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Роль медиа (avatar, gallery, cover)",
+                        "name": "role",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Файл для загрузки",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/media.MediaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидные данные",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "413": {
+                        "description": "Файл слишком большой",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "415": {
+                        "description": "Неподдерживаемый тип файла",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/media/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает информацию о медиа по ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "Получение медиа по ID",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID медиа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/media.MediaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Медиа не найдено",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Удаляет медиа файл",
+                "tags": [
+                    "media"
+                ],
+                "summary": "Удаление медиа",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID медиа",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Медиа не найдено",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/api/profiles": {
             "post": {
                 "security": [
@@ -107,6 +299,469 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/catalog/activity-types": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список доступных типов активности профиля",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Получение типов активности",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Код языка (по умолчанию 'ru')",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/profile.TranslatedItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/catalog/improv-goals": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список доступных целей для занятий импровизацией",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Получение целей импровизации",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Код языка (по умолчанию 'ru')",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/profile.TranslatedItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/catalog/improv-styles": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список доступных стилей импровизации",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Получение стилей импровизации",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Код языка (по умолчанию 'ru')",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/profile.TranslatedItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/catalog/music-genres": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список доступных музыкальных жанров",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Получение музыкальных жанров",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Код языка (по умолчанию 'ru')",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/profile.TranslatedItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/catalog/music-instruments": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список доступных музыкальных инструментов",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Получение музыкальных инструментов",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Код языка (по умолчанию 'ru')",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/profile.TranslatedItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Получает профиль пользователя по ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Получение профиля",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID профиля",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/profile.ProfileResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Профиль не найден",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/{profile_id}/media": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список медиа файлов для профиля",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "Получение медиа для профиля",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID профиля",
+                        "name": "profile_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Роль медиа (фильтр)",
+                        "name": "role",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/media.MediaListResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидный ID профиля",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/search/profiles": {
+            "get": {
+                "description": "Search profiles by query parameters (simplified version)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "search"
+                ],
+                "summary": "Search profiles (GET version)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Full name to search",
+                        "name": "full_name",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "City ID",
+                        "name": "city_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Activity type (improv, music)",
+                        "name": "activity_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Looking for team",
+                        "name": "improv_looking_for_team",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Improv goal code",
+                        "name": "improv_goal",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Improv style code (can be used multiple times)",
+                        "name": "improv_style",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Music genre code (can be used multiple times)",
+                        "name": "music_genre",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Music instrument code (can be used multiple times)",
+                        "name": "music_instrument",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Results per page (default 20, max 100)",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Offset for pagination",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/search.ProfileSearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "description": "Search profiles by various criteria",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "search"
+                ],
+                "summary": "Search profiles",
+                "parameters": [
+                    {
+                        "description": "Search parameters",
+                        "name": "request",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/search.ProfileSearchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/search.ProfileSearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "type": "string"
                         }
@@ -309,7 +964,7 @@ const docTemplate = `{
                 "gender": {
                     "type": "string"
                 },
-                "user_id": {
+                "id": {
                     "type": "integer"
                 }
             }
@@ -328,6 +983,48 @@ const docTemplate = `{
                 }
             }
         },
+        "media.Media": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "profile_id": {
+                    "type": "integer"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                },
+                "uploaded_at": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "media.MediaListResponse": {
+            "type": "object",
+            "properties": {
+                "media": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/media.Media"
+                    }
+                }
+            }
+        },
+        "media.MediaResponse": {
+            "type": "object",
+            "properties": {
+                "media": {
+                    "$ref": "#/definitions/media.Media"
+                }
+            }
+        },
         "profile.CreateProfileRequest": {
             "type": "object",
             "properties": {
@@ -336,6 +1033,70 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "profile.ImprovProfile": {
+            "type": "object",
+            "properties": {
+                "activity_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "looking_for_team": {
+                    "type": "boolean"
+                },
+                "profile_id": {
+                    "type": "integer"
+                },
+                "styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "profile.MusicProfile": {
+            "type": "object",
+            "properties": {
+                "activity_type": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "genres": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "instruments": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "profile_id": {
+                    "type": "integer"
                 },
                 "user_id": {
                     "type": "integer"
@@ -353,6 +1114,175 @@ const docTemplate = `{
                 },
                 "description": {
                     "type": "string"
+                },
+                "profile_id": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "profile.ProfileResponse": {
+            "type": "object",
+            "properties": {
+                "improv_profile": {
+                    "$ref": "#/definitions/profile.ImprovProfile"
+                },
+                "music_profile": {
+                    "$ref": "#/definitions/profile.MusicProfile"
+                }
+            }
+        },
+        "profile.TranslatedItem": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
+                }
+            }
+        },
+        "search.ProfileSearchRequest": {
+            "type": "object",
+            "properties": {
+                "activity_type": {
+                    "description": "Activity type (improv, music)",
+                    "type": "string"
+                },
+                "age_max": {
+                    "description": "Maximum age",
+                    "type": "integer"
+                },
+                "age_min": {
+                    "description": "Minimum age",
+                    "type": "integer"
+                },
+                "city_id": {
+                    "description": "City ID",
+                    "type": "integer"
+                },
+                "full_name": {
+                    "description": "General search parameters",
+                    "type": "string"
+                },
+                "gender": {
+                    "description": "Gender code",
+                    "type": "string"
+                },
+                "improv_goal": {
+                    "description": "Improv profile parameters",
+                    "type": "string"
+                },
+                "improv_looking_for_team": {
+                    "description": "Looking for team flag",
+                    "type": "boolean"
+                },
+                "improv_styles": {
+                    "description": "Array of style codes",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "limit": {
+                    "description": "Pagination",
+                    "type": "integer"
+                },
+                "music_genres": {
+                    "description": "Music profile parameters",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "music_instruments": {
+                    "description": "Array of instrument codes",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "offset": {
+                    "description": "Default: 0",
+                    "type": "integer"
+                }
+            }
+        },
+        "search.ProfileSearchResponse": {
+            "type": "object",
+            "properties": {
+                "current_page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/search.ProfileSearchResult"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
+                },
+                "total_pages": {
+                    "type": "integer"
+                }
+            }
+        },
+        "search.ProfileSearchResult": {
+            "type": "object",
+            "properties": {
+                "activity_type": {
+                    "type": "string"
+                },
+                "age": {
+                    "type": "integer"
+                },
+                "city": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "improv_goal": {
+                    "description": "Improv-specific fields (will be null for music profiles)",
+                    "type": "string"
+                },
+                "improv_looking_for_team": {
+                    "type": "boolean"
+                },
+                "improv_styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "music_genres": {
+                    "description": "Music-specific fields (will be null for improv profiles)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "music_instruments": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "profile_id": {
                     "type": "integer"
