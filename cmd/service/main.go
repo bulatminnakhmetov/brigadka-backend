@@ -203,6 +203,7 @@ func main() {
 		r.Post("/login", authHandler.Login)
 		r.Post("/register", authHandler.Register)
 		r.Get("/verify", authHandler.Verify)
+		r.Post("/refresh", authHandler.RefreshToken)
 	})
 
 	// Защищенные маршруты (требуют аутентификации)

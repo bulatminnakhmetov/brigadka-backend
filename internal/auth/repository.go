@@ -69,3 +69,32 @@ func (r *PostgresUserRepository) CreateUser(user *User) error {
 
 	return nil
 }
+
+// GetUserByID получает пользователя по ID
+func (r *PostgresUserRepository) GetUserByID(id int) (*User, error) {
+	query := `
+        SELECT id, email, password_hash, full_name, gender, age, city_id 
+        FROM users 
+        WHERE id = $1
+    `
+
+	var user User
+	err := r.db.QueryRow(query, id).Scan(
+		&user.ID,
+		&user.Email,
+		&user.PasswordHash,
+		&user.FullName,
+		&user.Gender,
+		&user.Age,
+		&user.CityID,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
+
+	return &user, nil
+}

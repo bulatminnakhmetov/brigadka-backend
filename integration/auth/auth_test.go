@@ -106,6 +106,7 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 
 	// Проверка данных пользователя в ответе
 	assert.NotEmpty(t, registerResult.Token)
+	assert.NotEmpty(t, registerResult.RefreshToken) // Проверяем наличие refresh токена
 	assert.Equal(t, email, registerResult.User.Email)
 	assert.Equal(t, "Test User", registerResult.User.FullName)
 	assert.Equal(t, "male", registerResult.User.Gender)
@@ -139,6 +140,7 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 
 	// Проверка данных пользователя в ответе
 	assert.NotEmpty(t, loginResult.Token)
+	assert.NotEmpty(t, loginResult.RefreshToken) // Проверяем наличие refresh токена
 	assert.Equal(t, email, loginResult.User.Email)
 	assert.Equal(t, "Test User", loginResult.User.FullName)
 	assert.Equal(t, "male", loginResult.User.Gender)
@@ -160,6 +162,86 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 	protectedResult := string(protectedBodyBytes)
 
 	assert.Equal(t, fmt.Sprintf("Protected resource. User ID: %d, Email: %s", loginResult.User.ID, loginResult.User.Email), protectedResult)
+}
+
+// TestRefreshToken тестирует обновление токена с использованием refresh токена
+func (s *AuthIntegrationTestSuite) TestRefreshToken() {
+	t := s.T()
+
+	// Генерируем уникальный email для этого теста
+	email := generateUniqueEmail()
+	password := "TestPassword123"
+
+	// Шаг 1: Регистрация пользователя для получения токенов
+	authResponse, err := s.registerTestUser(email, password, "Refresh Test User", "male", 30, 1)
+	assert.NoError(t, err, "Failed to register user")
+	assert.NotEmpty(t, authResponse.RefreshToken, "Refresh token should not be empty")
+
+	// Шаг 2: Используем refresh токен для получения новых токенов
+	refreshData := auth.RefreshRequest{
+		RefreshToken: authResponse.RefreshToken,
+	}
+
+	refreshJSON, _ := json.Marshal(refreshData)
+	refreshReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/refresh", bytes.NewBuffer(refreshJSON))
+	refreshReq.Header.Set("Content-Type", "application/json")
+
+	// Задержка, потому что иначе refresh токен будет такой же
+	time.Sleep(1 * time.Second)
+
+	client := &http.Client{}
+	refreshResp, err := client.Do(refreshReq)
+	assert.NoError(t, err)
+	defer refreshResp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, refreshResp.StatusCode)
+
+	var refreshResult auth.AuthResponse
+	err = json.NewDecoder(refreshResp.Body).Decode(&refreshResult)
+	assert.NoError(t, err)
+
+	// Проверка результата обновления токена
+	assert.NotEmpty(t, refreshResult.Token)
+	assert.NotEmpty(t, refreshResult.RefreshToken)
+	assert.NotEqual(t, authResponse.Token, refreshResult.Token, "New access token should be different")
+	assert.NotEqual(t, authResponse.RefreshToken, refreshResult.RefreshToken, "New refresh token should be different")
+
+	// Данные пользователя должны остаться теми же
+	assert.Equal(t, authResponse.User.ID, refreshResult.User.ID)
+	assert.Equal(t, email, refreshResult.User.Email)
+	assert.Equal(t, "Refresh Test User", refreshResult.User.FullName)
+
+	// Шаг 3: Проверяем, что новый токен действительно работает
+	protectedReq, _ := http.NewRequest("GET", s.appUrl+"/api/protected", nil)
+	protectedReq.Header.Set("Authorization", "Bearer "+refreshResult.Token)
+
+	protectedResp, err := client.Do(protectedReq)
+	assert.NoError(t, err)
+	defer protectedResp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, protectedResp.StatusCode)
+}
+
+// TestInvalidRefreshToken тестирует попытку обновления токена с невалидным refresh токеном
+func (s *AuthIntegrationTestSuite) TestInvalidRefreshToken() {
+	t := s.T()
+
+	// Тестируем с невалидным refresh токеном
+	refreshData := auth.RefreshRequest{
+		RefreshToken: "invalid-refresh-token",
+	}
+
+	refreshJSON, _ := json.Marshal(refreshData)
+	refreshReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/refresh", bytes.NewBuffer(refreshJSON))
+	refreshReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	refreshResp, err := client.Do(refreshReq)
+	assert.NoError(t, err)
+	defer refreshResp.Body.Close()
+
+	// Должен вернуть статус Unauthorized
+	assert.Equal(t, http.StatusUnauthorized, refreshResp.StatusCode)
 }
 
 // TestRegisterWithExistingEmail проверяет обработку ошибки при регистрации с существующим email

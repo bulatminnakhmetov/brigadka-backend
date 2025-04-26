@@ -2,6 +2,7 @@ package auth
 
 import (
 	"database/sql"
+	"errors"
 	"testing"
 
 	"github.com/DATA-DOG/go-sqlmock"
@@ -144,5 +145,90 @@ func TestCreateUser(t *testing.T) {
 		assert.Error(t, err)
 		assert.Equal(t, sql.ErrConnDone, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
+	})
+}
+
+func TestGetUserByID(t *testing.T) {
+	// Создаем моки для базы данных
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	repo := NewPostgresUserRepository(db)
+
+	t.Run("successful user retrieval", func(t *testing.T) {
+		// Определяем ожидаемые данные
+		expectedUser := &User{
+			ID:           1,
+			Email:        "test@example.com",
+			PasswordHash: "hashedpassword",
+			FullName:     "Test User",
+			Gender:       "male",
+			Age:          30,
+			CityID:       100,
+		}
+
+		// Настраиваем мок для имитации успешного запроса
+		rows := sqlmock.NewRows([]string{"id", "email", "password_hash", "full_name", "gender", "age", "city_id"}).
+			AddRow(expectedUser.ID, expectedUser.Email, expectedUser.PasswordHash, expectedUser.FullName, expectedUser.Gender, expectedUser.Age, expectedUser.CityID)
+
+		mock.ExpectQuery("^SELECT (.+) FROM users WHERE id = \\$1$").
+			WithArgs(1).
+			WillReturnRows(rows)
+
+		// Вызываем тестируемый метод
+		user, err := repo.GetUserByID(1)
+
+		// Проверяем результат
+		assert.NoError(t, err)
+		assert.Equal(t, expectedUser, user)
+
+		// Проверяем, что все ожидания были выполнены
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("there were unfulfilled expectations: %s", err)
+		}
+	})
+
+	t.Run("user not found", func(t *testing.T) {
+		// Настраиваем мок для имитации отсутствия пользователя
+		mock.ExpectQuery("^SELECT (.+) FROM users WHERE id = \\$1$").
+			WithArgs(999).
+			WillReturnError(sql.ErrNoRows)
+
+		// Вызываем тестируемый метод
+		user, err := repo.GetUserByID(999)
+
+		// Проверяем результат
+		assert.Error(t, err)
+		assert.Nil(t, user)
+		assert.Equal(t, "user not found", err.Error())
+
+		// Проверяем, что все ожидания были выполнены
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("there were unfulfilled expectations: %s", err)
+		}
+	})
+
+	t.Run("database error", func(t *testing.T) {
+		// Настраиваем мок для имитации ошибки базы данных
+		dbError := errors.New("database connection failed")
+		mock.ExpectQuery("^SELECT (.+) FROM users WHERE id = \\$1$").
+			WithArgs(1).
+			WillReturnError(dbError)
+
+		// Вызываем тестируемый метод
+		user, err := repo.GetUserByID(1)
+
+		// Проверяем результат
+		assert.Error(t, err)
+		assert.Nil(t, user)
+		assert.Equal(t, dbError, err)
+
+		// Проверяем, что все ожидания были выполнены
+		if err := mock.ExpectationsWereMet(); err != nil {
+			t.Errorf("there were unfulfilled expectations: %s", err)
+		}
 	})
 }
