@@ -186,9 +186,6 @@ func (s *AuthIntegrationTestSuite) TestRefreshToken() {
 	refreshReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/refresh", bytes.NewBuffer(refreshJSON))
 	refreshReq.Header.Set("Content-Type", "application/json")
 
-	// Задержка, потому что иначе refresh токен будет такой же
-	time.Sleep(1 * time.Second)
-
 	client := &http.Client{}
 	refreshResp, err := client.Do(refreshReq)
 	assert.NoError(t, err)

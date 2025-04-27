@@ -319,7 +319,7 @@ func (h *AuthHandler) generateToken(user *User) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": user.ID,
 		"email":   user.Email,
-		"exp":     time.Now().Add(h.tokenExpiry).Unix(),
+		"exp":     time.Now().Add(h.tokenExpiry).UnixNano(),
 		"type":    "access",
 	}
 
@@ -331,7 +331,7 @@ func (h *AuthHandler) generateToken(user *User) (string, error) {
 func (h *AuthHandler) generateRefreshToken(user *User) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(h.refreshExpiry).Unix(),
+		"exp":     time.Now().Add(h.refreshExpiry).UnixNano(),
 		"type":    "refresh",
 	}
 
