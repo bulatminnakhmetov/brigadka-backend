@@ -2,6 +2,8 @@ basePath: /api
 definitions:
   auth.AuthResponse:
     properties:
+      refresh_token:
+        type: string
       token:
         type: string
       user:
@@ -12,6 +14,11 @@ definitions:
       email:
         type: string
       password:
+        type: string
+    type: object
+  auth.RefreshRequest:
+    properties:
+      refresh_token:
         type: string
     type: object
   auth.RegisterRequest:
@@ -780,6 +787,40 @@ paths:
           schema:
             type: string
       summary: Вход пользователя
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Получение нового токена с помощью refresh токена
+      parameters:
+      - description: Данные для обновления токена
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.AuthResponse'
+        "400":
+          description: Невалидные данные
+          schema:
+            type: string
+        "401":
+          description: Невалидный refresh токен
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      summary: Обновление токена
       tags:
       - auth
   /auth/register:

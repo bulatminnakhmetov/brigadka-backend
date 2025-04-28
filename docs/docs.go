@@ -821,6 +821,58 @@ const docTemplate = `{
                 }
             }
         },
+        "/auth/refresh": {
+            "post": {
+                "description": "Получение нового токена с помощью refresh токена",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Обновление токена",
+                "parameters": [
+                    {
+                        "description": "Данные для обновления токена",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.RefreshRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AuthResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Невалидные данные",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Невалидный refresh токен",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/register": {
             "post": {
                 "description": "Создание нового пользователя",
@@ -904,6 +956,9 @@ const docTemplate = `{
         "auth.AuthResponse": {
             "type": "object",
             "properties": {
+                "refresh_token": {
+                    "type": "string"
+                },
                 "token": {
                     "type": "string"
                 },
@@ -919,6 +974,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "auth.RefreshRequest": {
+            "type": "object",
+            "properties": {
+                "refresh_token": {
                     "type": "string"
                 }
             }
