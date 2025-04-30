@@ -80,6 +80,11 @@ type UpdateMusicProfileRequest struct {
 	Instruments []string `json:"instruments,omitempty"`
 }
 
+// UserProfilesResponse represents the response format for user profiles
+type UserProfilesResponse struct {
+	Profiles map[string]int `json:"profiles"` // activity_type -> profile_id
+}
+
 // ProfileHandler обрабатывает запросы, связанные с профилями
 type ProfileHandler struct {
 	profileService ProfileService
@@ -666,11 +671,64 @@ func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Reque
 	json.NewEncoder(w).Encode(profile)
 }
 
-// Вспомогательная функция для перекодирования JSON из map в структуру
-func remarshalJSON(data map[string]interface{}, target interface{}) error {
-	bytes, err := json.Marshal(data)
-	if err != nil {
-		return err
+// @Summary      Get user profiles
+// @Description  Gets all profiles for a specific user
+// @Tags         profiles
+// @Produce      json
+// @Security     BearerAuth
+// @Param        user_id  path  int  true  "User ID"
+// @Success      200      {object}  UserProfilesResponse
+// @Failure      400      {string}  string  "Invalid user ID"
+// @Failure      401      {string}  string  "Unauthorized"
+// @Failure      403      {string}  string  "Forbidden"
+// @Failure      500      {string}  string  "Internal server error"
+// @Router       /api/profiles/{user_id} [get]
+func (h *ProfileHandler) GetUserProfiles(w http.ResponseWriter, r *http.Request) {
+	// Check request method
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
 	}
-	return json.Unmarshal(bytes, target)
+
+	// Extract user ID from URL
+	pathParts := strings.Split(r.URL.Path, "/")
+	if len(pathParts) < 1 {
+		http.Error(w, "Invalid URL", http.StatusBadRequest)
+		return
+	}
+
+	userIDStr := pathParts[len(pathParts)-1]
+	userID, err := strconv.Atoi(userIDStr)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusBadRequest)
+		return
+	}
+
+	// Check authentication
+	currentUserIDValue := r.Context().Value("user_id")
+	if currentUserIDValue == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	if currentUserID := currentUserIDValue.(int); userID != currentUserID {
+		http.Error(w, "Forbidden: you can only view your own profiles", http.StatusForbidden)
+		return
+	}
+
+	// Get all profiles for the user
+	profiles, err := h.profileService.GetUserProfiles(userID)
+	if err != nil {
+		http.Error(w, "Failed to get user profiles: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Prepare response
+	response := UserProfilesResponse{
+		Profiles: profiles,
+	}
+
+	// Send response
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }

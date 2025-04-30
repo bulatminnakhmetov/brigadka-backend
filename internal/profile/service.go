@@ -37,6 +37,8 @@ type ProfileService interface {
 	GetImprovGoals(lang string) (ImprovGoalCatalog, error)
 	GetMusicGenres(lang string) (MusicGenreCatalog, error)
 	GetMusicInstruments(lang string) (MusicInstrumentCatalog, error)
+
+	GetUserProfiles(userID int) (map[string]int, error)
 }
 
 // ProfileServiceImpl реализует интерфейс ProfileService
@@ -64,7 +66,7 @@ func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string,
 	}
 
 	// Проверяем, что у пользователя еще нет профиля
-	err = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM profiles WHERE user_id = $1)", userID).Scan(&exists)
+	err = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM profiles WHERE user_id = $1 AND activity_type = $2)", userID, ActivityTypeImprov).Scan(&exists)
 	if err != nil {
 		return nil, err
 	}
@@ -165,7 +167,7 @@ func (s *ProfileServiceImpl) CreateMusicProfile(userID int, description string, 
 	}
 
 	// Проверяем, что у пользователя еще нет профиля
-	err = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM profiles WHERE user_id = $1)", userID).Scan(&exists)
+	err = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM profiles WHERE user_id = $1 AND activity_type = $2)", userID, ActivityTypeMusic).Scan(&exists)
 	if err != nil {
 		return nil, err
 	}
@@ -764,4 +766,38 @@ func (s *ProfileServiceImpl) UpdateMusicProfile(profileID int, description strin
 		Genres:      genres,
 		Instruments: instruments,
 	}, nil
+}
+
+// GetUserProfiles retrieves all profiles for a specific user
+func (s *ProfileServiceImpl) GetUserProfiles(userID int) (map[string]int, error) {
+	// Query to get all profiles for a user
+	rows, err := s.db.Query(`
+        SELECT id, activity_type 
+        FROM profiles 
+        WHERE user_id = $1
+    `, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Map to store the results
+	profiles := make(map[string]int)
+
+	// Iterate through results
+	for rows.Next() {
+		var profileID int
+		var activityType string
+		if err := rows.Scan(&profileID, &activityType); err != nil {
+			return nil, err
+		}
+		profiles[activityType] = profileID
+	}
+
+	// Check for errors from iterating over rows
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return profiles, nil
 }

@@ -194,6 +194,14 @@ definitions:
           type: string
         type: array
     type: object
+  profile.UserProfilesResponse:
+    properties:
+      profiles:
+        additionalProperties:
+          type: integer
+        description: activity_type -> profile_id
+        type: object
+    type: object
   search.ProfileSearchRequest:
     properties:
       activity_type:
@@ -659,6 +667,43 @@ paths:
       summary: Получение медиа для профиля
       tags:
       - media
+  /api/profiles/{user_id}:
+    get:
+      description: Gets all profiles for a specific user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.UserProfilesResponse'
+        "400":
+          description: Invalid user ID
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get user profiles
+      tags:
+      - profiles
   /api/profiles/catalog/activity-types:
     get:
       description: Возвращает список доступных типов активности профиля

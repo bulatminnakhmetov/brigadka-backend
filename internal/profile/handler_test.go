@@ -107,6 +107,14 @@ func (m *MockProfileService) UpdateMusicProfile(profileID int, description strin
 	return args.Get(0).(*MusicProfile), args.Error(1)
 }
 
+func (m *MockProfileService) GetUserProfiles(userID int) (map[string]int, error) {
+	args := m.Called(userID)
+	if args.Get(0) == nil {
+		return nil, args.Error(1)
+	}
+	return args.Get(0).(map[string]int), args.Error(1)
+}
+
 func TestGetImprovProfileHandler(t *testing.T) {
 	t.Run("Successful get", func(t *testing.T) {
 		mockService := new(MockProfileService)
@@ -1304,6 +1312,144 @@ func TestUpdateMusicProfileHandler_Errors(t *testing.T) {
 		assert.Contains(t, rr.Body.String(), "database error")
 
 		// Verify both mocks were called
+		mockService.AssertExpectations(t)
+	})
+}
+
+func TestGetUserProfilesHandler(t *testing.T) {
+	t.Run("Successful retrieval", func(t *testing.T) {
+		// Setup expected profiles
+		expectedProfiles := map[string]int{
+			ActivityTypeImprov: 10,
+			ActivityTypeMusic:  20,
+		}
+
+		// Create mock service
+		mockService := new(MockProfileService)
+		mockService.On("GetUserProfiles", 1).Return(expectedProfiles, nil)
+
+		handler := NewProfileHandler(mockService)
+
+		// Create request
+		req, _ := http.NewRequest("GET", "/api/users/1/profiles", nil)
+
+		// Add user ID to context (authenticated as same user)
+		ctx := context.WithValue(req.Context(), "user_id", 1)
+		req = req.WithContext(ctx)
+
+		// Create response recorder
+		rr := httptest.NewRecorder()
+
+		// Call handler
+		handler.GetUserProfiles(rr, req)
+
+		// Check response
+		assert.Equal(t, http.StatusOK, rr.Code)
+
+		// Parse response
+		var response UserProfilesResponse
+		err := json.Unmarshal(rr.Body.Bytes(), &response)
+		assert.NoError(t, err)
+
+		// Verify profiles match expected
+		assert.Equal(t, expectedProfiles, response.Profiles)
+
+		// Verify mock expectations
+		mockService.AssertExpectations(t)
+	})
+
+	t.Run("Unauthorized access", func(t *testing.T) {
+		mockService := new(MockProfileService)
+		handler := NewProfileHandler(mockService)
+
+		// Create request without authentication
+		req, _ := http.NewRequest("GET", "/api/users/1/profiles", nil)
+
+		// Create response recorder
+		rr := httptest.NewRecorder()
+
+		// Call handler
+		handler.GetUserProfiles(rr, req)
+
+		// Check response
+		assert.Equal(t, http.StatusUnauthorized, rr.Code)
+
+		// Verify no calls were made to the service
+		mockService.AssertNotCalled(t, "GetUserProfiles")
+	})
+
+	t.Run("Forbidden access (different user)", func(t *testing.T) {
+		mockService := new(MockProfileService)
+		handler := NewProfileHandler(mockService)
+
+		// Create request
+		req, _ := http.NewRequest("GET", "/api/users/2/profiles", nil)
+
+		// Add different user ID to context
+		ctx := context.WithValue(req.Context(), "user_id", 1)
+		req = req.WithContext(ctx)
+
+		// Create response recorder
+		rr := httptest.NewRecorder()
+
+		// Call handler
+		handler.GetUserProfiles(rr, req)
+
+		// Check response
+		assert.Equal(t, http.StatusForbidden, rr.Code)
+
+		// Verify no calls were made to the service
+		mockService.AssertNotCalled(t, "GetUserProfiles")
+	})
+
+	t.Run("Invalid user ID", func(t *testing.T) {
+		mockService := new(MockProfileService)
+		handler := NewProfileHandler(mockService)
+
+		// Create request with invalid user ID
+		req, _ := http.NewRequest("GET", "/api/users/invalid/profiles", nil)
+
+		// Add user ID to context
+		ctx := context.WithValue(req.Context(), "user_id", 1)
+		req = req.WithContext(ctx)
+
+		// Create response recorder
+		rr := httptest.NewRecorder()
+
+		// Call handler
+		handler.GetUserProfiles(rr, req)
+
+		// Check response
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+
+		// Verify no calls were made to the service
+		mockService.AssertNotCalled(t, "GetUserProfiles")
+	})
+
+	t.Run("Service error", func(t *testing.T) {
+		// Create mock service that returns an error
+		mockService := new(MockProfileService)
+		mockService.On("GetUserProfiles", 1).Return(nil, errors.New("database error"))
+
+		handler := NewProfileHandler(mockService)
+
+		// Create request
+		req, _ := http.NewRequest("GET", "/api/users/1/profiles", nil)
+
+		// Add user ID to context
+		ctx := context.WithValue(req.Context(), "user_id", 1)
+		req = req.WithContext(ctx)
+
+		// Create response recorder
+		rr := httptest.NewRecorder()
+
+		// Call handler
+		handler.GetUserProfiles(rr, req)
+
+		// Check response
+		assert.Equal(t, http.StatusInternalServerError, rr.Code)
+
+		// Verify mock expectations
 		mockService.AssertExpectations(t)
 	})
 }

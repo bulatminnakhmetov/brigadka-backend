@@ -2,6 +2,7 @@ package profile
 
 import (
 	"database/sql"
+	"errors"
 	"testing"
 	"time"
 
@@ -35,7 +36,7 @@ func TestCreateImprovProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeImprov).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Ожидаем запрос на проверку существования цели импровизации
@@ -129,7 +130,7 @@ func TestCreateImprovProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeImprov).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 		// Вызываем тестируемый метод
@@ -159,7 +160,7 @@ func TestCreateImprovProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeImprov).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Ожидаем запрос на проверку существования цели импровизации
@@ -194,7 +195,7 @@ func TestCreateImprovProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeImprov).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Ожидаем запрос на проверку существования цели импровизации
@@ -239,7 +240,7 @@ func TestCreateImprovProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeImprov).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Ожидаем запрос на проверку существования цели импровизации
@@ -304,7 +305,7 @@ func TestCreateMusicProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeMusic).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Ожидаем запросы на проверку существования жанров
@@ -400,7 +401,7 @@ func TestCreateMusicProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeMusic).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(true))
 
 		// Вызываем тестируемый метод
@@ -429,7 +430,7 @@ func TestCreateMusicProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeMusic).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Вызываем тестируемый метод
@@ -458,7 +459,7 @@ func TestCreateMusicProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeMusic).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Проверка первого жанра - успешно
@@ -497,7 +498,7 @@ func TestCreateMusicProfile(t *testing.T) {
 
 		// Ожидаем запрос на проверку существования профиля
 		mock.ExpectQuery("SELECT EXISTS").
-			WithArgs(userID).
+			WithArgs(userID, ActivityTypeMusic).
 			WillReturnRows(sqlmock.NewRows([]string{"exists"}).AddRow(false))
 
 		// Проверка жанра
@@ -1199,6 +1200,88 @@ func TestUpdateMusicProfile(t *testing.T) {
 		assert.Nil(t, profile)
 
 		// Verify that all expected queries were executed
+		err = mock.ExpectationsWereMet()
+		assert.NoError(t, err)
+	})
+}
+
+func TestGetUserProfiles(t *testing.T) {
+	// Create a mock database
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	// Create a service instance with the mock DB
+	service := NewProfileService(db)
+
+	t.Run("User with multiple profiles", func(t *testing.T) {
+		userID := 1
+		expected := map[string]int{
+			ActivityTypeImprov: 10,
+			ActivityTypeMusic:  20,
+		}
+
+		// Setup mock to return both profile types
+		rows := sqlmock.NewRows([]string{"id", "activity_type"}).
+			AddRow(10, ActivityTypeImprov).
+			AddRow(20, ActivityTypeMusic)
+
+		mock.ExpectQuery("SELECT id, activity_type FROM profiles WHERE user_id = \\$1").
+			WithArgs(userID).
+			WillReturnRows(rows)
+
+		// Call the method being tested
+		profiles, err := service.GetUserProfiles(userID)
+
+		// Check results
+		assert.NoError(t, err)
+		assert.Equal(t, expected, profiles)
+
+		// Verify all expectations were met
+		err = mock.ExpectationsWereMet()
+		assert.NoError(t, err)
+	})
+
+	t.Run("User with no profiles", func(t *testing.T) {
+		userID := 2
+
+		// Setup mock to return empty result
+		rows := sqlmock.NewRows([]string{"id", "activity_type"})
+
+		mock.ExpectQuery("SELECT id, activity_type FROM profiles WHERE user_id = \\$1").
+			WithArgs(userID).
+			WillReturnRows(rows)
+
+		// Call the method being tested
+		profiles, err := service.GetUserProfiles(userID)
+
+		// Check results
+		assert.NoError(t, err)
+		assert.Empty(t, profiles)
+
+		// Verify all expectations were met
+		err = mock.ExpectationsWereMet()
+		assert.NoError(t, err)
+	})
+
+	t.Run("Database error", func(t *testing.T) {
+		userID := 3
+
+		// Setup mock to return error
+		mock.ExpectQuery("SELECT id, activity_type FROM profiles WHERE user_id = \\$1").
+			WithArgs(userID).
+			WillReturnError(errors.New("database connection failed"))
+
+		// Call the method being tested
+		profiles, err := service.GetUserProfiles(userID)
+
+		// Check results
+		assert.Error(t, err)
+		assert.Nil(t, profiles)
+
+		// Verify all expectations were met
 		err = mock.ExpectationsWereMet()
 		assert.NoError(t, err)
 	})

@@ -221,6 +221,8 @@ func main() {
 
 			// Маршруты для работы с профилями (требуют аутентификации)
 			r.Route("/profiles", func(r chi.Router) {
+				r.Get("/{user_id}", profileHandler.GetUserProfiles)
+
 				r.Post("/improv", profileHandler.CreateImprovProfile)
 				r.Post("/music", profileHandler.CreateMusicProfile)
 				r.Put("/{id}/improv", profileHandler.UpdateImprovProfile)
