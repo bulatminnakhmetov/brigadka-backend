@@ -524,3 +524,404 @@ func TestProfileIntegration(t *testing.T) {
 
 	suite.Run(t, new(ProfileIntegrationTestSuite))
 }
+
+// TestUpdateImprovProfile tests updating an improv profile
+func (s *ProfileIntegrationTestSuite) TestUpdateImprovProfile() {
+	t := s.T()
+
+	// Create a new user for this test
+	userID, token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create test user")
+
+	// Create an improv profile first
+	createData := profile.CreateImprovProfileRequest{
+		CreateProfileRequest: profile.CreateProfileRequest{
+			UserID:       userID,
+			Description:  "Initial improv profile description",
+			ActivityType: profile.ActivityTypeImprov,
+		},
+		Goal:           "Hobby",
+		Styles:         []string{"Short Form"},
+		LookingForTeam: false,
+	}
+
+	createJSON, _ := json.Marshal(createData)
+	createReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(createJSON))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	createResp, err := client.Do(createReq)
+	assert.NoError(t, err)
+	defer createResp.Body.Close()
+
+	// Verify profile was created successfully
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
+	// Get the profile ID
+	var createdProfile profile.Profile
+	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
+	assert.NoError(t, err)
+	profileID := createdProfile.ProfileID
+
+	// Update the improv profile
+	updateData := profile.UpdateImprovProfileRequest{
+		UpdateProfileRequest: profile.UpdateProfileRequest{
+			Description:  "Updated improv profile description",
+			ActivityType: profile.ActivityTypeImprov,
+		},
+		Goal:           "Career",
+		Styles:         []string{"Short Form", "Long Form"},
+		LookingForTeam: true,
+	}
+
+	updateJSON, _ := json.Marshal(updateData)
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.Header.Set("Authorization", "Bearer "+token)
+
+	updateResp, err := client.Do(updateReq)
+	assert.NoError(t, err)
+	defer updateResp.Body.Close()
+
+	// Verify update status
+	assert.Equal(t, http.StatusOK, updateResp.StatusCode, "Should return status 200 OK")
+
+	// Check the updated profile data
+	var updatedProfileResp profile.ProfileResponse
+	err = json.NewDecoder(updateResp.Body).Decode(&updatedProfileResp)
+	assert.NoError(t, err)
+
+	// Verify the fields were updated correctly
+	assert.NotNil(t, updatedProfileResp.ImprovProfile)
+	assert.Equal(t, profileID, updatedProfileResp.ImprovProfile.ProfileID)
+	assert.Equal(t, updateData.UpdateProfileRequest.Description, updatedProfileResp.ImprovProfile.Description)
+	assert.Equal(t, updateData.Goal, updatedProfileResp.ImprovProfile.Goal)
+	assert.ElementsMatch(t, updateData.Styles, updatedProfileResp.ImprovProfile.Styles)
+	assert.True(t, updatedProfileResp.ImprovProfile.LookingForTeam)
+}
+
+// TestUpdateMusicProfile tests updating a music profile
+func (s *ProfileIntegrationTestSuite) TestUpdateMusicProfile() {
+	t := s.T()
+
+	// Create a new user for this test
+	userID, token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create test user")
+
+	// Create a music profile first
+	createData := profile.CreateMusicProfileRequest{
+		CreateProfileRequest: profile.CreateProfileRequest{
+			UserID:       userID,
+			Description:  "Initial music profile description",
+			ActivityType: profile.ActivityTypeMusic,
+		},
+		Genres:      []string{"rock"},
+		Instruments: []string{"acoustic_guitar"},
+	}
+
+	createJSON, _ := json.Marshal(createData)
+	createReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(createJSON))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	createResp, err := client.Do(createReq)
+	assert.NoError(t, err)
+	defer createResp.Body.Close()
+
+	// Verify profile was created successfully
+	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
+
+	// Get the profile ID
+	var createdProfile profile.Profile
+	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
+	assert.NoError(t, err)
+	profileID := createdProfile.ProfileID
+
+	// Update the music profile
+	updateData := profile.UpdateMusicProfileRequest{
+		UpdateProfileRequest: profile.UpdateProfileRequest{
+			Description:  "Updated music profile description",
+			ActivityType: profile.ActivityTypeMusic,
+		},
+		Genres:      []string{"rock", "jazz", "pop"},
+		Instruments: []string{"acoustic_guitar", "electric_guitar", "piano"},
+	}
+
+	updateJSON, _ := json.Marshal(updateData)
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.Header.Set("Authorization", "Bearer "+token)
+
+	updateResp, err := client.Do(updateReq)
+	assert.NoError(t, err)
+	defer updateResp.Body.Close()
+
+	// Verify update status
+	assert.Equal(t, http.StatusOK, updateResp.StatusCode, "Should return status 200 OK")
+
+	// Check the updated profile data
+	var updatedProfileResp profile.ProfileResponse
+	err = json.NewDecoder(updateResp.Body).Decode(&updatedProfileResp)
+	assert.NoError(t, err)
+
+	// Verify the fields were updated correctly
+	assert.NotNil(t, updatedProfileResp.MusicProfile)
+	assert.Equal(t, profileID, updatedProfileResp.MusicProfile.ProfileID)
+	assert.Equal(t, updateData.UpdateProfileRequest.Description, updatedProfileResp.MusicProfile.Description)
+	assert.ElementsMatch(t, updateData.Genres, updatedProfileResp.MusicProfile.Genres)
+	assert.ElementsMatch(t, updateData.Instruments, updatedProfileResp.MusicProfile.Instruments)
+}
+
+// TestUpdateProfileUnauthorized tests attempting to update a profile without authorization
+func (s *ProfileIntegrationTestSuite) TestUpdateProfileUnauthorized() {
+	t := s.T()
+
+	// Create a new user for this test
+	userID, token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create test user")
+
+	// Create an improv profile first
+	createData := profile.CreateImprovProfileRequest{
+		CreateProfileRequest: profile.CreateProfileRequest{
+			UserID:       userID,
+			Description:  "Test profile description",
+			ActivityType: profile.ActivityTypeImprov,
+		},
+		Goal:   "Hobby",
+		Styles: []string{"Short Form"},
+	}
+
+	createJSON, _ := json.Marshal(createData)
+	createReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(createJSON))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	createResp, err := client.Do(createReq)
+	assert.NoError(t, err)
+	defer createResp.Body.Close()
+
+	// Get the profile ID
+	var createdProfile profile.Profile
+	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
+	assert.NoError(t, err)
+	profileID := createdProfile.ProfileID
+
+	// Attempt to update without authorization token
+	updateData := profile.UpdateImprovProfileRequest{
+		UpdateProfileRequest: profile.UpdateProfileRequest{
+			Description:  "Updated description",
+			ActivityType: profile.ActivityTypeImprov,
+		},
+		Goal:   "Career",
+		Styles: []string{"Short Form"},
+	}
+
+	updateJSON, _ := json.Marshal(updateData)
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+	updateReq.Header.Set("Content-Type", "application/json")
+	// Intentionally NOT setting Authorization header
+
+	updateResp, err := client.Do(updateReq)
+	assert.NoError(t, err)
+	defer updateResp.Body.Close()
+
+	// Verify status - should be Unauthorized
+	assert.Equal(t, http.StatusUnauthorized, updateResp.StatusCode, "Should return status 401 Unauthorized")
+}
+
+// TestUpdateProfileForbidden tests attempting to update another user's profile
+func (s *ProfileIntegrationTestSuite) TestUpdateProfileForbidden() {
+	t := s.T()
+
+	// Create two users: one profile owner and one unauthorized user
+	ownerID, ownerToken, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create profile owner")
+
+	_, unauthorizedToken, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create unauthorized user")
+
+	// Create a profile for the first user
+	createData := profile.CreateImprovProfileRequest{
+		CreateProfileRequest: profile.CreateProfileRequest{
+			UserID:       ownerID,
+			Description:  "Owner's profile description",
+			ActivityType: profile.ActivityTypeImprov,
+		},
+		Goal:   "Hobby",
+		Styles: []string{"Short Form"},
+	}
+
+	createJSON, _ := json.Marshal(createData)
+	createReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(createJSON))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer "+ownerToken)
+
+	client := &http.Client{}
+	createResp, err := client.Do(createReq)
+	assert.NoError(t, err)
+	defer createResp.Body.Close()
+
+	// Get the profile ID
+	var createdProfile profile.Profile
+	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
+	assert.NoError(t, err)
+	profileID := createdProfile.ProfileID
+
+	// Second user attempts to update the first user's profile
+	updateData := profile.UpdateImprovProfileRequest{
+		UpdateProfileRequest: profile.UpdateProfileRequest{
+			Description:  "Unauthorized update",
+			ActivityType: profile.ActivityTypeImprov,
+		},
+		Goal:   "Career",
+		Styles: []string{"Short Form"},
+	}
+
+	updateJSON, _ := json.Marshal(updateData)
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.Header.Set("Authorization", "Bearer "+unauthorizedToken) // Using unauthorized user's token
+
+	updateResp, err := client.Do(updateReq)
+	assert.NoError(t, err)
+	defer updateResp.Body.Close()
+
+	// Verify status - should be Forbidden
+	assert.Equal(t, http.StatusForbidden, updateResp.StatusCode, "Should return status 403 Forbidden")
+}
+
+// TestUpdateProfileWithInvalidData tests updating profiles with invalid data
+func (s *ProfileIntegrationTestSuite) TestUpdateProfileWithInvalidData() {
+	t := s.T()
+
+	// Create a new user for this test
+	userID, token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create test user")
+
+	// Create a profile first
+	createData := profile.CreateImprovProfileRequest{
+		CreateProfileRequest: profile.CreateProfileRequest{
+			UserID:       userID,
+			Description:  "Test profile description",
+			ActivityType: profile.ActivityTypeImprov,
+		},
+		Goal:   "Hobby",
+		Styles: []string{"Short Form"},
+	}
+
+	createJSON, _ := json.Marshal(createData)
+	createReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(createJSON))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	createResp, err := client.Do(createReq)
+	assert.NoError(t, err)
+	defer createResp.Body.Close()
+
+	// Get the profile ID
+	var createdProfile profile.Profile
+	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
+	assert.NoError(t, err)
+	profileID := createdProfile.ProfileID
+
+	// Test cases with invalid data
+	testCases := []struct {
+		name        string
+		requestData interface{}
+	}{
+		{
+			name: "Unsupported activity type",
+			requestData: profile.UpdateProfileRequest{
+				Description:  "Test description",
+				ActivityType: "unsupported_type", // Unsupported activity type
+			},
+		},
+		{
+			name: "Empty goal for improv profile",
+			requestData: profile.UpdateImprovProfileRequest{
+				UpdateProfileRequest: profile.UpdateProfileRequest{
+					Description:  "Test description",
+					ActivityType: profile.ActivityTypeImprov,
+				},
+				Goal:   "", // Empty goal
+				Styles: []string{"Short Form"},
+			},
+		},
+		{
+			name: "Empty styles for improv profile",
+			requestData: profile.UpdateImprovProfileRequest{
+				UpdateProfileRequest: profile.UpdateProfileRequest{
+					Description:  "Test description",
+					ActivityType: profile.ActivityTypeImprov,
+				},
+				Goal:   "Hobby",
+				Styles: []string{}, // Empty styles list
+			},
+		},
+		{
+			name: "Empty instruments for music profile",
+			requestData: profile.UpdateMusicProfileRequest{
+				UpdateProfileRequest: profile.UpdateProfileRequest{
+					Description:  "Test description",
+					ActivityType: profile.ActivityTypeMusic,
+				},
+				Instruments: []string{}, // Empty instruments list
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			updateJSON, _ := json.Marshal(tc.requestData)
+			updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+			updateReq.Header.Set("Content-Type", "application/json")
+			updateReq.Header.Set("Authorization", "Bearer "+token)
+
+			updateResp, err := client.Do(updateReq)
+			assert.NoError(t, err)
+			defer updateResp.Body.Close()
+
+			// Verify status - should be Bad Request
+			assert.Equal(t, http.StatusBadRequest, updateResp.StatusCode, "Should return status 400 Bad Request for case: "+tc.name)
+		})
+	}
+}
+
+// TestUpdateNonExistentProfile tests updating a profile that doesn't exist
+func (s *ProfileIntegrationTestSuite) TestUpdateNonExistentProfile() {
+	t := s.T()
+
+	// Create a new user just for the token
+	_, token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create test user")
+
+	// Use a presumably non-existent profile ID
+	nonExistentProfileID := 999999
+
+	// Try to update a non-existent profile
+	updateData := profile.UpdateImprovProfileRequest{
+		UpdateProfileRequest: profile.UpdateProfileRequest{
+			Description:  "Update for non-existent profile",
+			ActivityType: profile.ActivityTypeImprov,
+		},
+		Goal:   "Hobby",
+		Styles: []string{"Short Form"},
+	}
+
+	updateJSON, _ := json.Marshal(updateData)
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, nonExistentProfileID), bytes.NewBuffer(updateJSON))
+	updateReq.Header.Set("Content-Type", "application/json")
+	updateReq.Header.Set("Authorization", "Bearer "+token)
+
+	client := &http.Client{}
+	updateResp, err := client.Do(updateReq)
+	assert.NoError(t, err)
+	defer updateResp.Body.Close()
+
+	// Verify status - should be Not Found
+	assert.Equal(t, http.StatusNotFound, updateResp.StatusCode, "Should return status 404 Not Found")
+}

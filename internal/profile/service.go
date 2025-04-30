@@ -27,6 +27,10 @@ type ProfileService interface {
 	CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*MusicProfile, error)
 	GetProfile(profileID int) (*ProfileResponse, error)
 
+	// New methods for updating profiles
+	UpdateImprovProfile(profileID int, description string, goal string, styles []string, lookingForTeam bool) (*ImprovProfile, error)
+	UpdateMusicProfile(profileID int, description string, genres []string, instruments []string) (*MusicProfile, error)
+
 	GetActivityTypes(lang string) (ActivityTypeCatalog, error)
 	GetImprovStyles(lang string) (ImprovStyleCatalog, error)
 	GetImprovGoals(lang string) (ImprovGoalCatalog, error)
@@ -517,4 +521,234 @@ func (s *ProfileServiceImpl) GetMusicInstruments(lang string) (MusicInstrumentCa
 	}
 
 	return catalog, nil
+}
+
+// Add these methods after GetProfile
+
+// UpdateImprovProfile обновляет существующий профиль импровизации
+func (s *ProfileServiceImpl) UpdateImprovProfile(profileID int, description string, goal string, styles []string, lookingForTeam bool) (*ImprovProfile, error) {
+	// Проверяем существование профиля и его тип
+	var userID int
+	var activityType string
+	err := s.db.QueryRow(`
+        SELECT user_id, activity_type FROM profiles WHERE id = $1
+    `, profileID).Scan(&userID, &activityType)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrProfileNotFound
+		}
+		return nil, err
+	}
+
+	// Проверяем, что это профиль нужного типа
+	if activityType != ActivityTypeImprov {
+		return nil, ErrInvalidActivityType
+	}
+
+	// Проверяем, что цель импровизации существует
+	var exists bool
+	err = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM improv_goals_catalog WHERE goal_code = $1)", goal).Scan(&exists)
+	if err != nil {
+		return nil, err
+	}
+	if !exists {
+		return nil, ErrInvalidImprovGoal
+	}
+
+	// Проверяем, что все стили импровизации существуют
+	for _, style := range styles {
+		err = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM improv_style_catalog WHERE style_code = $1)", style).Scan(&exists)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, ErrInvalidImprovStyle
+		}
+	}
+
+	// Начинаем транзакцию
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+		err = tx.Commit()
+	}()
+
+	// Обновляем базовый профиль
+	_, err = tx.Exec(`
+        UPDATE profiles SET description = $1 WHERE id = $2
+    `, description, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Обновляем профиль импровизации
+	_, err = tx.Exec(`
+        UPDATE improv_profiles SET goal = $1, looking_for_team = $2 WHERE profile_id = $3
+    `, goal, lookingForTeam, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Удаляем старые стили и добавляем новые
+	_, err = tx.Exec(`DELETE FROM improv_profile_styles WHERE profile_id = $1`, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, style := range styles {
+		_, err = tx.Exec(`
+            INSERT INTO improv_profile_styles (profile_id, style) VALUES ($1, $2)
+        `, profileID, style)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Возвращаем обновленный профиль
+	var createdAt time.Time
+	err = tx.QueryRow(`SELECT created_at FROM profiles WHERE id = $1`, profileID).Scan(&createdAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImprovProfile{
+		Profile: Profile{
+			ProfileID:    profileID,
+			UserID:       userID,
+			Description:  description,
+			ActivityType: ActivityTypeImprov,
+			CreatedAt:    createdAt,
+		},
+		Goal:           goal,
+		Styles:         styles,
+		LookingForTeam: lookingForTeam,
+	}, nil
+}
+
+// UpdateMusicProfile обновляет существующий музыкальный профиль
+func (s *ProfileServiceImpl) UpdateMusicProfile(profileID int, description string, genres []string, instruments []string) (*MusicProfile, error) {
+	// Проверяем существование профиля и его тип
+	var userID int
+	var activityType string
+	err := s.db.QueryRow(`
+        SELECT user_id, activity_type FROM profiles WHERE id = $1
+    `, profileID).Scan(&userID, &activityType)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrProfileNotFound
+		}
+		return nil, err
+	}
+
+	// Проверяем, что это профиль нужного типа
+	if activityType != ActivityTypeMusic {
+		return nil, ErrInvalidActivityType
+	}
+
+	// Проверяем, что список инструментов не пуст
+	if len(instruments) == 0 {
+		return nil, ErrEmptyInstruments
+	}
+
+	// Проверяем существование жанров
+	for _, genre := range genres {
+		var exists bool
+		err = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM music_genre_catalog WHERE genre_code = $1)", genre).Scan(&exists)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, ErrInvalidMusicGenre
+		}
+	}
+
+	// Проверяем существование инструментов
+	for _, instrument := range instruments {
+		var exists bool
+		err = s.db.QueryRow("SELECT EXISTS(SELECT 1 FROM music_instrument_catalog WHERE instrument_code = $1)", instrument).Scan(&exists)
+		if err != nil {
+			return nil, err
+		}
+		if !exists {
+			return nil, ErrInvalidInstrument
+		}
+	}
+
+	// Начинаем транзакцию
+	tx, err := s.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			tx.Rollback()
+			return
+		}
+		err = tx.Commit()
+	}()
+
+	// Обновляем базовый профиль
+	_, err = tx.Exec(`
+        UPDATE profiles SET description = $1 WHERE id = $2
+    `, description, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Удаляем старые жанры и добавляем новые
+	_, err = tx.Exec(`DELETE FROM music_profile_genres WHERE profile_id = $1`, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, genre := range genres {
+		_, err = tx.Exec(`
+            INSERT INTO music_profile_genres (profile_id, genre_code) VALUES ($1, $2)
+        `, profileID, genre)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Удаляем старые инструменты и добавляем новые
+	_, err = tx.Exec(`DELETE FROM music_profile_instruments WHERE profile_id = $1`, profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, instrument := range instruments {
+		_, err = tx.Exec(`
+            INSERT INTO music_profile_instruments (profile_id, instrument_code) VALUES ($1, $2)
+        `, profileID, instrument)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Возвращаем обновленный профиль
+	var createdAt time.Time
+	err = tx.QueryRow(`SELECT created_at FROM profiles WHERE id = $1`, profileID).Scan(&createdAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MusicProfile{
+		Profile: Profile{
+			ProfileID:    profileID,
+			UserID:       userID,
+			Description:  description,
+			ActivityType: ActivityTypeMusic,
+			CreatedAt:    createdAt,
+		},
+		Genres:      genres,
+		Instruments: instruments,
+	}, nil
 }

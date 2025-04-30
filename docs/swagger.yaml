@@ -167,6 +167,13 @@ definitions:
       label:
         type: string
     type: object
+  profile.UpdateProfileRequest:
+    properties:
+      activity_type:
+        type: string
+      description:
+        type: string
+    type: object
   search.ProfileSearchRequest:
     properties:
       activity_type:
@@ -496,6 +503,54 @@ paths:
       security:
       - BearerAuth: []
       summary: Получение профиля
+      tags:
+      - profiles
+    put:
+      consumes:
+      - application/json
+      description: Обновляет существующий профиль пользователя
+      parameters:
+      - description: ID профиля
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Данные для обновления профиля
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/profile.UpdateProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.ProfileResponse'
+        "400":
+          description: Невалидные данные
+          schema:
+            type: string
+        "401":
+          description: Не авторизован
+          schema:
+            type: string
+        "403":
+          description: Доступ запрещен
+          schema:
+            type: string
+        "404":
+          description: Профиль не найден
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Обновление профиля
       tags:
       - profiles
   /api/profiles/{profile_id}/media:

@@ -20,6 +20,7 @@ import (
 	_ "github.com/bulatminnakhmetov/brigadka-backend/docs"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/database"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/logging"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/media"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/messaging"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/profile"
@@ -157,6 +158,7 @@ func main() {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Timeout(60 * time.Second))
+	r.Use(logging.ErrorLogger)
 
 	// Подключение Swagger UI
 	r.Get("/swagger/*", httpSwagger.Handler(
@@ -221,6 +223,7 @@ func main() {
 			r.Route("/profiles", func(r chi.Router) {
 				r.Post("/", profileHandler.CreateProfile)
 				r.Get("/{id}", profileHandler.GetProfile)
+				r.Put("/{id}", profileHandler.UpdateProfile)
 
 				// Регистрация обработчиков для справочников
 				r.Route("/catalog", func(r chi.Router) {
