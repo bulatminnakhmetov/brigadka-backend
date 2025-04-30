@@ -75,16 +75,15 @@ func (s *MediaIntegrationTestSuite) createTestUserAndProfile() (int, int, string
 	// Создаем тестовый профиль для пользователя
 	createProfileData := profile.CreateImprovProfileRequest{
 		CreateProfileRequest: profile.CreateProfileRequest{
-			UserID:       registerResult.User.ID,
-			Description:  "Test profile for media tests",
-			ActivityType: profile.ActivityTypeImprov,
+			UserID:      registerResult.User.ID,
+			Description: "Test profile for media tests",
 		},
 		Goal:   "Hobby",
 		Styles: []string{"Short Form"},
 	}
 
 	createProfileJSON, _ := json.Marshal(createProfileData)
-	createProfileReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(createProfileJSON))
+	createProfileReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles/improv", bytes.NewBuffer(createProfileJSON))
 	createProfileReq.Header.Set("Content-Type", "application/json")
 	createProfileReq.Header.Set("Authorization", "Bearer "+registerResult.Token)
 

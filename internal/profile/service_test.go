@@ -529,28 +529,28 @@ func TestCreateMusicProfile(t *testing.T) {
 	})
 }
 
-func TestGetProfile(t *testing.T) {
-	// Создаем mock базы данных
+func TestGetImprovProfile(t *testing.T) {
+	// Create a mock database
 	db, mock, err := sqlmock.New()
 	if err != nil {
 		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
 	}
 	defer db.Close()
 
-	// Создаем экземпляр сервиса с mock БД
+	// Create a service instance with the mock DB
 	service := NewProfileService(db)
 
-	t.Run("Get improv profile", func(t *testing.T) {
+	t.Run("Success case", func(t *testing.T) {
 		profileID := 1
 		userID := 1
-		description := "Test Description"
+		description := "Test Improv Description"
 		activityType := ActivityTypeImprov
 		now := time.Now()
 		goal := "Hobby"
 		styles := []string{"Short Form", "Long Form"}
 		lookingForTeam := true
 
-		// Ожидаем запрос на получение базового профиля
+		// Expect query to get base profile
 		mock.ExpectQuery("SELECT id, user_id, description, activity_type, created_at").
 			WithArgs(profileID).
 			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "description", "activity_type", "created_at"}).
@@ -561,83 +561,28 @@ func TestGetProfile(t *testing.T) {
 			WithArgs(profileID).
 			WillReturnRows(sqlmock.NewRows([]string{"goal", "looking_for_team"}).AddRow(goal, lookingForTeam))
 
-		// Ожидаем запрос на получение стилей импровизации
+		// Expect query to get improv styles
 		mock.ExpectQuery("SELECT style").
 			WithArgs(profileID).
 			WillReturnRows(sqlmock.NewRows([]string{"style"}).
 				AddRow(styles[0]).
 				AddRow(styles[1]))
 
-		// Вызываем тестируемый метод
-		profileResp, err := service.GetProfile(profileID)
+		// Call the method being tested
+		profile, err := service.GetImprovProfile(profileID)
 
-		// Проверяем результаты
+		// Check results
 		assert.NoError(t, err)
-		assert.NotNil(t, profileResp)
-		assert.NotNil(t, profileResp.ImprovProfile)
-		assert.Nil(t, profileResp.MusicProfile)
+		assert.NotNil(t, profile)
+		assert.Equal(t, profileID, profile.ProfileID)
+		assert.Equal(t, userID, profile.UserID)
+		assert.Equal(t, description, profile.Description)
+		assert.Equal(t, activityType, profile.ActivityType)
+		assert.Equal(t, goal, profile.Goal)
+		assert.ElementsMatch(t, styles, profile.Styles)
+		assert.Equal(t, lookingForTeam, profile.LookingForTeam)
 
-		// Check improv profile details
-		assert.Equal(t, profileID, profileResp.ImprovProfile.ProfileID)
-		assert.Equal(t, userID, profileResp.ImprovProfile.UserID)
-		assert.Equal(t, description, profileResp.ImprovProfile.Description)
-		assert.Equal(t, activityType, profileResp.ImprovProfile.ActivityType)
-		assert.Equal(t, goal, profileResp.ImprovProfile.Goal)
-		assert.ElementsMatch(t, styles, profileResp.ImprovProfile.Styles)
-		assert.Equal(t, lookingForTeam, profileResp.ImprovProfile.LookingForTeam)
-
-		// Проверяем, что все ожидаемые запросы были выполнены
-		err = mock.ExpectationsWereMet()
-		assert.NoError(t, err)
-	})
-
-	t.Run("Get music profile", func(t *testing.T) {
-		profileID := 2
-		userID := 2
-		description := "Music Profile"
-		activityType := ActivityTypeMusic
-		now := time.Now()
-		genres := []string{"rock", "jazz"}
-		instruments := []string{"guitar", "piano"}
-
-		// Ожидаем запрос на получение базового профиля
-		mock.ExpectQuery("SELECT id, user_id, description, activity_type, created_at").
-			WithArgs(profileID).
-			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "description", "activity_type", "created_at"}).
-				AddRow(profileID, userID, description, activityType, now))
-
-		// Ожидаем запрос на получение жанров музыки
-		mock.ExpectQuery("SELECT genre_code").
-			WithArgs(profileID).
-			WillReturnRows(sqlmock.NewRows([]string{"genre_code"}).
-				AddRow(genres[0]).
-				AddRow(genres[1]))
-
-		// Ожидаем запрос на получение инструментов
-		mock.ExpectQuery("SELECT instrument_code").
-			WithArgs(profileID).
-			WillReturnRows(sqlmock.NewRows([]string{"instrument_code"}).
-				AddRow(instruments[0]).
-				AddRow(instruments[1]))
-
-		// Вызываем тестируемый метод
-		profileResp, err := service.GetProfile(profileID)
-
-		// Проверяем результаты
-		assert.NoError(t, err)
-		assert.NotNil(t, profileResp)
-		assert.NotNil(t, profileResp.MusicProfile)
-		assert.Nil(t, profileResp.ImprovProfile)
-
-		// Check music profile details
-		assert.Equal(t, profileID, profileResp.MusicProfile.ProfileID)
-		assert.Equal(t, userID, profileResp.MusicProfile.UserID)
-		assert.Equal(t, description, profileResp.MusicProfile.Description)
-		assert.Equal(t, activityType, profileResp.MusicProfile.ActivityType)
-		assert.ElementsMatch(t, genres, profileResp.MusicProfile.Genres)
-		assert.ElementsMatch(t, instruments, profileResp.MusicProfile.Instruments)
-
-		// Проверяем, что все ожидаемые запросы были выполнены
+		// Verify that all expected queries were executed
 		err = mock.ExpectationsWereMet()
 		assert.NoError(t, err)
 	})
@@ -645,20 +590,99 @@ func TestGetProfile(t *testing.T) {
 	t.Run("Profile not found", func(t *testing.T) {
 		profileID := 999
 
-		// Ожидаем запрос на получение базового профиля с ошибкой
+		// Expect query to get base profile with error
 		mock.ExpectQuery("SELECT id, user_id, description, activity_type, created_at").
 			WithArgs(profileID).
 			WillReturnError(sql.ErrNoRows)
 
-		// Вызываем тестируемый метод
-		profileResp, err := service.GetProfile(profileID)
+		// Call the method being tested
+		profile, err := service.GetImprovProfile(profileID)
 
-		// Проверяем результаты
+		// Check results
 		assert.Error(t, err)
 		assert.Equal(t, ErrProfileNotFound, err)
-		assert.Nil(t, profileResp)
+		assert.Nil(t, profile)
 
-		// Проверяем, что все ожидаемые запросы были выполнены
+		// Verify that all expected queries were executed
+		err = mock.ExpectationsWereMet()
+		assert.NoError(t, err)
+	})
+}
+
+func TestGetMusicProfile(t *testing.T) {
+	// Create a mock database
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer db.Close()
+
+	// Create a service instance with the mock DB
+	service := NewProfileService(db)
+
+	t.Run("Success case", func(t *testing.T) {
+		profileID := 2
+		userID := 2
+		description := "Test Music Description"
+		activityType := ActivityTypeMusic
+		now := time.Now()
+		genres := []string{"rock", "jazz"}
+		instruments := []string{"guitar", "piano"}
+
+		// Expect query to get base profile
+		mock.ExpectQuery("SELECT id, user_id, description, activity_type, created_at").
+			WithArgs(profileID).
+			WillReturnRows(sqlmock.NewRows([]string{"id", "user_id", "description", "activity_type", "created_at"}).
+				AddRow(profileID, userID, description, activityType, now))
+
+		// Expect query to get music genres
+		mock.ExpectQuery("SELECT genre_code").
+			WithArgs(profileID).
+			WillReturnRows(sqlmock.NewRows([]string{"genre_code"}).
+				AddRow(genres[0]).
+				AddRow(genres[1]))
+
+		// Expect query to get music instruments
+		mock.ExpectQuery("SELECT instrument_code").
+			WithArgs(profileID).
+			WillReturnRows(sqlmock.NewRows([]string{"instrument_code"}).
+				AddRow(instruments[0]).
+				AddRow(instruments[1]))
+
+		// Call the method being tested
+		profile, err := service.GetMusicProfile(profileID)
+
+		// Check results
+		assert.NoError(t, err)
+		assert.NotNil(t, profile)
+		assert.Equal(t, profileID, profile.ProfileID)
+		assert.Equal(t, userID, profile.UserID)
+		assert.Equal(t, description, profile.Description)
+		assert.Equal(t, activityType, profile.ActivityType)
+		assert.ElementsMatch(t, genres, profile.Genres)
+		assert.ElementsMatch(t, instruments, profile.Instruments)
+
+		// Verify that all expected queries were executed
+		err = mock.ExpectationsWereMet()
+		assert.NoError(t, err)
+	})
+	t.Run("Profile not found", func(t *testing.T) {
+		profileID := 999
+
+		// Expect query to get base profile with error
+		mock.ExpectQuery("SELECT id, user_id, description, activity_type, created_at").
+			WithArgs(profileID).
+			WillReturnError(sql.ErrNoRows)
+
+		// Call the method being tested
+		profile, err := service.GetMusicProfile(profileID)
+
+		// Check results
+		assert.Error(t, err)
+		assert.Equal(t, ErrProfileNotFound, err)
+		assert.Nil(t, profile)
+
+		// Verify that all expected queries were executed
 		err = mock.ExpectationsWereMet()
 		assert.NoError(t, err)
 	})

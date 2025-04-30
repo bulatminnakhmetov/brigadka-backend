@@ -25,7 +25,8 @@ var (
 type ProfileService interface {
 	CreateImprovProfile(userID int, description string, goal string, styles []string, lookingForTeam bool) (*ImprovProfile, error)
 	CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*MusicProfile, error)
-	GetProfile(profileID int) (*ProfileResponse, error)
+	GetImprovProfile(profileID int) (*ImprovProfile, error)
+	GetMusicProfile(profileID int) (*MusicProfile, error)
 
 	// New methods for updating profiles
 	UpdateImprovProfile(profileID int, description string, goal string, styles []string, lookingForTeam bool) (*ImprovProfile, error)
@@ -265,7 +266,7 @@ func (s *ProfileServiceImpl) CreateMusicProfile(userID int, description string, 
 }
 
 // GetProfile получает профиль по ID с детальной информацией в зависимости от типа
-func (s *ProfileServiceImpl) GetProfile(profileID int) (*ProfileResponse, error) {
+func (s *ProfileServiceImpl) GetProfile(profileID int) (*Profile, error) {
 	// Получаем базовый профиль
 	var profile Profile
 	err := s.db.QueryRow(`
@@ -278,97 +279,109 @@ func (s *ProfileServiceImpl) GetProfile(profileID int) (*ProfileResponse, error)
 		}
 		return nil, err
 	}
+	return &profile, nil
+}
 
-	// Создаем ответ
-	response := &ProfileResponse{}
-
-	// В зависимости от типа активности, добавляем детальную информацию
-	switch profile.ActivityType {
-	case ActivityTypeImprov:
-		// Получаем детали импровизации, включая флаг looking_for_team
-		var goal string
-		var lookingForTeam bool
-		err = s.db.QueryRow(`
-            SELECT goal, looking_for_team FROM improv_profiles WHERE profile_id = $1
-        `, profileID).Scan(&goal, &lookingForTeam)
-		if err != nil {
-			return nil, err
-		}
-
-		// Получаем стили импровизации
-		rows, err := s.db.Query(`
-            SELECT style FROM improv_profile_styles WHERE profile_id = $1
-        `, profileID)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-
-		var styles []string
-		for rows.Next() {
-			var style string
-			if err = rows.Scan(&style); err != nil {
-				return nil, err
-			}
-			styles = append(styles, style)
-		}
-
-		response.ImprovProfile = &ImprovProfile{
-			Profile:        profile,
-			Goal:           goal,
-			Styles:         styles,
-			LookingForTeam: lookingForTeam,
-		}
-
-	case ActivityTypeMusic:
-		// Получаем жанры музыки
-		genreRows, err := s.db.Query(`
-            SELECT genre_code 
-            FROM music_profile_genres 
-            WHERE profile_id = $1
-        `, profileID)
-		if err != nil {
-			return nil, err
-		}
-		defer genreRows.Close()
-
-		var genres []string
-		for genreRows.Next() {
-			var genre string
-			if err := genreRows.Scan(&genre); err != nil {
-				return nil, err
-			}
-			genres = append(genres, genre)
-		}
-
-		// Получаем инструменты
-		instrumentRows, err := s.db.Query(`
-            SELECT instrument_code 
-            FROM music_profile_instruments 
-            WHERE profile_id = $1
-        `, profileID)
-		if err != nil {
-			return nil, err
-		}
-		defer instrumentRows.Close()
-
-		var instruments []string
-		for instrumentRows.Next() {
-			var instrument string
-			if err := instrumentRows.Scan(&instrument); err != nil {
-				return nil, err
-			}
-			instruments = append(instruments, instrument)
-		}
-
-		response.MusicProfile = &MusicProfile{
-			Profile:     profile,
-			Genres:      genres,
-			Instruments: instruments,
-		}
+// GetImprovProfile retrieves an improv profile by ID
+func (s *ProfileServiceImpl) GetImprovProfile(profileID int) (*ImprovProfile, error) {
+	// Get the general profile response first
+	profile, err := s.GetProfile(profileID)
+	if err != nil {
+		return nil, err
 	}
 
-	return response, nil
+	var goal string
+	var lookingForTeam bool
+	err = s.db.QueryRow(`
+		SELECT goal, looking_for_team FROM improv_profiles WHERE profile_id = $1
+	`, profileID).Scan(&goal, &lookingForTeam)
+	if err != nil {
+		return nil, err
+	}
+
+	// Получаем стили импровизации
+	rows, err := s.db.Query(`
+		SELECT style FROM improv_profile_styles WHERE profile_id = $1
+	`, profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var styles []string
+	for rows.Next() {
+		var style string
+		if err = rows.Scan(&style); err != nil {
+			return nil, err
+		}
+		styles = append(styles, style)
+	}
+
+	improvProfile := &ImprovProfile{
+		Profile:        *profile,
+		Goal:           goal,
+		Styles:         styles,
+		LookingForTeam: lookingForTeam,
+	}
+
+	return improvProfile, nil
+}
+
+// GetMusicProfile retrieves a music profile by ID
+func (s *ProfileServiceImpl) GetMusicProfile(profileID int) (*MusicProfile, error) {
+	// Get the general profile response first
+	profile, err := s.GetProfile(profileID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Получаем жанры музыки
+	genreRows, err := s.db.Query(`
+		SELECT genre_code 
+		FROM music_profile_genres 
+		WHERE profile_id = $1
+	`, profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer genreRows.Close()
+
+	var genres []string
+	for genreRows.Next() {
+		var genre string
+		if err := genreRows.Scan(&genre); err != nil {
+			return nil, err
+		}
+		genres = append(genres, genre)
+	}
+
+	// Получаем инструменты
+	instrumentRows, err := s.db.Query(`
+		SELECT instrument_code 
+		FROM music_profile_instruments 
+		WHERE profile_id = $1
+	`, profileID)
+	if err != nil {
+		return nil, err
+	}
+	defer instrumentRows.Close()
+
+	var instruments []string
+	for instrumentRows.Next() {
+		var instrument string
+		if err := instrumentRows.Scan(&instrument); err != nil {
+			return nil, err
+		}
+		instruments = append(instruments, instrument)
+	}
+
+	musicProfile := &MusicProfile{
+		Profile:     *profile,
+		Genres:      genres,
+		Instruments: instruments,
+	}
+
+	return musicProfile, nil
 }
 
 // GetActivityTypes возвращает список типов активности с переводами

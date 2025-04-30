@@ -249,63 +249,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/profiles": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Создает новый профиль для пользователя",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Создание профиля",
-                "parameters": [
-                    {
-                        "description": "Данные профиля",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/profile.CreateProfileRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/profile.Profile"
-                        }
-                    },
-                    "400": {
-                        "description": "Невалидные данные",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Не авторизован",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
         "/api/profiles/catalog/activity-types": {
             "get": {
                 "security": [
@@ -516,25 +459,151 @@ const docTemplate = `{
                 }
             }
         },
-        "/api/profiles/{id}": {
-            "get": {
+        "/api/profiles/improv": {
+            "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Получает профиль пользователя по ID",
+                "description": "Creates a new improv profile for a user",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "profiles"
                 ],
-                "summary": "Получение профиля",
+                "summary": "Create improv profile",
+                "parameters": [
+                    {
+                        "description": "Improv profile data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/profile.CreateImprovProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/profile.ImprovProfile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid data",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Profile already exists",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/music": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new music profile for a user",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Create music profile",
+                "parameters": [
+                    {
+                        "description": "Music profile data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/profile.CreateMusicProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/profile.MusicProfile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid data",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Profile already exists",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/{id}/improv": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Gets an improv profile by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Get improv profile",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID профиля",
+                        "description": "Profile ID",
                         "name": "id",
                         "in": "path",
                         "required": true
@@ -544,29 +613,29 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/profile.ProfileResponse"
+                            "$ref": "#/definitions/profile.ImprovProfile"
                         }
                     },
                     "400": {
-                        "description": "Невалидный ID",
+                        "description": "Invalid ID or profile type",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "401": {
-                        "description": "Не авторизован",
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "404": {
-                        "description": "Профиль не найден",
+                        "description": "Profile not found",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Внутренняя ошибка сервера",
+                        "description": "Internal server error",
                         "schema": {
                             "type": "string"
                         }
@@ -579,7 +648,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Обновляет существующий профиль пользователя",
+                "description": "Updates an existing improv profile",
                 "consumes": [
                     "application/json"
                 ],
@@ -589,22 +658,22 @@ const docTemplate = `{
                 "tags": [
                     "profiles"
                 ],
-                "summary": "Обновление профиля",
+                "summary": "Update improv profile",
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "ID профиля",
+                        "description": "Profile ID",
                         "name": "id",
                         "in": "path",
                         "required": true
                     },
                     {
-                        "description": "Данные для обновления профиля",
+                        "description": "Updated improv profile data",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/profile.UpdateProfileRequest"
+                            "$ref": "#/definitions/profile.UpdateImprovProfileRequest"
                         }
                     }
                 ],
@@ -612,35 +681,167 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/profile.ProfileResponse"
+                            "$ref": "#/definitions/profile.ImprovProfile"
                         }
                     },
                     "400": {
-                        "description": "Невалидные данные",
+                        "description": "Invalid data",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "401": {
-                        "description": "Не авторизован",
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "403": {
-                        "description": "Доступ запрещен",
+                        "description": "Forbidden",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "404": {
-                        "description": "Профиль не найден",
+                        "description": "Profile not found",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Внутренняя ошибка сервера",
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/profiles/{id}/music": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Gets a music profile by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Get music profile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/profile.MusicProfile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid ID or profile type",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Profile not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates an existing music profile",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profiles"
+                ],
+                "summary": "Update music profile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Profile ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Updated music profile data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/profile.UpdateMusicProfileRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/profile.MusicProfile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid data",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Profile not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
                         "schema": {
                             "type": "string"
                         }
@@ -1162,14 +1363,46 @@ const docTemplate = `{
                 }
             }
         },
-        "profile.CreateProfileRequest": {
+        "profile.CreateImprovProfileRequest": {
             "type": "object",
             "properties": {
-                "activity_type": {
-                    "type": "string"
-                },
                 "description": {
                     "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "looking_for_team": {
+                    "type": "boolean"
+                },
+                "styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "profile.CreateMusicProfileRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "genres": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "instruments": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "user_id": {
                     "type": "integer"
@@ -1240,37 +1473,6 @@ const docTemplate = `{
                 }
             }
         },
-        "profile.Profile": {
-            "type": "object",
-            "properties": {
-                "activity_type": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "profile_id": {
-                    "type": "integer"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "profile.ProfileResponse": {
-            "type": "object",
-            "properties": {
-                "improv_profile": {
-                    "$ref": "#/definitions/profile.ImprovProfile"
-                },
-                "music_profile": {
-                    "$ref": "#/definitions/profile.MusicProfile"
-                }
-            }
-        },
         "profile.TranslatedItem": {
             "type": "object",
             "properties": {
@@ -1285,14 +1487,43 @@ const docTemplate = `{
                 }
             }
         },
-        "profile.UpdateProfileRequest": {
+        "profile.UpdateImprovProfileRequest": {
             "type": "object",
             "properties": {
-                "activity_type": {
-                    "type": "string"
-                },
                 "description": {
                     "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "looking_for_team": {
+                    "type": "boolean"
+                },
+                "styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "profile.UpdateMusicProfileRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "genres": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "instruments": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },

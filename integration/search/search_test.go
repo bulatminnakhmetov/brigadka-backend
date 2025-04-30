@@ -159,9 +159,8 @@ func (s *SearchIntegrationTestSuite) createImprovProfile(userID int, token, desc
 	// Create improv profile request
 	createData := profile.CreateImprovProfileRequest{
 		CreateProfileRequest: profile.CreateProfileRequest{
-			UserID:       userID,
-			Description:  description,
-			ActivityType: profile.ActivityTypeImprov,
+			UserID:      userID,
+			Description: description,
 		},
 		Goal:           goal,
 		Styles:         styles,
@@ -169,7 +168,7 @@ func (s *SearchIntegrationTestSuite) createImprovProfile(userID int, token, desc
 	}
 
 	createJSON, _ := json.Marshal(createData)
-	createReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(createJSON))
+	createReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles/improv", bytes.NewBuffer(createJSON))
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq.Header.Set("Authorization", "Bearer "+token)
 
@@ -198,16 +197,15 @@ func (s *SearchIntegrationTestSuite) createMusicProfile(userID int, token, descr
 	// Create music profile request
 	createData := profile.CreateMusicProfileRequest{
 		CreateProfileRequest: profile.CreateProfileRequest{
-			UserID:       userID,
-			Description:  description,
-			ActivityType: profile.ActivityTypeMusic,
+			UserID:      userID,
+			Description: description,
 		},
 		Genres:      genres,
 		Instruments: instruments,
 	}
 
 	createJSON, _ := json.Marshal(createData)
-	createReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(createJSON))
+	createReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles/music", bytes.NewBuffer(createJSON))
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq.Header.Set("Authorization", "Bearer "+token)
 
