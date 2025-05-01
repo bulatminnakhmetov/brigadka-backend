@@ -460,176 +460,6 @@ paths:
       summary: Загрузка медиа файла
       tags:
       - media
-  /api/profiles/{id}/improv:
-    get:
-      description: Gets an improv profile by ID
-      parameters:
-      - description: Profile ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.ImprovProfile'
-        "400":
-          description: Invalid ID or profile type
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "404":
-          description: Profile not found
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Get improv profile
-      tags:
-      - profiles
-    put:
-      consumes:
-      - application/json
-      description: Updates an existing improv profile
-      parameters:
-      - description: Profile ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Updated improv profile data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/profile.UpdateImprovProfileRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.ImprovProfile'
-        "400":
-          description: Invalid data
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "403":
-          description: Forbidden
-          schema:
-            type: string
-        "404":
-          description: Profile not found
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Update improv profile
-      tags:
-      - profiles
-  /api/profiles/{id}/music:
-    get:
-      description: Gets a music profile by ID
-      parameters:
-      - description: Profile ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.MusicProfile'
-        "400":
-          description: Invalid ID or profile type
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "404":
-          description: Profile not found
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Get music profile
-      tags:
-      - profiles
-    put:
-      consumes:
-      - application/json
-      description: Updates an existing music profile
-      parameters:
-      - description: Profile ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Updated music profile data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/profile.UpdateMusicProfileRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.MusicProfile'
-        "400":
-          description: Invalid data
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "403":
-          description: Forbidden
-          schema:
-            type: string
-        "404":
-          description: Profile not found
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Update music profile
-      tags:
-      - profiles
   /api/profiles/{profile_id}/media:
     get:
       description: Возвращает список медиа файлов для профиля
@@ -667,43 +497,6 @@ paths:
       summary: Получение медиа для профиля
       tags:
       - media
-  /api/profiles/{user_id}:
-    get:
-      description: Gets all profiles for a specific user
-      parameters:
-      - description: User ID
-        in: path
-        name: user_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.UserProfilesResponse'
-        "400":
-          description: Invalid user ID
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "403":
-          description: Forbidden
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Get user profiles
-      tags:
-      - profiles
   /api/profiles/catalog/activity-types:
     get:
       description: Возвращает список доступных типов активности профиля
@@ -874,6 +667,91 @@ paths:
       summary: Create improv profile
       tags:
       - profiles
+  /api/profiles/improv/{id}:
+    get:
+      description: Gets an improv profile by ID
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.ImprovProfile'
+        "400":
+          description: Invalid ID or profile type
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Profile not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get improv profile
+      tags:
+      - profiles
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing improv profile
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated improv profile data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/profile.UpdateImprovProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.ImprovProfile'
+        "400":
+          description: Invalid data
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Profile not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update improv profile
+      tags:
+      - profiles
   /api/profiles/music:
     post:
       consumes:
@@ -912,6 +790,128 @@ paths:
       security:
       - BearerAuth: []
       summary: Create music profile
+      tags:
+      - profiles
+  /api/profiles/music/{id}:
+    get:
+      description: Gets a music profile by ID
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.MusicProfile'
+        "400":
+          description: Invalid ID or profile type
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Profile not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get music profile
+      tags:
+      - profiles
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing music profile
+      parameters:
+      - description: Profile ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated music profile data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/profile.UpdateMusicProfileRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.MusicProfile'
+        "400":
+          description: Invalid data
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "404":
+          description: Profile not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update music profile
+      tags:
+      - profiles
+  /api/profiles/user/{user_id}:
+    get:
+      description: Gets all profiles for a specific user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.UserProfilesResponse'
+        "400":
+          description: Invalid user ID
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Forbidden
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get user profiles
       tags:
       - profiles
   /api/search/profiles:

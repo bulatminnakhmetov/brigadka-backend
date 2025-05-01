@@ -133,7 +133,7 @@ func handleError(w http.ResponseWriter, err error) {
 // @Failure      401  {string}  string  "Unauthorized"
 // @Failure      404  {string}  string  "Profile not found"
 // @Failure      500  {string}  string  "Internal server error"
-// @Router       /api/profiles/{id}/improv [get]
+// @Router       /api/profiles/improv/{id} [get]
 func (h *ProfileHandler) GetImprovProfile(w http.ResponseWriter, r *http.Request) {
 	// Проверяем метод запроса
 	if r.Method != http.MethodGet {
@@ -148,7 +148,7 @@ func (h *ProfileHandler) GetImprovProfile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	profileIDStr := pathParts[len(pathParts)-2]
+	profileIDStr := pathParts[len(pathParts)-1]
 	profileID, err := strconv.Atoi(profileIDStr)
 	if err != nil {
 		http.Error(w, "Invalid profile ID", http.StatusBadRequest)
@@ -185,7 +185,7 @@ func (h *ProfileHandler) GetImprovProfile(w http.ResponseWriter, r *http.Request
 // @Failure      401  {string}  string  "Unauthorized"
 // @Failure      404  {string}  string  "Profile not found"
 // @Failure      500  {string}  string  "Internal server error"
-// @Router       /api/profiles/{id}/music [get]
+// @Router       /api/profiles/music/{id} [get]
 func (h *ProfileHandler) GetMusicProfile(w http.ResponseWriter, r *http.Request) {
 	// Проверяем метод запроса
 	if r.Method != http.MethodGet {
@@ -200,7 +200,7 @@ func (h *ProfileHandler) GetMusicProfile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	profileIDStr := pathParts[len(pathParts)-2]
+	profileIDStr := pathParts[len(pathParts)-1]
 	profileID, err := strconv.Atoi(profileIDStr)
 	if err != nil {
 		http.Error(w, "Invalid profile ID", http.StatusBadRequest)
@@ -495,7 +495,7 @@ func (h *ProfileHandler) CreateMusicProfile(w http.ResponseWriter, r *http.Reque
 // @Failure      403      {string}  string  "Forbidden"
 // @Failure      404      {string}  string  "Profile not found"
 // @Failure      500      {string}  string  "Internal server error"
-// @Router       /api/profiles/{id}/improv [put]
+// @Router       /api/profiles/improv/{id} [put]
 func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Request) {
 	// Проверяем метод запроса
 	if r.Method != http.MethodPut {
@@ -510,7 +510,7 @@ func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	profileIDStr := pathParts[len(pathParts)-2] // Изменено для нового формата URL
+	profileIDStr := pathParts[len(pathParts)-1]
 	profileID, err := strconv.Atoi(profileIDStr)
 	if err != nil {
 		http.Error(w, "Invalid profile ID", http.StatusBadRequest)
@@ -593,7 +593,7 @@ func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Requ
 // @Failure      403      {string}  string  "Forbidden"
 // @Failure      404      {string}  string  "Profile not found"
 // @Failure      500      {string}  string  "Internal server error"
-// @Router       /api/profiles/{id}/music [put]
+// @Router       /api/profiles/music/{id} [put]
 func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Request) {
 	// Проверяем метод запроса
 	if r.Method != http.MethodPut {
@@ -608,7 +608,7 @@ func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	profileIDStr := pathParts[len(pathParts)-2] // Изменено для нового формата URL
+	profileIDStr := pathParts[len(pathParts)-1]
 	profileID, err := strconv.Atoi(profileIDStr)
 	if err != nil {
 		http.Error(w, "Invalid profile ID", http.StatusBadRequest)
@@ -682,7 +682,7 @@ func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Reque
 // @Failure      401      {string}  string  "Unauthorized"
 // @Failure      403      {string}  string  "Forbidden"
 // @Failure      500      {string}  string  "Internal server error"
-// @Router       /api/profiles/{user_id} [get]
+// @Router       /api/profiles/user/{user_id} [get]
 func (h *ProfileHandler) GetUserProfiles(w http.ResponseWriter, r *http.Request) {
 	// Check request method
 	if r.Method != http.MethodGet {

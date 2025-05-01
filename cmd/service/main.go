@@ -221,12 +221,16 @@ func main() {
 
 			// Маршруты для работы с профилями (требуют аутентификации)
 			r.Route("/profiles", func(r chi.Router) {
-				r.Get("/{user_id}", profileHandler.GetUserProfiles)
+				r.Get("/user/{user_id}", profileHandler.GetUserProfiles)
 
 				r.Post("/improv", profileHandler.CreateImprovProfile)
 				r.Post("/music", profileHandler.CreateMusicProfile)
-				r.Put("/{id}/improv", profileHandler.UpdateImprovProfile)
-				r.Put("/{id}/music", profileHandler.UpdateMusicProfile)
+
+				r.Get("/improv/{id}", profileHandler.GetImprovProfile)
+				r.Get("/music/{id}", profileHandler.GetMusicProfile)
+
+				r.Put("/improv/{id}", profileHandler.UpdateImprovProfile)
+				r.Put("/music/{id}", profileHandler.UpdateMusicProfile)
 
 				// Регистрация обработчиков для справочников
 				r.Route("/catalog", func(r chi.Router) {

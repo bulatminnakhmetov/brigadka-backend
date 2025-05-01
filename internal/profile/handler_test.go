@@ -138,7 +138,7 @@ func TestGetImprovProfileHandler(t *testing.T) {
 		mockService.On("GetImprovProfile", 1).Return(testProfile, nil)
 
 		// Create test request
-		req, _ := http.NewRequest("GET", "/api/profiles/1/improv", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/improv/1", nil)
 
 		// Create response recorder
 		rr := httptest.NewRecorder()
@@ -173,7 +173,7 @@ func TestGetImprovProfileHandler(t *testing.T) {
 		mockService.On("GetImprovProfile", 999).Return(nil, ErrProfileNotFound)
 
 		// Create test request
-		req, _ := http.NewRequest("GET", "/api/profiles/999/improv", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/improv/999", nil)
 
 		// Create response recorder
 		rr := httptest.NewRecorder()
@@ -194,7 +194,7 @@ func TestGetImprovProfileHandler(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Create test request with non-numeric ID
-		req, _ := http.NewRequest("GET", "/api/profiles/abc/improv", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/improv/abc", nil)
 
 		// Create response recorder
 		rr := httptest.NewRecorder()
@@ -230,7 +230,7 @@ func TestGetMusicProfileHandler(t *testing.T) {
 		mockService.On("GetMusicProfile", 1).Return(testProfile, nil)
 
 		// Create test request
-		req, _ := http.NewRequest("GET", "/api/profiles/1/music", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/music/1", nil)
 
 		// Create response recorder
 		rr := httptest.NewRecorder()
@@ -264,7 +264,7 @@ func TestGetMusicProfileHandler(t *testing.T) {
 		mockService.On("GetMusicProfile", 999).Return(nil, ErrProfileNotFound)
 
 		// Create test request
-		req, _ := http.NewRequest("GET", "/api/profiles/999/music", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/music/999", nil)
 
 		// Create response recorder
 		rr := httptest.NewRecorder()
@@ -451,7 +451,7 @@ func TestUpdateImprovProfileHandler(t *testing.T) {
 		jsonBody, _ := json.Marshal(reqBody)
 
 		// Create a request
-		req, _ := http.NewRequest("PUT", "/api/profiles/1/improv", bytes.NewReader(jsonBody))
+		req, _ := http.NewRequest("PUT", "/api/profiles/improv/1", bytes.NewReader(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -530,7 +530,7 @@ func TestUpdateMusicProfileHandler(t *testing.T) {
 		jsonBody, _ := json.Marshal(reqBody)
 
 		// Create a request
-		req, _ := http.NewRequest("PUT", "/api/profiles/2/music", bytes.NewReader(jsonBody))
+		req, _ := http.NewRequest("PUT", "/api/profiles/music/2", bytes.NewReader(jsonBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -906,7 +906,7 @@ func TestUpdateImprovProfileHandler_Errors(t *testing.T) {
 
 		// Create invalid request body
 		reqBody := []byte(`{invalid json}`)
-		req, _ := http.NewRequest("PUT", "/api/profiles/1/improv", bytes.NewReader(reqBody))
+		req, _ := http.NewRequest("PUT", "/api/profiles/improv/1", bytes.NewReader(reqBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -932,7 +932,7 @@ func TestUpdateImprovProfileHandler_Errors(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Create request with non-numeric profile ID
-		req, _ := http.NewRequest("PUT", "/api/profiles/abc/improv", bytes.NewReader([]byte("{}")))
+		req, _ := http.NewRequest("PUT", "/api/profiles/improv/abc", bytes.NewReader([]byte("{}")))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -958,7 +958,7 @@ func TestUpdateImprovProfileHandler_Errors(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Create request without user ID in context
-		req, _ := http.NewRequest("PUT", "/api/profiles/1/improv", bytes.NewReader([]byte("{}")))
+		req, _ := http.NewRequest("PUT", "/api/profiles/improv/1", bytes.NewReader([]byte("{}")))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Create response recorder
@@ -983,7 +983,7 @@ func TestUpdateImprovProfileHandler_Errors(t *testing.T) {
 		mockService.On("GetImprovProfile", 999).Return(nil, ErrProfileNotFound)
 
 		// Create request
-		req, _ := http.NewRequest("PUT", "/api/profiles/999/improv", bytes.NewReader([]byte("{}")))
+		req, _ := http.NewRequest("PUT", "/api/profiles/improv/999", bytes.NewReader([]byte("{}")))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -1033,7 +1033,7 @@ func TestUpdateImprovProfileHandler_Errors(t *testing.T) {
 			LookingForTeam: false,
 		}
 		reqBody, _ := json.Marshal(reqData)
-		req, _ := http.NewRequest("PUT", "/api/profiles/1/improv", bytes.NewReader(reqBody))
+		req, _ := http.NewRequest("PUT", "/api/profiles/improv/1", bytes.NewReader(reqBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID 1 to context (different from profile owner)
@@ -1082,7 +1082,7 @@ func TestUpdateImprovProfileHandler_Errors(t *testing.T) {
 			LookingForTeam: false,
 		}
 		reqBody, _ := json.Marshal(reqData)
-		req, _ := http.NewRequest("PUT", "/api/profiles/1/improv", bytes.NewReader(reqBody))
+		req, _ := http.NewRequest("PUT", "/api/profiles/improv/1", bytes.NewReader(reqBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -1132,7 +1132,7 @@ func TestUpdateImprovProfileHandler_Errors(t *testing.T) {
 			LookingForTeam: false,
 		}
 		reqBody, _ := json.Marshal(reqData)
-		req, _ := http.NewRequest("PUT", "/api/profiles/1/improv", bytes.NewReader(reqBody))
+		req, _ := http.NewRequest("PUT", "/api/profiles/improv/1", bytes.NewReader(reqBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -1159,7 +1159,7 @@ func TestUpdateImprovProfileHandler_Errors(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Create GET request instead of PUT
-		req, _ := http.NewRequest("GET", "/api/profiles/1/improv", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/improv/1", nil)
 
 		// Create response recorder
 		rr := httptest.NewRecorder()
@@ -1196,7 +1196,7 @@ func TestUpdateMusicProfileHandler_Errors(t *testing.T) {
 
 		// Create invalid request body
 		reqBody := []byte(`{invalid json}`)
-		req, _ := http.NewRequest("PUT", "/api/profiles/1/music", bytes.NewReader(reqBody))
+		req, _ := http.NewRequest("PUT", "/api/profiles/music/1", bytes.NewReader(reqBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -1243,7 +1243,7 @@ func TestUpdateMusicProfileHandler_Errors(t *testing.T) {
 			Instruments: []string{}, // Empty instruments
 		}
 		reqBody, _ := json.Marshal(reqData)
-		req, _ := http.NewRequest("PUT", "/api/profiles/1/music", bytes.NewReader(reqBody))
+		req, _ := http.NewRequest("PUT", "/api/profiles/music/1", bytes.NewReader(reqBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -1294,7 +1294,7 @@ func TestUpdateMusicProfileHandler_Errors(t *testing.T) {
 			Instruments: []string{"guitar", "piano"},
 		}
 		reqBody, _ := json.Marshal(reqData)
-		req, _ := http.NewRequest("PUT", "/api/profiles/1/music", bytes.NewReader(reqBody))
+		req, _ := http.NewRequest("PUT", "/api/profiles/music/1", bytes.NewReader(reqBody))
 		req.Header.Set("Content-Type", "application/json")
 
 		// Add user ID to context
@@ -1331,7 +1331,7 @@ func TestGetUserProfilesHandler(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Create request
-		req, _ := http.NewRequest("GET", "/api/users/1/profiles", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/user/1", nil)
 
 		// Add user ID to context (authenticated as same user)
 		ctx := context.WithValue(req.Context(), "user_id", 1)
@@ -1363,7 +1363,7 @@ func TestGetUserProfilesHandler(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Create request without authentication
-		req, _ := http.NewRequest("GET", "/api/users/1/profiles", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/user/1", nil)
 
 		// Create response recorder
 		rr := httptest.NewRecorder()
@@ -1383,7 +1383,7 @@ func TestGetUserProfilesHandler(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Create request
-		req, _ := http.NewRequest("GET", "/api/users/2/profiles", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/user/2", nil)
 
 		// Add different user ID to context
 		ctx := context.WithValue(req.Context(), "user_id", 1)
@@ -1407,7 +1407,7 @@ func TestGetUserProfilesHandler(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Create request with invalid user ID
-		req, _ := http.NewRequest("GET", "/api/users/invalid/profiles", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/user/invalid", nil)
 
 		// Add user ID to context
 		ctx := context.WithValue(req.Context(), "user_id", 1)
@@ -1434,7 +1434,7 @@ func TestGetUserProfilesHandler(t *testing.T) {
 		handler := NewProfileHandler(mockService)
 
 		// Create request
-		req, _ := http.NewRequest("GET", "/api/users/1/profiles", nil)
+		req, _ := http.NewRequest("GET", "/api/profiles/user/1", nil)
 
 		// Add user ID to context
 		ctx := context.WithValue(req.Context(), "user_id", 1)

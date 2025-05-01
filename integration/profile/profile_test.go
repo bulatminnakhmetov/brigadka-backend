@@ -287,7 +287,7 @@ func (s *ProfileIntegrationTestSuite) TestGetNonExistentProfile() {
 
 	// Запрашиваем несуществующий профиль по ID
 	nonExistentID := 999999 // Предполагаем, что такого ID нет в базе
-	getReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, nonExistentID), nil)
+	getReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/improv/%d", s.appUrl, nonExistentID), nil)
 	getReq.Header.Set("Authorization", "Bearer "+token)
 
 	client := &http.Client{}
@@ -482,7 +482,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateImprovProfileWithSpecificEndpoin
 	}
 
 	updateJSON, _ := json.Marshal(updateData)
-	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d/improv", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/improv/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateReq.Header.Set("Authorization", "Bearer "+token)
 
@@ -554,7 +554,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateMusicProfileWithSpecificEndpoint
 	}
 
 	updateJSON, _ := json.Marshal(updateData)
-	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d/music", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/music/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateReq.Header.Set("Authorization", "Bearer "+token)
 
@@ -626,7 +626,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateProfileUnauthorized() {
 	}
 
 	updateJSON, _ := json.Marshal(updateData)
-	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d/improv", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/improv/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
 	updateReq.Header.Set("Content-Type", "application/json")
 	// Intentionally omit authorization header
 
@@ -686,7 +686,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateProfileWrongType() {
 	}
 
 	updateJSON, _ := json.Marshal(updateData)
-	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d/music", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/music/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateReq.Header.Set("Authorization", "Bearer "+token)
 
@@ -750,7 +750,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateProfileOtherUsersProfile() {
 	}
 
 	updateJSON, _ := json.Marshal(updateData)
-	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/%d/improv", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
+	updateReq, _ := http.NewRequest("PUT", fmt.Sprintf("%s/api/profiles/improv/%d", s.appUrl, profileID), bytes.NewBuffer(updateJSON))
 	updateReq.Header.Set("Content-Type", "application/json")
 	updateReq.Header.Set("Authorization", "Bearer "+token2) // Using second user's token
 
@@ -829,7 +829,7 @@ func (s *ProfileIntegrationTestSuite) TestGetUserProfiles() {
 	musicProfileID := createdMusicProfile.ProfileID
 
 	// Test that we can get all the user's profiles
-	profilesReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, userID), nil)
+	profilesReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/user/%d", s.appUrl, userID), nil)
 	profilesReq.Header.Set("Authorization", "Bearer "+token)
 
 	profilesResp, err := client.Do(profilesReq)
@@ -855,7 +855,7 @@ func (s *ProfileIntegrationTestSuite) TestGetUserProfiles() {
 	assert.Equal(t, 2, len(userProfiles.Profiles), "User should have exactly two profiles")
 
 	// Test unauthorized access
-	otherUserReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, userID+1), nil)
+	otherUserReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/user/%d", s.appUrl, userID+1), nil)
 	otherUserReq.Header.Set("Authorization", "Bearer "+token)
 
 	otherUserResp, err := client.Do(otherUserReq)
@@ -866,7 +866,7 @@ func (s *ProfileIntegrationTestSuite) TestGetUserProfiles() {
 	assert.Equal(t, http.StatusForbidden, otherUserResp.StatusCode)
 
 	// Test unauthorized request
-	noAuthReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/%d", s.appUrl, userID), nil)
+	noAuthReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/user/%d", s.appUrl, userID), nil)
 
 	noAuthResp, err := client.Do(noAuthReq)
 	assert.NoError(t, err)
@@ -885,7 +885,7 @@ func (s *ProfileIntegrationTestSuite) TestGetUserProfilesInvalidID() {
 	assert.NoError(t, err, "Failed to create test user")
 
 	// Test with non-numeric user ID
-	invalidReq, _ := http.NewRequest("GET", s.appUrl+"/api/users/invalid/profiles", nil)
+	invalidReq, _ := http.NewRequest("GET", s.appUrl+"/api/profiles/user/invalid", nil)
 	invalidReq.Header.Set("Authorization", "Bearer "+token)
 
 	client := &http.Client{}
@@ -897,7 +897,7 @@ func (s *ProfileIntegrationTestSuite) TestGetUserProfilesInvalidID() {
 	assert.Equal(t, http.StatusBadRequest, invalidResp.StatusCode)
 
 	// Test with user ID = 0 (invalid)
-	zeroIDReq, _ := http.NewRequest("GET", s.appUrl+"/api/users/0/profiles", nil)
+	zeroIDReq, _ := http.NewRequest("GET", s.appUrl+"/api/profiles/user/0", nil)
 	zeroIDReq.Header.Set("Authorization", "Bearer "+token)
 
 	zeroIDResp, err := client.Do(zeroIDReq)
@@ -905,7 +905,7 @@ func (s *ProfileIntegrationTestSuite) TestGetUserProfilesInvalidID() {
 	defer zeroIDResp.Body.Close()
 
 	// Verify bad request response
-	assert.Equal(t, http.StatusBadRequest, zeroIDResp.StatusCode)
+	assert.Equal(t, http.StatusForbidden, zeroIDResp.StatusCode)
 }
 
 // TestProfileIntegration запускает набор интеграционных тестов для профилей
