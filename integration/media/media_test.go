@@ -12,553 +12,282 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/media"
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/profile"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/media"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
-// MediaIntegrationTestSuite определяет набор интеграционных тестов для медиа
+// MediaIntegrationTestSuite defines a set of integration tests for media operations
 type MediaIntegrationTestSuite struct {
 	suite.Suite
-	appUrl     string
-	bucketName string
+	appUrl        string
+	authToken     string
+	testImagePath string
+	testVideoPath string
 }
 
-// SetupSuite подготавливает общее окружение перед запуском всех тестов
+// SetupSuite prepares the test environment before running all tests
 func (s *MediaIntegrationTestSuite) SetupSuite() {
 	s.appUrl = os.Getenv("APP_URL")
 	if s.appUrl == "" {
-		s.appUrl = "http://localhost:8080" // Значение по умолчанию для локального тестирования
+		s.appUrl = "http://localhost:8080" // Default for local testing
 	}
+
+	// Set paths for test media files
+	s.testImagePath = filepath.Join("testdata", "test_image.jpg")
+	s.testVideoPath = filepath.Join("testdata", "test_video.mp4")
+
+	// Create test directory if it doesn't exist
+	os.MkdirAll("testdata", 0755)
+
+	// Generate test image file
+	s.createTestImage()
+
+	// Generate test video file
+	s.createTestVideo()
+
+	// Register a test user and get authentication token
+	s.authToken = s.registerTestUser()
 }
 
-// Вспомогательная функция для создания тестового пользователя и профиля
-func (s *MediaIntegrationTestSuite) createTestUserAndProfile() (int, int, string, error) {
-	// Генерируем уникальный email для пользователя
-	testEmail := fmt.Sprintf("media_test_user_%d_%d@example.com", os.Getpid(), time.Now().UnixNano())
-	testPassword := "TestPassword123"
+// TearDownSuite cleans up after all tests have run
+func (s *MediaIntegrationTestSuite) TearDownSuite() {
+	// Clean up test files
+	os.Remove(s.testImagePath)
+	os.Remove(s.testVideoPath)
+	os.Remove("testdata")
+}
 
-	// Регистрируем тестового пользователя
+// Helper function to generate a test image
+func (s *MediaIntegrationTestSuite) createTestImage() {
+	// Create a simple 1x1 black JPEG file
+	data := []byte{
+		0xFF, 0xD8, // SOI marker
+		0xFF, 0xE0, 0x00, 0x10, // APP0 marker
+		'J', 'F', 'I', 'F', 0x00, // JFIF identifier
+		0x01, 0x01, // version
+		0x00,                   // units (0 = no units)
+		0x00, 0x01, 0x00, 0x01, // X and Y densities
+		0x00, 0x00, // thumbnail width/height
+		0xFF, 0xDB, 0x00, 0x43, 0x00, // DQT marker
+		// Quantization table (simplified)
+		0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07,
+		0x07, 0x07, 0x09, 0x09, 0x08, 0x0A, 0x0C, 0x14,
+		0x0D, 0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12, 0x13,
+		0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D, 0x1A,
+		0x1C, 0x1C, 0x20, 0x24, 0x2E, 0x27, 0x20, 0x22,
+		0x2C, 0x23, 0x1C, 0x1C, 0x28, 0x37, 0x29, 0x2C,
+		0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39,
+		0x3D, 0x38, 0x32, 0x3C, 0x2E, 0x33, 0x34, 0x32,
+		// Rest of the JPEG structure
+		0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00,
+		0xFF, 0xC4, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09,
+		0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, 0xD2, 0xCF, 0x20,
+		0xFF, 0xD9,
+	}
+	_ = os.WriteFile(s.testImagePath, data, 0644)
+}
+
+// Helper function to generate a test video
+func (s *MediaIntegrationTestSuite) createTestVideo() {
+	// Create a very simple MP4 file header
+	data := []byte{
+		0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p',
+		'm', 'p', '4', '2', 0x00, 0x00, 0x00, 0x00,
+		'm', 'p', '4', '2', 'i', 's', 'o', 'm',
+		0x00, 0x00, 0x00, 0x08, 'f', 'r', 'e', 'e',
+	}
+	_ = os.WriteFile(s.testVideoPath, data, 0644)
+}
+
+// Helper function to generate a unique email
+func generateTestEmail() string {
+	return fmt.Sprintf("test_user_%d_%d@example.com", os.Getpid(), time.Now().UnixNano())
+}
+
+// Helper function to register a test user and return the auth token
+func (s *MediaIntegrationTestSuite) registerTestUser() string {
+	// Create unique test credentials
+	testEmail := generateTestEmail()
+	testPassword := "TestPassword123!"
+
+	// Prepare registration request
 	registerData := auth.RegisterRequest{
 		Email:    testEmail,
 		Password: testPassword,
-		FullName: "Media Test User",
-		Gender:   "male",
-		Age:      30,
-		CityID:   1,
 	}
 
 	registerJSON, _ := json.Marshal(registerData)
-	registerReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	registerReq.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	registerResp, err := client.Do(registerReq)
+	resp, err := client.Do(req)
 	if err != nil {
-		return 0, 0, "", fmt.Errorf("failed to send register request: %w", err)
+		s.T().Fatalf("Failed to register test user: %v", err)
 	}
-	defer registerResp.Body.Close()
+	defer resp.Body.Close()
 
-	if registerResp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(registerResp.Body)
-		return 0, 0, "", fmt.Errorf("failed to register user: %s", body)
+	if resp.StatusCode != http.StatusCreated {
+		s.T().Fatalf("Failed to register test user. Status: %d", resp.StatusCode)
 	}
 
-	var registerResult auth.AuthResponse
-	err = json.NewDecoder(registerResp.Body).Decode(&registerResult)
+	var authResponse auth.AuthResponse
+	err = json.NewDecoder(resp.Body).Decode(&authResponse)
 	if err != nil {
-		return 0, 0, "", fmt.Errorf("failed to decode register response: %w", err)
+		s.T().Fatalf("Failed to decode auth response: %v", err)
 	}
 
-	// Создаем тестовый профиль для пользователя
-	createProfileData := profile.CreateImprovProfileRequest{
-		CreateProfileRequest: profile.CreateProfileRequest{
-			UserID:      registerResult.User.ID,
-			Description: "Test profile for media tests",
-		},
-		Goal:   "Hobby",
-		Styles: []string{"Short Form"},
-	}
-
-	createProfileJSON, _ := json.Marshal(createProfileData)
-	createProfileReq, _ := http.NewRequest("POST", s.appUrl+"/api/profiles/improv", bytes.NewBuffer(createProfileJSON))
-	createProfileReq.Header.Set("Content-Type", "application/json")
-	createProfileReq.Header.Set("Authorization", "Bearer "+registerResult.Token)
-
-	createProfileResp, err := client.Do(createProfileReq)
-	if err != nil {
-		return 0, 0, "", fmt.Errorf("failed to send create profile request: %w", err)
-	}
-	defer createProfileResp.Body.Close()
-
-	if createProfileResp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(createProfileResp.Body)
-		return 0, 0, "", fmt.Errorf("failed to create profile: %s", body)
-	}
-
-	var createdProfile profile.Profile
-	err = json.NewDecoder(createProfileResp.Body).Decode(&createdProfile)
-	if err != nil {
-		return 0, 0, "", fmt.Errorf("failed to decode create profile response: %w", err)
-	}
-
-	return registerResult.User.ID, createdProfile.ProfileID, registerResult.Token, nil
+	return authResponse.Token
 }
 
-// Вспомогательная функция для создания временного файла изображения
-func createTempImageFile() (string, error) {
-	// Создаем временный файл
-	tmpFile, err := os.CreateTemp("", "test-image-*.jpg")
+// Helper function to create a multipart request with a file
+func createMultipartRequest(url, fieldName, filePath string, authToken string) (*http.Request, error) {
+	file, err := os.Open(filePath)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	defer tmpFile.Close()
-
-	// Тестовое содержимое файла (минимальный валидный JPEG)
-	jpegHeader := []byte{
-		0xFF, 0xD8, // SOI marker
-		0xFF, 0xE0, // APP0 marker
-		0x00, 0x10, // APP0 length (16 bytes)
-		0x4A, 0x46, 0x49, 0x46, 0x00, // Identifier: "JFIF\0"
-		0x01, 0x01, // JFIF version 1.1
-		0x00,       // Density units: no units
-		0x00, 0x01, // X density: 1
-		0x00, 0x01, // Y density: 1
-		0x00, // No thumbnail
-		0x00, // No thumbnail
-		// Минимальное изображение (1x1 пиксель)
-		0xFF, 0xDB, // DQT marker
-		0x00, 0x43, // DQT length (67 bytes)
-		0x00, // Precision and table ID
-	}
-
-	// Добавляем таблицу квантования (просто для полноты)
-	for i := 0; i < 64; i++ {
-		jpegHeader = append(jpegHeader, 0x10) // Простая константа
-	}
-
-	// Добавляем SOF0 (начало кадра)
-	sofMarker := []byte{
-		0xFF, 0xC0, // SOF0 marker
-		0x00, 0x0B, // Length (11 bytes)
-		0x08,       // Precision (8 bits)
-		0x00, 0x01, // Height (1 pixel)
-		0x00, 0x01, // Width (1 pixel)
-		0x01,             // Number of components (1, монохромное)
-		0x01, 0x11, 0x00, // Component 1 parameters
-	}
-	jpegHeader = append(jpegHeader, sofMarker...)
-
-	// Добавляем DHT (таблица Хаффмана)
-	dhtMarker := []byte{
-		0xFF, 0xC4, // DHT marker
-		0x00, 0x14, // Length (20 bytes)
-		0x00, // Table ID and type
-	}
-	// Счетчики символов для каждой длины кода
-	for i := 0; i < 16; i++ {
-		if i == 0 {
-			dhtMarker = append(dhtMarker, 0x01) // Один символ длины 1
-		} else {
-			dhtMarker = append(dhtMarker, 0x00) // Нет символов для других длин
-		}
-	}
-	dhtMarker = append(dhtMarker, 0x00) // Значение символа
-	jpegHeader = append(jpegHeader, dhtMarker...)
-
-	// Добавляем SOS (начало сканирования)
-	sosMarker := []byte{
-		0xFF, 0xDA, // SOS marker
-		0x00, 0x08, // Length (8 bytes)
-		0x01,       // Number of components (1)
-		0x01, 0x00, // Component 1 parameters
-		0x00, 0x3F, 0x00, // Spectral selection and approximation
-	}
-	jpegHeader = append(jpegHeader, sosMarker...)
-
-	// Добавляем минимальные данные и EOI (конец изображения)
-	imageData := []byte{0x00, 0xFF, 0xD9} // Простые данные и EOI marker
-	jpegHeader = append(jpegHeader, imageData...)
-
-	// Записываем в файл
-	if _, err := tmpFile.Write(jpegHeader); err != nil {
-		os.Remove(tmpFile.Name())
-		return "", err
-	}
-
-	return tmpFile.Name(), nil
-}
-
-// TestUploadMedia проверяет загрузку медиа файла
-func (s *MediaIntegrationTestSuite) TestUploadMedia() {
-	t := s.T()
-
-	// Создаем пользователя и профиль для теста
-	_, profileID, token, err := s.createTestUserAndProfile()
-	assert.NoError(t, err, "Failed to create test user and profile")
-
-	// Создаем временный файл для загрузки
-	tmpFilePath, err := createTempImageFile()
-	assert.NoError(t, err, "Failed to create temp image file")
-	defer os.Remove(tmpFilePath)
-
-	// Создаем multipart форму для загрузки файла
-	var requestBody bytes.Buffer
-	writer := multipart.NewWriter(&requestBody)
-
-	// Добавляем profile_id в форму
-	err = writer.WriteField("profile_id", fmt.Sprintf("%d", profileID))
-	assert.NoError(t, err)
-
-	// Добавляем role в форму
-	err = writer.WriteField("role", "avatar")
-	assert.NoError(t, err)
-
-	// Добавляем файл в форму
-	file, err := os.Open(tmpFilePath)
-	assert.NoError(t, err)
 	defer file.Close()
 
-	part, err := writer.CreateFormFile("file", filepath.Base(tmpFilePath))
-	assert.NoError(t, err)
-
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	part, err := writer.CreateFormFile(fieldName, filepath.Base(filePath))
+	if err != nil {
+		return nil, err
+	}
 	_, err = io.Copy(part, file)
-	assert.NoError(t, err)
-
+	if err != nil {
+		return nil, err
+	}
 	err = writer.Close()
-	assert.NoError(t, err)
-
-	// Создаем запрос для загрузки файла
-	uploadReq, err := http.NewRequest("POST", s.appUrl+"/api/media/upload", &requestBody)
-	assert.NoError(t, err)
-
-	uploadReq.Header.Set("Content-Type", writer.FormDataContentType())
-	uploadReq.Header.Set("Authorization", "Bearer "+token)
-
-	client := &http.Client{}
-	uploadResp, err := client.Do(uploadReq)
-	assert.NoError(t, err)
-	defer uploadResp.Body.Close()
-
-	// Проверяем статус ответа
-	assert.Equal(t, http.StatusCreated, uploadResp.StatusCode, "Should return status 201 Created")
-
-	// Проверяем содержимое ответа
-	var mediaResp media.MediaResponse
-	err = json.NewDecoder(uploadResp.Body).Decode(&mediaResp)
-	assert.NoError(t, err)
-
-	// Проверяем поля созданного медиа
-	assert.NotZero(t, mediaResp.Media.ID, "Media ID should not be zero")
-	assert.Equal(t, profileID, mediaResp.Media.ProfileID, "Profile ID should match")
-	assert.Equal(t, "avatar", mediaResp.Media.Role, "Media role should match")
-	assert.NotEmpty(t, mediaResp.Media.URL, "Media URL should not be empty")
-	assert.False(t, mediaResp.Media.CreatedAt.IsZero(), "Created at should not be zero")
-
-	// Сохраняем ID медиа для последующих тестов
-	mediaID := mediaResp.Media.ID
-
-	// Проверяем получение медиа по ID
-	t.Run("Get media by ID", func(t *testing.T) {
-		getReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/media/%d", s.appUrl, mediaID), nil)
-		getReq.Header.Set("Authorization", "Bearer "+token)
-
-		getResp, err := client.Do(getReq)
-		assert.NoError(t, err)
-		defer getResp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, getResp.StatusCode, "Should return status 200 OK")
-
-		var getMediaResp media.MediaResponse
-		err = json.NewDecoder(getResp.Body).Decode(&getMediaResp)
-		assert.NoError(t, err)
-
-		assert.Equal(t, mediaID, getMediaResp.Media.ID, "Media ID should match")
-		assert.Equal(t, profileID, getMediaResp.Media.ProfileID, "Profile ID should match")
-		assert.Equal(t, "avatar", getMediaResp.Media.Role, "Media role should match")
-	})
-
-	// Проверяем получение медиа по профилю
-	t.Run("Get media by profile", func(t *testing.T) {
-		getProfileMediaReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/%d/media", s.appUrl, profileID), nil)
-		getProfileMediaReq.Header.Set("Authorization", "Bearer "+token)
-
-		getProfileMediaResp, err := client.Do(getProfileMediaReq)
-		assert.NoError(t, err)
-		defer getProfileMediaResp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, getProfileMediaResp.StatusCode, "Should return status 200 OK")
-
-		var mediaListResp media.MediaListResponse
-		err = json.NewDecoder(getProfileMediaResp.Body).Decode(&mediaListResp)
-		assert.NoError(t, err)
-
-		assert.GreaterOrEqual(t, len(mediaListResp.Media), 1, "Should have at least one media")
-
-		// Ищем наше медиа в списке
-		found := false
-		for _, m := range mediaListResp.Media {
-			if m.ID == mediaID {
-				found = true
-				assert.Equal(t, profileID, m.ProfileID, "Profile ID should match")
-				assert.Equal(t, "avatar", m.Role, "Media role should match")
-				break
-			}
-		}
-		assert.True(t, found, "Uploaded media should be found in profile media list")
-	})
-
-	// Проверяем получение медиа по профилю с фильтрацией по роли
-	t.Run("Get media by profile with role filter", func(t *testing.T) {
-		getProfileMediaWithRoleReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/profiles/%d/media?role=avatar", s.appUrl, profileID), nil)
-		getProfileMediaWithRoleReq.Header.Set("Authorization", "Bearer "+token)
-
-		getProfileMediaWithRoleResp, err := client.Do(getProfileMediaWithRoleReq)
-		assert.NoError(t, err)
-		defer getProfileMediaWithRoleResp.Body.Close()
-
-		assert.Equal(t, http.StatusOK, getProfileMediaWithRoleResp.StatusCode, "Should return status 200 OK")
-
-		var mediaListRoleResp media.MediaListResponse
-		err = json.NewDecoder(getProfileMediaWithRoleResp.Body).Decode(&mediaListRoleResp)
-		assert.NoError(t, err)
-
-		assert.GreaterOrEqual(t, len(mediaListRoleResp.Media), 1, "Should have at least one avatar media")
-
-		for _, m := range mediaListRoleResp.Media {
-			assert.Equal(t, "avatar", m.Role, "All media should have avatar role")
-		}
-	})
-
-	// Проверяем удаление медиа
-	t.Run("Delete media", func(t *testing.T) {
-		deleteReq, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/api/media/%d", s.appUrl, mediaID), nil)
-		deleteReq.Header.Set("Authorization", "Bearer "+token)
-
-		deleteResp, err := client.Do(deleteReq)
-		assert.NoError(t, err)
-		defer deleteResp.Body.Close()
-
-		assert.Equal(t, http.StatusNoContent, deleteResp.StatusCode, "Should return status 204 No Content")
-
-		// Проверяем, что медиа действительно удалено
-		getReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/media/%d", s.appUrl, mediaID), nil)
-		getReq.Header.Set("Authorization", "Bearer "+token)
-
-		getResp, err := client.Do(getReq)
-		assert.NoError(t, err)
-		defer getResp.Body.Close()
-
-		assert.Equal(t, http.StatusNotFound, getResp.StatusCode, "Should return status 404 Not Found")
-	})
-}
-
-// TestUploadInvalidMedia проверяет обработку ошибок при загрузке невалидных медиа
-func (s *MediaIntegrationTestSuite) TestUploadInvalidMedia() {
-	t := s.T()
-
-	// Создаем пользователя и профиль для теста
-	_, profileID, token, err := s.createTestUserAndProfile()
-	assert.NoError(t, err, "Failed to create test user and profile")
-
-	// Тестовые случаи с невалидными данными
-	testCases := []struct {
-		name        string
-		setup       func(writer *multipart.Writer) error
-		statusCode  int
-		errorString string
-	}{
-		{
-			name: "Missing profile_id",
-			setup: func(writer *multipart.Writer) error {
-				// Добавляем только role в форму
-				if err := writer.WriteField("role", "avatar"); err != nil {
-					return err
-				}
-
-				// Создаем временный файл для загрузки
-				tmpFilePath, err := createTempImageFile()
-				if err != nil {
-					return err
-				}
-				defer os.Remove(tmpFilePath)
-
-				file, err := os.Open(tmpFilePath)
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-
-				part, err := writer.CreateFormFile("file", filepath.Base(tmpFilePath))
-				if err != nil {
-					return err
-				}
-
-				_, err = io.Copy(part, file)
-				return err
-			},
-			statusCode:  http.StatusBadRequest,
-			errorString: "Profile ID is required",
-		},
-		{
-			name: "Missing role",
-			setup: func(writer *multipart.Writer) error {
-				// Добавляем только profile_id в форму
-				if err := writer.WriteField("profile_id", fmt.Sprintf("%d", profileID)); err != nil {
-					return err
-				}
-
-				// Создаем временный файл для загрузки
-				tmpFilePath, err := createTempImageFile()
-				if err != nil {
-					return err
-				}
-				defer os.Remove(tmpFilePath)
-
-				file, err := os.Open(tmpFilePath)
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-
-				part, err := writer.CreateFormFile("file", filepath.Base(tmpFilePath))
-				if err != nil {
-					return err
-				}
-
-				_, err = io.Copy(part, file)
-				return err
-			},
-			statusCode:  http.StatusBadRequest,
-			errorString: "Media role is required",
-		},
-		{
-			name: "Invalid role",
-			setup: func(writer *multipart.Writer) error {
-				// Добавляем profile_id и невалидный role в форму
-				if err := writer.WriteField("profile_id", fmt.Sprintf("%d", profileID)); err != nil {
-					return err
-				}
-				if err := writer.WriteField("role", "invalid_role"); err != nil {
-					return err
-				}
-
-				// Создаем временный файл для загрузки
-				tmpFilePath, err := createTempImageFile()
-				if err != nil {
-					return err
-				}
-				defer os.Remove(tmpFilePath)
-
-				file, err := os.Open(tmpFilePath)
-				if err != nil {
-					return err
-				}
-				defer file.Close()
-
-				part, err := writer.CreateFormFile("file", filepath.Base(tmpFilePath))
-				if err != nil {
-					return err
-				}
-
-				_, err = io.Copy(part, file)
-				return err
-			},
-			statusCode:  http.StatusBadRequest,
-			errorString: "Invalid media role",
-		},
-		{
-			name: "Missing file",
-			setup: func(writer *multipart.Writer) error {
-				// Добавляем profile_id и role в форму, но не файл
-				if err := writer.WriteField("profile_id", fmt.Sprintf("%d", profileID)); err != nil {
-					return err
-				}
-				return writer.WriteField("role", "avatar")
-			},
-			statusCode:  http.StatusBadRequest,
-			errorString: "Failed to get file",
-		},
+	if err != nil {
+		return nil, err
 	}
 
-	client := &http.Client{}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			var requestBody bytes.Buffer
-			writer := multipart.NewWriter(&requestBody)
-
-			err := tc.setup(writer)
-			assert.NoError(t, err)
-
-			err = writer.Close()
-			assert.NoError(t, err)
-
-			uploadReq, err := http.NewRequest("POST", s.appUrl+"/api/media/upload", &requestBody)
-			assert.NoError(t, err)
-
-			uploadReq.Header.Set("Content-Type", writer.FormDataContentType())
-			uploadReq.Header.Set("Authorization", "Bearer "+token)
-
-			uploadResp, err := client.Do(uploadReq)
-			assert.NoError(t, err)
-			defer uploadResp.Body.Close()
-
-			// Проверяем статус ответа
-			assert.Equal(t, tc.statusCode, uploadResp.StatusCode)
-
-			// Проверяем содержимое ответа на наличие ожидаемой ошибки
-			body, err := io.ReadAll(uploadResp.Body)
-			assert.NoError(t, err)
-			assert.Contains(t, string(body), tc.errorString)
-		})
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return nil, err
 	}
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+authToken)
+	}
+	return req, nil
 }
 
-// TestGetNonexistentMedia проверяет получение несуществующего медиа
-func (s *MediaIntegrationTestSuite) TestGetNonexistentMedia() {
+// TestUploadMediaImage tests uploading an image
+func (s *MediaIntegrationTestSuite) TestUploadMediaImage() {
 	t := s.T()
 
-	// Создаем пользователя только для получения токена
-	_, _, token, err := s.createTestUserAndProfile()
-	assert.NoError(t, err, "Failed to create test user and profile")
-
-	// Запрашиваем несуществующее медиа
-	nonexistentMediaID := 999999 // Предполагаем, что такого ID нет в базе
-	getReq, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/media/%d", s.appUrl, nonexistentMediaID), nil)
-	getReq.Header.Set("Authorization", "Bearer "+token)
+	req, err := createMultipartRequest(s.appUrl+"/api/media/upload", "file", s.testImagePath, s.authToken)
+	assert.NoError(t, err)
 
 	client := &http.Client{}
-	getResp, err := client.Do(getReq)
+	resp, err := client.Do(req)
 	assert.NoError(t, err)
-	defer getResp.Body.Close()
+	defer resp.Body.Close()
 
-	// Проверяем статус ответа
-	assert.Equal(t, http.StatusNotFound, getResp.StatusCode, "Should return status 404 Not Found")
+	// Check response status
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Should return status 200 OK")
+
+	// Check response content
+	var mediaResponse media.MediaResponse
+	err = json.NewDecoder(resp.Body).Decode(&mediaResponse)
+	assert.NoError(t, err)
+
+	// Verify the response contains a media ID
+	assert.Greater(t, mediaResponse.ID, 0, "Media ID should be positive")
 }
 
-// TestUnauthorizedAccess проверяет доступ без авторизации
-func (s *MediaIntegrationTestSuite) TestUnauthorizedAccess() {
+// TestUploadMediaVideo tests uploading a video
+func (s *MediaIntegrationTestSuite) TestUploadMediaVideo() {
 	t := s.T()
 
-	// Создаем запрос без токена авторизации
-	uploadReq, _ := http.NewRequest("POST", s.appUrl+"/api/media/upload", nil)
-	uploadReq.Header.Set("Content-Type", "multipart/form-data")
+	req, err := createMultipartRequest(s.appUrl+"/api/media/upload", "file", s.testVideoPath, s.authToken)
+	assert.NoError(t, err)
 
 	client := &http.Client{}
-	uploadResp, err := client.Do(uploadReq)
+	resp, err := client.Do(req)
 	assert.NoError(t, err)
-	defer uploadResp.Body.Close()
+	defer resp.Body.Close()
 
-	// Проверяем статус ответа
-	assert.Equal(t, http.StatusUnauthorized, uploadResp.StatusCode, "Should return status 401 Unauthorized")
+	// Check response status
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Should return status 200 OK")
+
+	// Check response content
+	var mediaResponse media.MediaResponse
+	err = json.NewDecoder(resp.Body).Decode(&mediaResponse)
+	assert.NoError(t, err)
+
+	// Verify the response contains a media ID
+	assert.Greater(t, mediaResponse.ID, 0, "Media ID should be positive")
 }
 
-// TestMediaIntegration запускает набор интеграционных тестов для медиа
+// TestUploadMediaNoAuth tests uploading without authentication
+func (s *MediaIntegrationTestSuite) TestUploadMediaNoAuth() {
+	t := s.T()
+
+	req, err := createMultipartRequest(s.appUrl+"/api/media/upload", "file", s.testImagePath, "")
+	assert.NoError(t, err)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Should return unauthorized
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Should return status 401 Unauthorized")
+}
+
+// TestUploadInvalidFile tests uploading an invalid file type
+func (s *MediaIntegrationTestSuite) TestUploadInvalidFile() {
+	t := s.T()
+
+	// Create a temporary invalid file
+	invalidFilePath := filepath.Join("testdata", "invalid_file.txt")
+	err := os.WriteFile(invalidFilePath, []byte("This is not an image or video"), 0644)
+	assert.NoError(t, err)
+	defer os.Remove(invalidFilePath)
+
+	req, err := createMultipartRequest(s.appUrl+"/api/media/upload", "file", invalidFilePath, s.authToken)
+	assert.NoError(t, err)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Should return bad request for invalid file type
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Should return status 400 Bad Request")
+}
+
+// TestUploadNoFile tests submitting a request without a file
+func (s *MediaIntegrationTestSuite) TestUploadNoFile() {
+	t := s.T()
+
+	// Create a request without a file
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+	writer.Close()
+
+	req, err := http.NewRequest("POST", s.appUrl+"/api/media/upload", body)
+	assert.NoError(t, err)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("Authorization", "Bearer "+s.authToken)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Should return bad request
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Should return status 400 Bad Request")
+}
+
+// TestMediaIntegration runs the media integration test suite
 func TestMediaIntegration(t *testing.T) {
-	// Пропускаем тесты, если задана переменная окружения SKIP_INTEGRATION_TESTS
+	// Skip tests if SKIP_INTEGRATION_TESTS environment variable is set
 	if os.Getenv("SKIP_INTEGRATION_TESTS") != "" {
 		t.Skip("Skipping integration tests")
 	}

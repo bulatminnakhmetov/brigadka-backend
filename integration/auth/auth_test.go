@@ -1,122 +1,137 @@
-package auth
+package integration
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"os"
 	"testing"
 	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
-	_ "github.com/lib/pq"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
 
-// AuthIntegrationTestSuite определяет набор интеграционных тестов для аутентификации
+// AuthIntegrationTestSuite defines a set of integration tests for authentication
 type AuthIntegrationTestSuite struct {
 	suite.Suite
 	appUrl string
 }
 
-// SetupSuite подготавливает окружение перед запуском всех тестов
+// SetupSuite prepares the test environment before running all tests
 func (s *AuthIntegrationTestSuite) SetupSuite() {
 	s.appUrl = os.Getenv("APP_URL")
 	if s.appUrl == "" {
-		s.appUrl = "http://localhost:8080" // Значение по умолчанию для локального тестирования
+		s.appUrl = "http://localhost:8080" // Default for local testing
 	}
 }
 
-// Вспомогательная функция для генерации уникального email
-func generateUniqueEmail() string {
+// Helper function to generate a unique email
+func generateTestEmail() string {
 	return fmt.Sprintf("test_user_%d_%d@example.com", os.Getpid(), time.Now().UnixNano())
 }
 
-// Вспомогательная функция для регистрации тестового пользователя
-func (s *AuthIntegrationTestSuite) registerTestUser(email, password, fullName, gender string, age, cityID int) (*auth.AuthResponse, error) {
-	registerData := auth.RegisterRequest{
-		Email:    email,
-		Password: password,
-		FullName: fullName,
-		Gender:   gender,
-		Age:      age,
-		CityID:   cityID,
-	}
-
-	registerJSON, _ := json.Marshal(registerData)
-	registerReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	registerReq.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	registerResp, err := client.Do(registerReq)
-	if err != nil {
-		return nil, err
-	}
-	defer registerResp.Body.Close()
-
-	if registerResp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(registerResp.Body)
-		return nil, fmt.Errorf("failed to register user. Status code: %d, Body: %s", registerResp.StatusCode, string(body))
-	}
-
-	var registerResult auth.AuthResponse
-	err = json.NewDecoder(registerResp.Body).Decode(&registerResult)
-	if err != nil {
-		return nil, err
-	}
-
-	return &registerResult, nil
-}
-
-// TestRegisterAndLogin тестирует полный цикл регистрации и входа в систему
-func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
+// TestRegister tests the user registration endpoint
+func (s *AuthIntegrationTestSuite) TestRegister() {
 	t := s.T()
 
-	// Генерируем уникальный email для этого теста
-	email := generateUniqueEmail()
-	password := "TestPassword123"
+	// Create unique test credentials
+	testEmail := generateTestEmail()
+	testPassword := "TestPassword123!"
 
-	// Шаг 1: Регистрация пользователя
+	// Prepare registration request
 	registerData := auth.RegisterRequest{
-		Email:    email,
-		Password: password,
-		FullName: "Test User",
-		Gender:   "male",
-		Age:      30,
-		CityID:   1,
+		Email:    testEmail,
+		Password: testPassword,
 	}
 
 	registerJSON, _ := json.Marshal(registerData)
-	registerReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	registerReq.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	registerResp, err := client.Do(registerReq)
+	resp, err := client.Do(req)
 	assert.NoError(t, err)
-	defer registerResp.Body.Close()
+	defer resp.Body.Close()
 
-	assert.Equal(t, http.StatusCreated, registerResp.StatusCode)
+	// Check response status
+	assert.Equal(t, http.StatusCreated, resp.StatusCode, "Should return status 201 Created")
 
-	var registerResult auth.AuthResponse
-	err = json.NewDecoder(registerResp.Body).Decode(&registerResult)
+	// Check response content
+	var authResponse auth.AuthResponse
+	err = json.NewDecoder(resp.Body).Decode(&authResponse)
 	assert.NoError(t, err)
 
-	// Проверка данных пользователя в ответе
-	assert.NotEmpty(t, registerResult.Token)
-	assert.NotEmpty(t, registerResult.RefreshToken) // Проверяем наличие refresh токена
-	assert.Equal(t, email, registerResult.User.Email)
-	assert.Equal(t, "Test User", registerResult.User.FullName)
-	assert.Equal(t, "male", registerResult.User.Gender)
-	assert.Equal(t, 30, registerResult.User.Age)
-	assert.Empty(t, registerResult.User.PasswordHash) // Хеш пароля не должен передаваться клиенту
+	// Verify the response contains required fields
+	assert.Greater(t, authResponse.UserID, 0, "User ID should be positive")
+	assert.NotEmpty(t, authResponse.Token, "Token should not be empty")
+	assert.NotEmpty(t, authResponse.RefreshToken, "Refresh token should not be empty")
+}
 
-	// Шаг 2: Вход с зарегистрированными данными
+// TestRegisterDuplicate tests registration with an existing email
+func (s *AuthIntegrationTestSuite) TestRegisterDuplicate() {
+	t := s.T()
+
+	// Create unique test credentials
+	testEmail := generateTestEmail()
+	testPassword := "TestPassword123!"
+
+	// Register the first user
+	registerData := auth.RegisterRequest{
+		Email:    testEmail,
+		Password: testPassword,
+	}
+
+	registerJSON, _ := json.Marshal(registerData)
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	resp.Body.Close()
+
+	// Try to register with the same email
+	req, _ = http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	req.Header.Set("Content-Type", "application/json")
+
+	duplicateResp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer duplicateResp.Body.Close()
+
+	// Should return conflict error
+	assert.Equal(t, http.StatusConflict, duplicateResp.StatusCode, "Should return status 409 Conflict")
+}
+
+// TestLogin tests the login endpoint
+func (s *AuthIntegrationTestSuite) TestLogin() {
+	t := s.T()
+
+	// Create unique test credentials
+	testEmail := generateTestEmail()
+	testPassword := "TestPassword123!"
+
+	// Register a user first
+	registerData := auth.RegisterRequest{
+		Email:    testEmail,
+		Password: testPassword,
+	}
+
+	registerJSON, _ := json.Marshal(registerData)
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	resp.Body.Close()
+
+	// Now attempt to login
 	loginData := auth.LoginRequest{
-		Email:    email,
-		Password: password,
+		Email:    testEmail,
+		Password: testPassword,
 	}
 
 	loginJSON, _ := json.Marshal(loginData)
@@ -127,260 +142,257 @@ func (s *AuthIntegrationTestSuite) TestRegisterAndLogin() {
 	assert.NoError(t, err)
 	defer loginResp.Body.Close()
 
-	assert.Equal(t, http.StatusOK, loginResp.StatusCode)
+	// Check response status
+	assert.Equal(t, http.StatusOK, loginResp.StatusCode, "Should return status 200 OK")
 
-	// Читаем тело ответа для логирования
-	bodyBytes, err := io.ReadAll(loginResp.Body)
+	// Check response content
+	var authResponse auth.AuthResponse
+	err = json.NewDecoder(loginResp.Body).Decode(&authResponse)
 	assert.NoError(t, err)
 
-	// Декодируем тело ответа
-	var loginResult auth.AuthResponse
-	err = json.Unmarshal(bodyBytes, &loginResult)
-	assert.NoError(t, err)
-
-	// Проверка данных пользователя в ответе
-	assert.NotEmpty(t, loginResult.Token)
-	assert.NotEmpty(t, loginResult.RefreshToken) // Проверяем наличие refresh токена
-	assert.Equal(t, email, loginResult.User.Email)
-	assert.Equal(t, "Test User", loginResult.User.FullName)
-	assert.Equal(t, "male", loginResult.User.Gender)
-	assert.Equal(t, 30, loginResult.User.Age)
-	assert.Empty(t, loginResult.User.PasswordHash)
-
-	// Шаг 3: Проверка защищенного ресурса с полученным токеном
-	protectedReq, _ := http.NewRequest("GET", s.appUrl+"/api/protected", nil)
-	protectedReq.Header.Set("Authorization", "Bearer "+loginResult.Token)
-
-	protectedResp, err := client.Do(protectedReq)
-	assert.NoError(t, err)
-	defer protectedResp.Body.Close()
-
-	assert.Equal(t, http.StatusOK, protectedResp.StatusCode)
-
-	protectedBodyBytes, err := io.ReadAll(protectedResp.Body)
-	assert.NoError(t, err)
-	protectedResult := string(protectedBodyBytes)
-
-	assert.Equal(t, fmt.Sprintf("Protected resource. User ID: %d, Email: %s", loginResult.User.ID, loginResult.User.Email), protectedResult)
+	// Verify the response contains required fields
+	assert.Greater(t, authResponse.UserID, 0, "User ID should be positive")
+	assert.NotEmpty(t, authResponse.Token, "Token should not be empty")
+	assert.NotEmpty(t, authResponse.RefreshToken, "Refresh token should not be empty")
 }
 
-// TestRefreshToken тестирует обновление токена с использованием refresh токена
+// TestLoginInvalidCredentials tests login with incorrect credentials
+func (s *AuthIntegrationTestSuite) TestLoginInvalidCredentials() {
+	t := s.T()
+
+	// Create unique test credentials
+	testEmail := generateTestEmail()
+	testPassword := "TestPassword123!"
+
+	// Register a user first
+	registerData := auth.RegisterRequest{
+		Email:    testEmail,
+		Password: testPassword,
+	}
+
+	registerJSON, _ := json.Marshal(registerData)
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	resp.Body.Close()
+
+	// Try to login with incorrect password
+	loginData := auth.LoginRequest{
+		Email:    testEmail,
+		Password: "WrongPassword123",
+	}
+
+	loginJSON, _ := json.Marshal(loginData)
+	loginReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/login", bytes.NewBuffer(loginJSON))
+	loginReq.Header.Set("Content-Type", "application/json")
+
+	loginResp, err := client.Do(loginReq)
+	assert.NoError(t, err)
+	defer loginResp.Body.Close()
+
+	// Should return unauthorized
+	assert.Equal(t, http.StatusUnauthorized, loginResp.StatusCode, "Should return status 401 Unauthorized")
+}
+
+// TestRefreshToken tests the token refresh endpoint
 func (s *AuthIntegrationTestSuite) TestRefreshToken() {
 	t := s.T()
 
-	// Генерируем уникальный email для этого теста
-	email := generateUniqueEmail()
-	password := "TestPassword123"
+	// Register a user to get initial tokens
+	testEmail := generateTestEmail()
+	testPassword := "TestPassword123!"
 
-	// Шаг 1: Регистрация пользователя для получения токенов
-	authResponse, err := s.registerTestUser(email, password, "Refresh Test User", "male", 30, 1)
-	assert.NoError(t, err, "Failed to register user")
-	assert.NotEmpty(t, authResponse.RefreshToken, "Refresh token should not be empty")
-
-	// Шаг 2: Используем refresh токен для получения новых токенов
-	refreshData := auth.RefreshRequest{
-		RefreshToken: authResponse.RefreshToken,
-	}
-
-	refreshJSON, _ := json.Marshal(refreshData)
-	refreshReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/refresh", bytes.NewBuffer(refreshJSON))
-	refreshReq.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	refreshResp, err := client.Do(refreshReq)
-	assert.NoError(t, err)
-	defer refreshResp.Body.Close()
-
-	assert.Equal(t, http.StatusOK, refreshResp.StatusCode)
-
-	var refreshResult auth.AuthResponse
-	err = json.NewDecoder(refreshResp.Body).Decode(&refreshResult)
-	assert.NoError(t, err)
-
-	// Проверка результата обновления токена
-	assert.NotEmpty(t, refreshResult.Token)
-	assert.NotEmpty(t, refreshResult.RefreshToken)
-	assert.NotEqual(t, authResponse.Token, refreshResult.Token, "New access token should be different")
-	assert.NotEqual(t, authResponse.RefreshToken, refreshResult.RefreshToken, "New refresh token should be different")
-
-	// Данные пользователя должны остаться теми же
-	assert.Equal(t, authResponse.User.ID, refreshResult.User.ID)
-	assert.Equal(t, email, refreshResult.User.Email)
-	assert.Equal(t, "Refresh Test User", refreshResult.User.FullName)
-
-	// Шаг 3: Проверяем, что новый токен действительно работает
-	protectedReq, _ := http.NewRequest("GET", s.appUrl+"/api/protected", nil)
-	protectedReq.Header.Set("Authorization", "Bearer "+refreshResult.Token)
-
-	protectedResp, err := client.Do(protectedReq)
-	assert.NoError(t, err)
-	defer protectedResp.Body.Close()
-
-	assert.Equal(t, http.StatusOK, protectedResp.StatusCode)
-}
-
-// TestInvalidRefreshToken тестирует попытку обновления токена с невалидным refresh токеном
-func (s *AuthIntegrationTestSuite) TestInvalidRefreshToken() {
-	t := s.T()
-
-	// Тестируем с невалидным refresh токеном
-	refreshData := auth.RefreshRequest{
-		RefreshToken: "invalid-refresh-token",
-	}
-
-	refreshJSON, _ := json.Marshal(refreshData)
-	refreshReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/refresh", bytes.NewBuffer(refreshJSON))
-	refreshReq.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	refreshResp, err := client.Do(refreshReq)
-	assert.NoError(t, err)
-	defer refreshResp.Body.Close()
-
-	// Должен вернуть статус Unauthorized
-	assert.Equal(t, http.StatusUnauthorized, refreshResp.StatusCode)
-}
-
-// TestRegisterWithExistingEmail проверяет обработку ошибки при регистрации с существующим email
-func (s *AuthIntegrationTestSuite) TestRegisterWithExistingEmail() {
-	t := s.T()
-
-	// Генерируем уникальный email для этого теста
-	email := generateUniqueEmail()
-
-	// Сначала регистрируем пользователя
-	_, err := s.registerTestUser(email, "FirstPassword123", "Original User", "male", 30, 1)
-	assert.NoError(t, err, "Failed to register initial user")
-
-	// Пытаемся зарегистрировать еще одного пользователя с тем же email
+	// Register
 	registerData := auth.RegisterRequest{
-		Email:    email, // Используем тот же email
-		Password: "SecondPassword456",
-		FullName: "Another User",
-		Gender:   "female",
-		Age:      25,
-		CityID:   2,
+		Email:    testEmail,
+		Password: testPassword,
 	}
 
 	registerJSON, _ := json.Marshal(registerData)
-	registerReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	registerReq.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	registerResp, err := client.Do(registerReq)
+	resp, err := client.Do(req)
 	assert.NoError(t, err)
-	defer registerResp.Body.Close()
 
-	// Должен быть конфликт, так как email уже существует
-	assert.Equal(t, http.StatusConflict, registerResp.StatusCode)
-}
+	var initialAuth auth.AuthResponse
+	err = json.NewDecoder(resp.Body).Decode(&initialAuth)
+	assert.NoError(t, err)
+	resp.Body.Close()
 
-// TestLoginWithInvalidCredentials проверяет обработку неверных учетных данных
-func (s *AuthIntegrationTestSuite) TestLoginWithInvalidCredentials() {
-	t := s.T()
-
-	// Генерируем уникальный email для этого теста
-	email := generateUniqueEmail()
-	password := "CorrectPassword123"
-
-	// Сначала регистрируем пользователя
-	_, err := s.registerTestUser(email, password, "Test User", "male", 30, 1)
-	assert.NoError(t, err, "Failed to register user")
-
-	// Проверяем вход с неправильным паролем
-	loginData := auth.LoginRequest{
-		Email:    email,
-		Password: "WrongPassword",
+	// Now use the refresh token to get a new token
+	refreshData := auth.RefreshRequest{
+		RefreshToken: initialAuth.RefreshToken,
 	}
 
-	loginJSON, _ := json.Marshal(loginData)
-	loginReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/login", bytes.NewBuffer(loginJSON))
-	loginReq.Header.Set("Content-Type", "application/json")
+	refreshJSON, _ := json.Marshal(refreshData)
+	refreshReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/refresh", bytes.NewBuffer(refreshJSON))
+	refreshReq.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
-	loginResp, err := client.Do(loginReq)
+	refreshResp, err := client.Do(refreshReq)
 	assert.NoError(t, err)
-	defer loginResp.Body.Close()
+	defer refreshResp.Body.Close()
 
-	// Должен быть статус Unauthorized
-	assert.Equal(t, http.StatusUnauthorized, loginResp.StatusCode)
+	// Check response status
+	assert.Equal(t, http.StatusOK, refreshResp.StatusCode, "Should return status 200 OK")
 
-	// Проверяем вход с несуществующим email
-	loginData = auth.LoginRequest{
-		Email:    "nonexistent_" + generateUniqueEmail(),
-		Password: "AnyPassword",
-	}
-
-	loginJSON, _ = json.Marshal(loginData)
-	loginReq, _ = http.NewRequest("POST", s.appUrl+"/api/auth/login", bytes.NewBuffer(loginJSON))
-	loginReq.Header.Set("Content-Type", "application/json")
-
-	loginResp, err = client.Do(loginReq)
+	// Check response content
+	var refreshedAuth auth.AuthResponse
+	err = json.NewDecoder(refreshResp.Body).Decode(&refreshedAuth)
 	assert.NoError(t, err)
-	defer loginResp.Body.Close()
 
-	// Должен быть статус Unauthorized
-	assert.Equal(t, http.StatusUnauthorized, loginResp.StatusCode)
+	// Verify the response contains required fields and different token
+	assert.Equal(t, initialAuth.UserID, refreshedAuth.UserID, "User ID should be the same")
+	assert.NotEqual(t, initialAuth.Token, refreshedAuth.Token, "New token should be different")
+	assert.NotEqual(t, initialAuth.RefreshToken, refreshedAuth.RefreshToken, "New refresh token should be different")
 }
 
-// TestProtectedResourceWithoutAuth проверяет доступ к защищенному ресурсу без токена
-func (s *AuthIntegrationTestSuite) TestProtectedResourceWithoutAuth() {
+// TestRefreshTokenInvalid tests using an invalid refresh token
+func (s *AuthIntegrationTestSuite) TestRefreshTokenInvalid() {
 	t := s.T()
 
-	// Запрос к защищенному ресурсу без токена
-	protectedReq, _ := http.NewRequest("GET", s.appUrl+"/api/protected", nil)
+	// Use an invalid refresh token
+	refreshData := auth.RefreshRequest{
+		RefreshToken: "invalid.refresh.token",
+	}
+
+	refreshJSON, _ := json.Marshal(refreshData)
+	refreshReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/refresh", bytes.NewBuffer(refreshJSON))
+	refreshReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	protectedResp, err := client.Do(protectedReq)
+	refreshResp, err := client.Do(refreshReq)
 	assert.NoError(t, err)
-	defer protectedResp.Body.Close()
+	defer refreshResp.Body.Close()
 
-	// Должен быть статус Unauthorized
-	assert.Equal(t, http.StatusUnauthorized, protectedResp.StatusCode)
+	// Should return unauthorized
+	assert.Equal(t, http.StatusUnauthorized, refreshResp.StatusCode, "Should return status 401 Unauthorized")
 }
 
-// TestVerifyToken проверяет работу эндпоинта верификации токена
+// TestVerifyToken tests the token verification endpoint
 func (s *AuthIntegrationTestSuite) TestVerifyToken() {
 	t := s.T()
 
-	// Генерируем уникальный email для этого теста
-	email := generateUniqueEmail()
-	password := "TestPassword123"
+	// Register a user to get a token
+	testEmail := generateTestEmail()
+	testPassword := "TestPassword123!"
 
-	// Сначала регистрируем пользователя
-	auth, err := s.registerTestUser(email, password, "Test User", "male", 30, 1)
-	assert.NoError(t, err, "Failed to register user")
+	// Register
+	registerData := auth.RegisterRequest{
+		Email:    testEmail,
+		Password: testPassword,
+	}
 
-	// Получаем токен из успешной регистрации
-	token := auth.Token
+	registerJSON, _ := json.Marshal(registerData)
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	req.Header.Set("Content-Type", "application/json")
 
-	// Проверяем верификацию токена
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+
+	var authResponse auth.AuthResponse
+	err = json.NewDecoder(resp.Body).Decode(&authResponse)
+	assert.NoError(t, err)
+	resp.Body.Close()
+
+	// Verify the token
 	verifyReq, _ := http.NewRequest("GET", s.appUrl+"/api/auth/verify", nil)
-	verifyReq.Header.Set("Authorization", "Bearer "+token)
+	verifyReq.Header.Set("Authorization", "Bearer "+authResponse.Token)
+
+	verifyResp, err := client.Do(verifyReq)
+	assert.NoError(t, err)
+	defer verifyResp.Body.Close()
+
+	// Check response status
+	assert.Equal(t, http.StatusOK, verifyResp.StatusCode, "Should return status 200 OK")
+
+	// Read and parse response body
+	var response map[string]string
+	err = json.NewDecoder(verifyResp.Body).Decode(&response)
+	assert.NoError(t, err)
+	assert.Equal(t, "valid", response["status"], "Token status should be valid")
+}
+
+// TestVerifyTokenInvalid tests verifying an invalid token
+func (s *AuthIntegrationTestSuite) TestVerifyTokenInvalid() {
+	t := s.T()
+
+	// Use an invalid token
+	verifyReq, _ := http.NewRequest("GET", s.appUrl+"/api/auth/verify", nil)
+	verifyReq.Header.Set("Authorization", "Bearer invalid.token.here")
 
 	client := &http.Client{}
 	verifyResp, err := client.Do(verifyReq)
 	assert.NoError(t, err)
 	defer verifyResp.Body.Close()
 
-	// Должен быть статус OK
-	assert.Equal(t, http.StatusOK, verifyResp.StatusCode)
-
-	// Проверяем верификацию с невалидным токеном
-	verifyReq, _ = http.NewRequest("GET", s.appUrl+"/api/auth/verify", nil)
-	verifyReq.Header.Set("Authorization", "Bearer invalid-token")
-
-	verifyResp, err = client.Do(verifyReq)
-	assert.NoError(t, err)
-	defer verifyResp.Body.Close()
-
-	// Должен быть статус Unauthorized
-	assert.Equal(t, http.StatusUnauthorized, verifyResp.StatusCode)
+	// Should return unauthorized
+	assert.Equal(t, http.StatusUnauthorized, verifyResp.StatusCode, "Should return status 401 Unauthorized")
 }
 
-// TestAuthIntegration запускает набор интеграционных тестов
+// TestProtectedEndpoint tests accessing a protected endpoint with a valid token
+func (s *AuthIntegrationTestSuite) TestProtectedEndpoint() {
+	t := s.T()
+
+	// Register a user to get a token
+	testEmail := generateTestEmail()
+	testPassword := "TestPassword123!"
+
+	// Register
+	registerData := auth.RegisterRequest{
+		Email:    testEmail,
+		Password: testPassword,
+	}
+
+	registerJSON, _ := json.Marshal(registerData)
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+
+	var authResponse auth.AuthResponse
+	err = json.NewDecoder(resp.Body).Decode(&authResponse)
+	assert.NoError(t, err)
+	resp.Body.Close()
+
+	// Access a protected endpoint (using /api/chats as an example)
+	protectedReq, _ := http.NewRequest("GET", s.appUrl+"/api/chats", nil)
+	protectedReq.Header.Set("Authorization", "Bearer "+authResponse.Token)
+
+	protectedResp, err := client.Do(protectedReq)
+	assert.NoError(t, err)
+	defer protectedResp.Body.Close()
+
+	// Check response status - should allow access even if no chats exist yet
+	assert.Equal(t, http.StatusOK, protectedResp.StatusCode, "Should return status 200 OK")
+}
+
+// TestProtectedEndpointUnauthorized tests accessing a protected endpoint without a token
+func (s *AuthIntegrationTestSuite) TestProtectedEndpointUnauthorized() {
+	t := s.T()
+
+	// Try to access a protected endpoint without authentication
+	req, _ := http.NewRequest("GET", s.appUrl+"/api/chats", nil)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Should return unauthorized
+	assert.Equal(t, http.StatusUnauthorized, resp.StatusCode, "Should return status 401 Unauthorized")
+}
+
+// TestAuthIntegration runs the auth integration test suite
 func TestAuthIntegration(t *testing.T) {
-	// Пропускаем тесты, если задана переменная окружения SKIP_INTEGRATION_TESTS
+	// Skip tests if SKIP_INTEGRATION_TESTS environment variable is set
 	if os.Getenv("SKIP_INTEGRATION_TESTS") != "" {
 		t.Skip("Skipping integration tests")
 	}
