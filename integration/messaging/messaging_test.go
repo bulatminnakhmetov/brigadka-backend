@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/messaging"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/messaging"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	_ "github.com/lib/pq"

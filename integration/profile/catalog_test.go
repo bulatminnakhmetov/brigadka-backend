@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/profile"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/profile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )

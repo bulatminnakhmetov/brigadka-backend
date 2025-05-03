@@ -3,119 +3,73 @@ package profile
 import (
 	"encoding/json"
 	"errors"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
+
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/media"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/profile"
 )
 
-// Общие типы профилей
-const (
-	ActivityTypeImprov = "improv"
-	ActivityTypeMusic  = "music"
-)
+// ProfileService интерфейс для работы с профилями
+type ProfileService interface {
+	CreateImprovProfile(userID int, description string, goal string, styles []string, lookingForTeam bool) (*profile.ImprovProfile, error)
+	CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*profile.MusicProfile, error)
+	GetImprovProfile(profileID int) (*profile.ImprovProfile, error)
+	GetMusicProfile(profileID int) (*profile.MusicProfile, error)
 
-// Profile представляет базовый профиль пользователя
-type Profile struct {
-	ProfileID    int       `json:"profile_id"`
-	UserID       int       `json:"user_id"`
-	Description  string    `json:"description"`
-	ActivityType string    `json:"activity_type"`
-	CreatedAt    time.Time `json:"created_at"`
+	// Methods for updating profiles
+	UpdateImprovProfile(profileID int, description string, goal string, styles []string, lookingForTeam bool, fullName string, gender string, age int, cityID int) (*profile.ImprovProfile, error)
+	UpdateMusicProfile(profileID int, description string, genres []string, instruments []string, fullName string, gender string, age int, cityID int) (*profile.MusicProfile, error)
+
+	GetActivityTypes(lang string) ([]profile.TranslatedItem, error)
+	GetImprovStyles(lang string) ([]profile.TranslatedItem, error)
+	GetImprovGoals(lang string) ([]profile.TranslatedItem, error)
+	GetMusicGenres(lang string) ([]profile.TranslatedItem, error)
+	GetMusicInstruments(lang string) ([]profile.TranslatedItem, error)
+
+	GetUserProfiles(userID int) (map[string]int, error)
 }
 
-// ImprovProfile представляет профиль пользователя для импровизации
-type ImprovProfile struct {
-	Profile
-	Goal           string   `json:"goal"`
-	Styles         []string `json:"styles"`
-	LookingForTeam bool     `json:"looking_for_team"`
+// MediaService определяет интерфейс для работы с медиа
+type MediaService interface {
+	GetProfileMedia(profileID int) (*media.ProfileMedia, error)
 }
 
-// MusicProfile представляет профиль пользователя для музыки
-type MusicProfile struct {
-	Profile
-	Genres      []string `json:"genres,omitempty"`
-	Instruments []string `json:"instruments,omitempty"`
-}
-
-// CreateProfileRequest представляет базовый запрос на создание профиля
-type CreateProfileRequest struct {
-	UserID      int    `json:"user_id"`
-	Description string `json:"description"`
-}
-
-// CreateImprovProfileRequest представляет запрос на создание профиля импровизации
-type CreateImprovProfileRequest struct {
-	CreateProfileRequest
-	Goal           string   `json:"goal"`
-	Styles         []string `json:"styles"`
-	LookingForTeam bool     `json:"looking_for_team"`
-}
-
-// CreateMusicProfileRequest представляет запрос на создание музыкального профиля
-type CreateMusicProfileRequest struct {
-	CreateProfileRequest
-	Genres      []string `json:"genres,omitempty"`
-	Instruments []string `json:"instruments,omitempty"`
-}
-
-// UpdateProfileRequest представляет базовый запрос на обновление профиля
-type UpdateProfileRequest struct {
-	Description string `json:"description"`
-}
-
-// UpdateImprovProfileRequest представляет запрос на обновление профиля импровизации
-type UpdateImprovProfileRequest struct {
-	UpdateProfileRequest
-	Goal           string   `json:"goal"`
-	Styles         []string `json:"styles"`
-	LookingForTeam bool     `json:"looking_for_team"`
-}
-
-// UpdateMusicProfileRequest представляет запрос на обновление музыкального профиля
-type UpdateMusicProfileRequest struct {
-	UpdateProfileRequest
-	Genres      []string `json:"genres,omitempty"`
-	Instruments []string `json:"instruments,omitempty"`
-}
-
-// UserProfilesResponse represents the response format for user profiles
-type UserProfilesResponse struct {
-	Profiles map[string]int `json:"profiles"` // activity_type -> profile_id
-}
-
-// ProfileHandler обрабатывает запросы, связанные с профилями
+// ProfileHandler handles requests related to profiles
 type ProfileHandler struct {
 	profileService ProfileService
+	mediaService   MediaService
 }
 
-// NewProfileHandler создает новый экземпляр ProfileHandler
-func NewProfileHandler(profileService ProfileService) *ProfileHandler {
+// NewProfileHandler creates a new instance of ProfileHandler
+func NewProfileHandler(profileService ProfileService, mediaService MediaService) *ProfileHandler {
 	return &ProfileHandler{
 		profileService: profileService,
+		mediaService:   mediaService,
 	}
 }
 
-// handleError обрабатывает ошибки и возвращает соответствующий HTTP-статус
+// handleError handles errors and returns appropriate HTTP status
 func handleError(w http.ResponseWriter, err error) {
-	// Возвращаем различные коды состояния HTTP в зависимости от типа ошибки
+	// Return different HTTP status codes based on error type
 	switch {
-	case errors.Is(err, ErrUserNotFound):
+	case errors.Is(err, profile.ErrUserNotFound):
 		http.Error(w, "User not found", http.StatusNotFound)
-	case errors.Is(err, ErrInvalidActivityType):
+	case errors.Is(err, profile.ErrInvalidActivityType):
 		http.Error(w, "Invalid activity type", http.StatusBadRequest)
-	case errors.Is(err, ErrProfileAlreadyExists):
+	case errors.Is(err, profile.ErrProfileAlreadyExists):
 		http.Error(w, "Profile already exists for this user", http.StatusConflict)
-	case errors.Is(err, ErrInvalidImprovGoal):
+	case errors.Is(err, profile.ErrInvalidImprovGoal):
 		http.Error(w, "Invalid improv goal", http.StatusBadRequest)
-	case errors.Is(err, ErrInvalidImprovStyle):
+	case errors.Is(err, profile.ErrInvalidImprovStyle):
 		http.Error(w, "Invalid improv style", http.StatusBadRequest)
-	case errors.Is(err, ErrInvalidMusicGenre):
+	case errors.Is(err, profile.ErrInvalidMusicGenre):
 		http.Error(w, "Invalid music genre", http.StatusBadRequest)
-	case errors.Is(err, ErrInvalidInstrument):
+	case errors.Is(err, profile.ErrInvalidInstrument):
 		http.Error(w, "Invalid instrument", http.StatusBadRequest)
-	case errors.Is(err, ErrEmptyInstruments):
+	case errors.Is(err, profile.ErrEmptyInstruments):
 		http.Error(w, "At least one instrument is required", http.StatusBadRequest)
 	default:
 		http.Error(w, "Failed to create profile: "+err.Error(), http.StatusInternalServerError)
@@ -128,20 +82,20 @@ func handleError(w http.ResponseWriter, err error) {
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      int  true  "Profile ID"
-// @Success      200  {object}  ImprovProfile
+// @Success      200  {object}  ImprovProfileResponse
 // @Failure      400  {string}  string  "Invalid ID or profile type"
 // @Failure      401  {string}  string  "Unauthorized"
 // @Failure      404  {string}  string  "Profile not found"
 // @Failure      500  {string}  string  "Internal server error"
 // @Router       /api/profiles/improv/{id} [get]
 func (h *ProfileHandler) GetImprovProfile(w http.ResponseWriter, r *http.Request) {
-	// Проверяем метод запроса
+	// Check request method
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Извлекаем ID профиля из URL
+	// Extract profile ID from URL
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 2 {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
@@ -155,13 +109,13 @@ func (h *ProfileHandler) GetImprovProfile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Получаем профиль импровизации напрямую
-	profile, err := h.profileService.GetImprovProfile(profileID)
+	// Get improv profile directly
+	improvProfile, err := h.profileService.GetImprovProfile(profileID)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrProfileNotFound):
+		case errors.Is(err, profile.ErrProfileNotFound):
 			http.Error(w, "Profile not found", http.StatusNotFound)
-		case errors.Is(err, ErrInvalidActivityType):
+		case errors.Is(err, profile.ErrInvalidActivityType):
 			http.Error(w, "Profile is not an improv profile", http.StatusBadRequest)
 		default:
 			http.Error(w, "Failed to get profile: "+err.Error(), http.StatusInternalServerError)
@@ -169,9 +123,17 @@ func (h *ProfileHandler) GetImprovProfile(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	// Формируем ответ
+	profileMedia, err := h.mediaService.GetProfileMedia(improvProfile.UserID)
+	if err != nil {
+		log.Printf("Failed to get profile media: %v", err)
+	}
+
+	// Convert to API response model
+	response := ToImprovProfileResponse(improvProfile, profileMedia)
+
+	// Send response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profile)
+	json.NewEncoder(w).Encode(response)
 }
 
 // @Summary      Get music profile
@@ -180,20 +142,20 @@ func (h *ProfileHandler) GetImprovProfile(w http.ResponseWriter, r *http.Request
 // @Produce      json
 // @Security     BearerAuth
 // @Param        id   path      int  true  "Profile ID"
-// @Success      200  {object}  MusicProfile
+// @Success      200  {object}  MusicProfileResponse
 // @Failure      400  {string}  string  "Invalid ID or profile type"
 // @Failure      401  {string}  string  "Unauthorized"
 // @Failure      404  {string}  string  "Profile not found"
 // @Failure      500  {string}  string  "Internal server error"
 // @Router       /api/profiles/music/{id} [get]
 func (h *ProfileHandler) GetMusicProfile(w http.ResponseWriter, r *http.Request) {
-	// Проверяем метод запроса
+	// Check request method
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Извлекаем ID профиля из URL
+	// Extract profile ID from URL
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 2 {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
@@ -207,13 +169,13 @@ func (h *ProfileHandler) GetMusicProfile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Получаем музыкальный профиль напрямую
-	profile, err := h.profileService.GetMusicProfile(profileID)
+	// Get music profile directly
+	musicProfile, err := h.profileService.GetMusicProfile(profileID)
 	if err != nil {
 		switch {
-		case errors.Is(err, ErrProfileNotFound):
+		case errors.Is(err, profile.ErrProfileNotFound):
 			http.Error(w, "Profile not found", http.StatusNotFound)
-		case errors.Is(err, ErrInvalidActivityType):
+		case errors.Is(err, profile.ErrInvalidActivityType):
 			http.Error(w, "Profile is not a music profile", http.StatusBadRequest)
 		default:
 			http.Error(w, "Failed to get profile: "+err.Error(), http.StatusInternalServerError)
@@ -221,147 +183,18 @@ func (h *ProfileHandler) GetMusicProfile(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Формируем ответ
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profile)
-}
-
-// @Summary      Получение типов активности
-// @Description  Возвращает список доступных типов активности профиля
-// @Tags         profiles
-// @Produce      json
-// @Security     BearerAuth
-// @Param        lang  query     string  false  "Код языка (по умолчанию 'ru')"
-// @Success      200   {array}   TranslatedItem
-// @Failure      500   {string}  string  "Внутренняя ошибка сервера"
-// @Router       /api/profiles/catalog/activity-types [get]
-func (h *ProfileHandler) GetActivityTypes(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	lang := r.URL.Query().Get("lang")
-
-	catalog, err := h.profileService.GetActivityTypes(lang)
+	profileMedia, err := h.mediaService.GetProfileMedia(musicProfile.UserID)
 	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
+		log.Printf("Failed to get profile media: %v", err)
 	}
 
+	// Convert to API response model
+	response := ToMusicProfileResponse(musicProfile, profileMedia)
+
+	// Send response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(catalog)
+	json.NewEncoder(w).Encode(response)
 }
-
-// @Summary      Получение стилей импровизации
-// @Description  Возвращает список доступных стилей импровизации
-// @Tags         profiles
-// @Produce      json
-// @Security     BearerAuth
-// @Param        lang  query     string  false  "Код языка (по умолчанию 'ru')"
-// @Success      200   {array}   TranslatedItem
-// @Failure      500   {string}  string  "Внутренняя ошибка сервера"
-// @Router       /api/profiles/catalog/improv-styles [get]
-func (h *ProfileHandler) GetImprovStyles(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	lang := r.URL.Query().Get("lang")
-
-	catalog, err := h.profileService.GetImprovStyles(lang)
-	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(catalog)
-}
-
-// @Summary      Получение целей импровизации
-// @Description  Возвращает список доступных целей для занятий импровизацией
-// @Tags         profiles
-// @Produce      json
-// @Security     BearerAuth
-// @Param        lang  query     string  false  "Код языка (по умолчанию 'ru')"
-// @Success      200   {array}   TranslatedItem
-// @Failure      500   {string}  string  "Внутренняя ошибка сервера"
-// @Router       /api/profiles/catalog/improv-goals [get]
-func (h *ProfileHandler) GetImprovGoals(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	lang := r.URL.Query().Get("lang")
-
-	catalog, err := h.profileService.GetImprovGoals(lang)
-	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(catalog)
-}
-
-// @Summary      Получение музыкальных жанров
-// @Description  Возвращает список доступных музыкальных жанров
-// @Tags         profiles
-// @Produce      json
-// @Security     BearerAuth
-// @Param        lang  query     string  false  "Код языка (по умолчанию 'ru')"
-// @Success      200   {array}   TranslatedItem
-// @Failure      500   {string}  string  "Внутренняя ошибка сервера"
-// @Router       /api/profiles/catalog/music-genres [get]
-func (h *ProfileHandler) GetMusicGenres(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	lang := r.URL.Query().Get("lang")
-
-	catalog, err := h.profileService.GetMusicGenres(lang)
-	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(catalog)
-}
-
-// @Summary      Получение музыкальных инструментов
-// @Description  Возвращает список доступных музыкальных инструментов
-// @Tags         profiles
-// @Produce      json
-// @Security     BearerAuth
-// @Param        lang  query     string  false  "Код языка (по умолчанию 'ru')"
-// @Success      200   {array}   TranslatedItem
-// @Failure      500   {string}  string  "Внутренняя ошибка сервера"
-// @Router       /api/profiles/catalog/music-instruments [get]
-func (h *ProfileHandler) GetMusicInstruments(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	lang := r.URL.Query().Get("lang")
-
-	catalog, err := h.profileService.GetMusicInstruments(lang)
-	if err != nil {
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(catalog)
-}
-
-// Add these methods to the ProfileHandler struct
 
 // @Summary      Create improv profile
 // @Description  Creates a new improv profile for a user
@@ -370,27 +203,27 @@ func (h *ProfileHandler) GetMusicInstruments(w http.ResponseWriter, r *http.Requ
 // @Produce      json
 // @Security     BearerAuth
 // @Param        request  body  CreateImprovProfileRequest  true  "Improv profile data"
-// @Success      201      {object}  ImprovProfile
+// @Success      201      {object}  ImprovProfileDTO
 // @Failure      400      {string}  string  "Invalid data"
 // @Failure      401      {string}  string  "Unauthorized"
 // @Failure      409      {string}  string  "Profile already exists"
 // @Failure      500      {string}  string  "Internal server error"
 // @Router       /api/profiles/improv [post]
 func (h *ProfileHandler) CreateImprovProfile(w http.ResponseWriter, r *http.Request) {
-	// Проверяем метод запроса
+	// Check request method
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Читаем тело запроса
+	// Parse request body
 	var req CreateImprovProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Валидация полей
+	// Field validation
 	if req.UserID <= 0 {
 		http.Error(w, "Invalid user_id", http.StatusBadRequest)
 		return
@@ -419,10 +252,13 @@ func (h *ProfileHandler) CreateImprovProfile(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Формируем ответ
+	// Convert to API response model
+	response := ToImprovProfileDTO(profile)
+
+	// Send response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(profile)
+	json.NewEncoder(w).Encode(response)
 }
 
 // @Summary      Create music profile
@@ -432,27 +268,27 @@ func (h *ProfileHandler) CreateImprovProfile(w http.ResponseWriter, r *http.Requ
 // @Produce      json
 // @Security     BearerAuth
 // @Param        request  body  CreateMusicProfileRequest  true  "Music profile data"
-// @Success      201      {object}  MusicProfile
+// @Success      201      {object}  MusicProfileDTO
 // @Failure      400      {string}  string  "Invalid data"
 // @Failure      401      {string}  string  "Unauthorized"
 // @Failure      409      {string}  string  "Profile already exists"
 // @Failure      500      {string}  string  "Internal server error"
 // @Router       /api/profiles/music [post]
 func (h *ProfileHandler) CreateMusicProfile(w http.ResponseWriter, r *http.Request) {
-	// Проверяем метод запроса
+	// Check request method
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Читаем тело запроса
+	// Parse request body
 	var req CreateMusicProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Валидация полей
+	// Field validation
 	if req.UserID <= 0 {
 		http.Error(w, "Invalid user_id", http.StatusBadRequest)
 		return
@@ -475,10 +311,13 @@ func (h *ProfileHandler) CreateMusicProfile(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Формируем ответ
+	// Convert to API response model
+	response := ToMusicProfileDTO(profile)
+
+	// Send response
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(profile)
+	json.NewEncoder(w).Encode(response)
 }
 
 // @Summary      Update improv profile
@@ -489,7 +328,7 @@ func (h *ProfileHandler) CreateMusicProfile(w http.ResponseWriter, r *http.Reque
 // @Security     BearerAuth
 // @Param        id       path      int  true  "Profile ID"
 // @Param        request  body      UpdateImprovProfileRequest  true  "Updated improv profile data"
-// @Success      200      {object}  ImprovProfile
+// @Success      200      {object}  ImprovProfileResponse
 // @Failure      400      {string}  string  "Invalid data"
 // @Failure      401      {string}  string  "Unauthorized"
 // @Failure      403      {string}  string  "Forbidden"
@@ -497,13 +336,13 @@ func (h *ProfileHandler) CreateMusicProfile(w http.ResponseWriter, r *http.Reque
 // @Failure      500      {string}  string  "Internal server error"
 // @Router       /api/profiles/improv/{id} [put]
 func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Request) {
-	// Проверяем метод запроса
+	// Check request method
 	if r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Извлекаем ID профиля из URL
+	// Extract profile ID from URL
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 2 {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
@@ -517,7 +356,7 @@ func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Получаем ID пользователя из контекста для проверки прав
+	// Get user ID from context for permission check
 	userIDValue := r.Context().Value("user_id")
 	if userIDValue == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -525,11 +364,11 @@ func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Requ
 	}
 	userID := userIDValue.(int)
 
-	// Проверяем, принадлежит ли профиль текущему пользователю
-	// Получаем текущий профиль
+	// Check if the profile belongs to the current user
+	// Get the current profile
 	currentProfile, err := h.profileService.GetImprovProfile(profileID)
 	if err != nil {
-		if errors.Is(err, ErrProfileNotFound) {
+		if errors.Is(err, profile.ErrProfileNotFound) {
 			http.Error(w, "Profile not found", http.StatusNotFound)
 		} else {
 			http.Error(w, "Failed to get profile: "+err.Error(), http.StatusInternalServerError)
@@ -537,20 +376,20 @@ func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Проверяем права доступа
+	// Check permissions
 	if currentProfile.UserID != userID {
 		http.Error(w, "Forbidden: you can only update your own profile", http.StatusForbidden)
 		return
 	}
 
-	// Читаем тело запроса
+	// Parse request body
 	var req UpdateImprovProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Валидация полей
+	// Field validation
 	if req.Goal == "" {
 		http.Error(w, "Improv goal is required", http.StatusBadRequest)
 		return
@@ -561,12 +400,16 @@ func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	profile, err := h.profileService.UpdateImprovProfile(
+	updatedProfile, err := h.profileService.UpdateImprovProfile(
 		profileID,
 		req.Description,
 		req.Goal,
 		req.Styles,
 		req.LookingForTeam,
+		req.FullName,
+		req.Gender,
+		req.Age,
+		req.CityID,
 	)
 
 	if err != nil {
@@ -574,9 +417,17 @@ func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Формируем ответ
+	profileMedia, err := h.mediaService.GetProfileMedia(updatedProfile.UserID)
+	if err != nil {
+		log.Printf("Failed to get profile media: %v", err)
+	}
+
+	// Convert to API response model
+	response := ToImprovProfileResponse(updatedProfile, profileMedia)
+
+	// Send response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profile)
+	json.NewEncoder(w).Encode(response)
 }
 
 // @Summary      Update music profile
@@ -587,7 +438,7 @@ func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Requ
 // @Security     BearerAuth
 // @Param        id       path      int  true  "Profile ID"
 // @Param        request  body      UpdateMusicProfileRequest  true  "Updated music profile data"
-// @Success      200      {object}  MusicProfile
+// @Success      200      {object}  MusicProfileResponse
 // @Failure      400      {string}  string  "Invalid data"
 // @Failure      401      {string}  string  "Unauthorized"
 // @Failure      403      {string}  string  "Forbidden"
@@ -595,13 +446,13 @@ func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Requ
 // @Failure      500      {string}  string  "Internal server error"
 // @Router       /api/profiles/music/{id} [put]
 func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Request) {
-	// Проверяем метод запроса
+	// Check request method
 	if r.Method != http.MethodPut {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Извлекаем ID профиля из URL
+	// Extract profile ID from URL
 	pathParts := strings.Split(r.URL.Path, "/")
 	if len(pathParts) < 2 {
 		http.Error(w, "Invalid URL", http.StatusBadRequest)
@@ -615,7 +466,7 @@ func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Получаем ID пользователя из контекста для проверки прав
+	// Get user ID from context for permission check
 	userIDValue := r.Context().Value("user_id")
 	if userIDValue == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -623,11 +474,11 @@ func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Reque
 	}
 	userID := userIDValue.(int)
 
-	// Проверяем, принадлежит ли профиль текущему пользователю
-	// Получаем текущий профиль
+	// Check if the profile belongs to the current user
+	// Get the current profile
 	currentProfile, err := h.profileService.GetMusicProfile(profileID)
 	if err != nil {
-		if errors.Is(err, ErrProfileNotFound) {
+		if errors.Is(err, profile.ErrProfileNotFound) {
 			http.Error(w, "Profile not found", http.StatusNotFound)
 		} else {
 			http.Error(w, "Failed to get profile: "+err.Error(), http.StatusInternalServerError)
@@ -635,30 +486,34 @@ func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Проверяем права доступа
+	// Check permissions
 	if currentProfile.UserID != userID {
 		http.Error(w, "Forbidden: you can only update your own profile", http.StatusForbidden)
 		return
 	}
 
-	// Читаем тело запроса
+	// Parse request body
 	var req UpdateMusicProfileRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Валидация полей
+	// Field validation
 	if len(req.Instruments) == 0 {
 		http.Error(w, "At least one instrument is required", http.StatusBadRequest)
 		return
 	}
 
-	profile, err := h.profileService.UpdateMusicProfile(
+	updatedProfile, err := h.profileService.UpdateMusicProfile(
 		profileID,
 		req.Description,
 		req.Genres,
 		req.Instruments,
+		req.FullName,
+		req.Gender,
+		req.Age,
+		req.CityID,
 	)
 
 	if err != nil {
@@ -666,9 +521,17 @@ func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	// Формируем ответ
+	profileMedia, err := h.mediaService.GetProfileMedia(updatedProfile.UserID)
+	if err != nil {
+		log.Printf("Failed to get profile media: %v", err)
+	}
+
+	// Convert to API response model
+	response := ToMusicProfileResponse(updatedProfile, profileMedia)
+
+	// Send response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(profile)
+	json.NewEncoder(w).Encode(response)
 }
 
 // @Summary      Get user profiles

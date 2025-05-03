@@ -10,10 +10,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
+
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/messaging"
 )
 
+type ChatMessage = messaging.ChatMessage
+
 type Handler struct {
-	service      MessagingService
+	service      messaging.MessagingService
 	upgrader     websocket.Upgrader
 	clients      map[int]*Client // Map of userID to client connection
 	clientsMutex sync.RWMutex
@@ -32,7 +36,7 @@ type Client struct {
 	chatRooms map[string]struct{} // Set of chatIDs the client is in
 }
 
-func NewHandler(service MessagingService) *Handler {
+func NewHandler(service messaging.MessagingService) *Handler {
 	return &Handler{
 		service: service,
 		upgrader: websocket.Upgrader{
@@ -63,15 +67,6 @@ type WSMessage struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 }
 
-// Chat message structure
-type ChatMessage struct {
-	MessageID string    `json:"message_id"`
-	ChatID    string    `json:"chat_id"`
-	SenderID  int       `json:"sender_id"`
-	Content   string    `json:"content"`
-	SentAt    time.Time `json:"sent_at"`
-}
-
 // Reaction structure
 type Reaction struct {
 	ReactionID   string    `json:"reaction_id"`
@@ -79,15 +74,6 @@ type Reaction struct {
 	UserID       int       `json:"user_id"`
 	ReactionCode string    `json:"reaction_code"`
 	ReactedAt    time.Time `json:"reacted_at"`
-}
-
-// Chat structure
-type Chat struct {
-	ChatID       string    `json:"chat_id"`
-	ChatName     string    `json:"chat_name"`
-	CreatedAt    time.Time `json:"created_at"`
-	IsGroup      bool      `json:"is_group"`
-	Participants []int     `json:"participants"`
 }
 
 // HandleWebSocket upgrades HTTP connection to WebSocket and handles chat messages
@@ -183,7 +169,7 @@ func (h *Handler) handleClient(client *Client) {
 // handleChatMessage handles a chat message from a client
 func (h *Handler) handleChatMessage(client *Client, msg WSMessage) {
 	// Parse payload to get message details
-	var chatMsg ChatMessage
+	var chatMsg messaging.ChatMessage
 	if err := json.Unmarshal(msg.Payload, &chatMsg); err != nil {
 		log.Printf("Error parsing chat message: %v", err)
 		return
@@ -1008,7 +994,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create chat message
-	chatMsg := ChatMessage{
+	chatMsg := messaging.ChatMessage{
 		MessageID: req.MessageID,
 		ChatID:    chatID,
 		SenderID:  userID,

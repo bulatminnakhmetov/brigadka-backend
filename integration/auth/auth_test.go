@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"

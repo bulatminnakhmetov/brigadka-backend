@@ -15,6 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/messaging"
 )
 
 // MockMessagingService implements MessagingService for testing
@@ -42,22 +44,22 @@ func (m *MockMessagingService) CreateChat(ctx context.Context, chatID string, cr
 	return args.Error(0)
 }
 
-func (m *MockMessagingService) GetUserChats(userID int) ([]Chat, error) {
+func (m *MockMessagingService) GetUserChats(userID int) ([]messaging.Chat, error) {
 	args := m.Called(userID)
-	return args.Get(0).([]Chat), args.Error(1)
+	return args.Get(0).([]messaging.Chat), args.Error(1)
 }
 
-func (m *MockMessagingService) GetChatDetails(chatID string, userID int) (*Chat, error) {
+func (m *MockMessagingService) GetChatDetails(chatID string, userID int) (*messaging.Chat, error) {
 	args := m.Called(chatID, userID)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*Chat), args.Error(1)
+	return args.Get(0).(*messaging.Chat), args.Error(1)
 }
 
-func (m *MockMessagingService) GetChatMessages(chatID string, userID int, limit int, offset int) ([]ChatMessage, error) {
+func (m *MockMessagingService) GetChatMessages(chatID string, userID int, limit int, offset int) ([]messaging.ChatMessage, error) {
 	args := m.Called(chatID, userID, limit, offset)
-	return args.Get(0).([]ChatMessage), args.Error(1)
+	return args.Get(0).([]messaging.ChatMessage), args.Error(1)
 }
 
 func (m *MockMessagingService) IsUserInChat(userID int, chatID string) (bool, error) {
@@ -183,14 +185,14 @@ func TestHandler_GetUserChats(t *testing.T) {
 	tests := []struct {
 		name           string
 		userID         int
-		chats          []Chat
+		chats          []messaging.Chat
 		serviceError   error
 		expectedStatus int
 	}{
 		{
 			name:   "Success",
 			userID: 1,
-			chats: []Chat{
+			chats: []messaging.Chat{
 				{ChatID: "123", ChatName: "Test Chat", CreatedAt: time.Now(), IsGroup: true, Participants: []int{1, 2, 3}},
 			},
 			serviceError:   nil,
@@ -199,7 +201,7 @@ func TestHandler_GetUserChats(t *testing.T) {
 		{
 			name:           "Service Error",
 			userID:         1,
-			chats:          []Chat{},
+			chats:          []messaging.Chat{},
 			serviceError:   error(errGeneric()),
 			expectedStatus: http.StatusInternalServerError,
 		},
@@ -235,7 +237,7 @@ func TestHandler_GetUserChats(t *testing.T) {
 
 			// If success, verify response body
 			if tt.expectedStatus == http.StatusOK {
-				var response []Chat
+				var response []messaging.Chat
 				err = json.Unmarshal(rr.Body.Bytes(), &response)
 				require.NoError(t, err)
 				require.Equal(t, len(tt.chats), len(response))
@@ -261,14 +263,14 @@ func TestHandler_GetChatDetails(t *testing.T) {
 	tests := []struct {
 		name           string
 		userID         int
-		chat           *Chat
+		chat           *messaging.Chat
 		serviceError   error
 		expectedStatus int
 	}{
 		{
 			name:   "Success",
 			userID: 1,
-			chat: &Chat{
+			chat: &messaging.Chat{
 				ChatID:       chatID,
 				ChatName:     "Test Chat",
 				CreatedAt:    time.Now(),
@@ -328,7 +330,7 @@ func TestHandler_GetChatDetails(t *testing.T) {
 
 			// If success, verify response body
 			if tt.expectedStatus == http.StatusOK {
-				var response Chat
+				var response messaging.Chat
 				err = json.Unmarshal(rr.Body.Bytes(), &response)
 				require.NoError(t, err)
 				assert.Equal(t, tt.chat.ChatID, response.ChatID)
@@ -352,7 +354,7 @@ func TestHandler_GetChatMessages(t *testing.T) {
 		name           string
 		userID         int
 		queryParams    string
-		messages       []ChatMessage
+		messages       []messaging.ChatMessage
 		serviceError   error
 		expectedStatus int
 		expectedLimit  int
@@ -362,7 +364,7 @@ func TestHandler_GetChatMessages(t *testing.T) {
 			name:           "Success Default Pagination",
 			userID:         1,
 			queryParams:    "",
-			messages:       []ChatMessage{{MessageID: "m1", ChatID: chatID, SenderID: 2, Content: "Hello", SentAt: time.Now()}},
+			messages:       []messaging.ChatMessage{{MessageID: "m1", ChatID: chatID, SenderID: 2, Content: "Hello", SentAt: time.Now()}},
 			serviceError:   nil,
 			expectedStatus: http.StatusOK,
 			expectedLimit:  50,
@@ -372,7 +374,7 @@ func TestHandler_GetChatMessages(t *testing.T) {
 			name:           "Success With Pagination",
 			userID:         1,
 			queryParams:    "?limit=10&offset=20",
-			messages:       []ChatMessage{{MessageID: "m1", ChatID: chatID, SenderID: 2, Content: "Hello", SentAt: time.Now()}},
+			messages:       []messaging.ChatMessage{{MessageID: "m1", ChatID: chatID, SenderID: 2, Content: "Hello", SentAt: time.Now()}},
 			serviceError:   nil,
 			expectedStatus: http.StatusOK,
 			expectedLimit:  10,
@@ -434,7 +436,7 @@ func TestHandler_GetChatMessages(t *testing.T) {
 
 			// If success, verify response body
 			if tt.expectedStatus == http.StatusOK {
-				var response []ChatMessage
+				var response []messaging.ChatMessage
 				err = json.Unmarshal(rr.Body.Bytes(), &response)
 				require.NoError(t, err)
 				require.Equal(t, len(tt.messages), len(response))
@@ -556,7 +558,7 @@ func TestSendMessage(t *testing.T) {
 
 			// If success, verify response body contains message details
 			if tt.expectedStatus == http.StatusOK {
-				var response ChatMessage
+				var response messaging.ChatMessage
 				err = json.Unmarshal(rr.Body.Bytes(), &response)
 				require.NoError(t, err)
 				assert.Equal(t, messageID, response.MessageID)
@@ -981,7 +983,7 @@ func TestHandleChatMessage(t *testing.T) {
 			message: WSMessage{
 				Type:   MsgTypeChat,
 				ChatID: "chat123",
-				Payload: mustMarshalJSON(ChatMessage{
+				Payload: mustMarshalJSON(messaging.ChatMessage{
 					MessageID: "msg123",
 					Content:   "Hello, world!",
 				}),
@@ -999,7 +1001,7 @@ func TestHandleChatMessage(t *testing.T) {
 			message: WSMessage{
 				Type:   MsgTypeChat,
 				ChatID: "chat123",
-				Payload: mustMarshalJSON(ChatMessage{
+				Payload: mustMarshalJSON(messaging.ChatMessage{
 					MessageID: "msg123",
 					Content:   "Hello, world!",
 				}),
@@ -1013,7 +1015,7 @@ func TestHandleChatMessage(t *testing.T) {
 			message: WSMessage{
 				Type:   MsgTypeChat,
 				ChatID: "chat123",
-				Payload: mustMarshalJSON(ChatMessage{
+				Payload: mustMarshalJSON(messaging.ChatMessage{
 					MessageID: "msg123",
 					Content:   "Hello, world!",
 				}),
@@ -1028,7 +1030,7 @@ func TestHandleChatMessage(t *testing.T) {
 			message: WSMessage{
 				Type:   MsgTypeChat,
 				ChatID: "chat123",
-				Payload: mustMarshalJSON(ChatMessage{
+				Payload: mustMarshalJSON(messaging.ChatMessage{
 					MessageID: "msg123",
 					Content:   "Hello, world!",
 				}),
@@ -1067,7 +1069,7 @@ func TestHandleChatMessage(t *testing.T) {
 			}
 
 			// Parse payload to get message details for expectations
-			var chatMsg ChatMessage
+			var chatMsg messaging.ChatMessage
 			json.Unmarshal(tt.message.Payload, &chatMsg)
 
 			// Setup expectations
@@ -1158,7 +1160,7 @@ func TestHandleWSConnectionWithMessageSending(t *testing.T) {
 	chatMessage := WSMessage{
 		Type:   MsgTypeChat,
 		ChatID: chatID,
-		Payload: mustMarshalJSON(ChatMessage{
+		Payload: mustMarshalJSON(messaging.ChatMessage{
 			MessageID: messageID,
 			Content:   content,
 		}),
@@ -1232,7 +1234,7 @@ func TestHandleChatMessageBroadcasting(t *testing.T) {
 	message := WSMessage{
 		Type:   MsgTypeChat,
 		ChatID: chatID,
-		Payload: mustMarshalJSON(ChatMessage{
+		Payload: mustMarshalJSON(messaging.ChatMessage{
 			MessageID: messageID,
 			Content:   content,
 		}),
@@ -1302,7 +1304,7 @@ func TestWSMessageWriteErrorHandling(t *testing.T) {
 	message := WSMessage{
 		Type:   MsgTypeChat,
 		ChatID: chatID,
-		Payload: mustMarshalJSON(ChatMessage{
+		Payload: mustMarshalJSON(messaging.ChatMessage{
 			MessageID: messageID,
 			Content:   content,
 		}),

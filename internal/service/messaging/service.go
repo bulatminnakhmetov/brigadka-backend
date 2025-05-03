@@ -7,6 +7,24 @@ import (
 	"time"
 )
 
+// Chat message structure
+type ChatMessage struct {
+	MessageID string    `json:"message_id"`
+	ChatID    string    `json:"chat_id"`
+	SenderID  int       `json:"sender_id"`
+	Content   string    `json:"content"`
+	SentAt    time.Time `json:"sent_at"`
+}
+
+// Chat structure
+type Chat struct {
+	ChatID       string    `json:"chat_id"`
+	ChatName     string    `json:"chat_name"`
+	CreatedAt    time.Time `json:"created_at"`
+	IsGroup      bool      `json:"is_group"`
+	Participants []int     `json:"participants"`
+}
+
 type MessagingService interface {
 	GetUserChats(userID int) ([]Chat, error)
 	GetChatDetails(chatID string, userID int) (*Chat, error)

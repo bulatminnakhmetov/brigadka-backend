@@ -8,15 +8,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/search"
 )
 
 // MockSearchService is a mock implementation of SearchService for testing
 type MockSearchService struct {
-	searchProfilesFn func(ctx context.Context, req ProfileSearchRequest) (*ProfileSearchResponse, error)
+	searchProfilesFn func(ctx context.Context, req search.ProfileSearchRequest) (*search.ProfileSearchResponse, error)
 }
 
 // SearchProfiles calls the mock function
-func (m *MockSearchService) SearchProfiles(ctx context.Context, req ProfileSearchRequest) (*ProfileSearchResponse, error) {
+func (m *MockSearchService) SearchProfiles(ctx context.Context, req search.ProfileSearchRequest) (*search.ProfileSearchResponse, error) {
 	return m.searchProfilesFn(ctx, req)
 }
 
@@ -25,7 +27,7 @@ func TestSearchHandler_SearchProfiles(t *testing.T) {
 		name               string
 		method             string
 		requestBody        interface{}
-		mockResponse       *ProfileSearchResponse
+		mockResponse       *search.ProfileSearchResponse
 		mockError          error
 		expectedStatusCode int
 		validateResponse   func(t *testing.T, response *bytes.Buffer)
@@ -44,7 +46,7 @@ func TestSearchHandler_SearchProfiles(t *testing.T) {
 		{
 			name:   "Invalid age range",
 			method: http.MethodPost,
-			requestBody: ProfileSearchRequest{
+			requestBody: search.ProfileSearchRequest{
 				AgeMin: intPtr(30),
 				AgeMax: intPtr(20),
 			},
@@ -53,26 +55,26 @@ func TestSearchHandler_SearchProfiles(t *testing.T) {
 		{
 			name:               "Service returns invalid params error",
 			method:             http.MethodPost,
-			requestBody:        ProfileSearchRequest{},
+			requestBody:        search.ProfileSearchRequest{},
 			mockError:          ErrInvalidSearchParams,
 			expectedStatusCode: http.StatusBadRequest,
 		},
 		{
 			name:               "Service returns other error",
 			method:             http.MethodPost,
-			requestBody:        ProfileSearchRequest{},
+			requestBody:        search.ProfileSearchRequest{},
 			mockError:          errors.New("database error"),
 			expectedStatusCode: http.StatusInternalServerError,
 		},
 		{
 			name:   "Successful search",
 			method: http.MethodPost,
-			requestBody: ProfileSearchRequest{
+			requestBody: search.ProfileSearchRequest{
 				FullName: "John",
 				Limit:    10,
 			},
-			mockResponse: &ProfileSearchResponse{
-				Results: []ProfileSearchResult{
+			mockResponse: &search.ProfileSearchResponse{
+				Results: []search.ProfileSearchResult{
 					{
 						ProfileID:    1,
 						UserID:       101,
@@ -88,7 +90,7 @@ func TestSearchHandler_SearchProfiles(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			validateResponse: func(t *testing.T, response *bytes.Buffer) {
-				var result ProfileSearchResponse
+				var result search.ProfileSearchResponse
 				err := json.NewDecoder(response).Decode(&result)
 				if err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
@@ -104,12 +106,12 @@ func TestSearchHandler_SearchProfiles(t *testing.T) {
 		{
 			name:   "Default limit applied",
 			method: http.MethodPost,
-			requestBody: ProfileSearchRequest{
+			requestBody: search.ProfileSearchRequest{
 				FullName: "John",
 				Limit:    0, // Should be set to default
 			},
-			mockResponse: &ProfileSearchResponse{
-				Results:     []ProfileSearchResult{},
+			mockResponse: &search.ProfileSearchResponse{
+				Results:     []search.ProfileSearchResult{},
 				TotalCount:  0,
 				CurrentPage: 1,
 				TotalPages:  0,
@@ -117,7 +119,7 @@ func TestSearchHandler_SearchProfiles(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			validateResponse: func(t *testing.T, response *bytes.Buffer) {
-				var result ProfileSearchResponse
+				var result search.ProfileSearchResponse
 				err := json.NewDecoder(response).Decode(&result)
 				if err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
@@ -130,12 +132,12 @@ func TestSearchHandler_SearchProfiles(t *testing.T) {
 		{
 			name:   "Maximum limit applied",
 			method: http.MethodPost,
-			requestBody: ProfileSearchRequest{
+			requestBody: search.ProfileSearchRequest{
 				FullName: "John",
 				Limit:    500, // Should be capped at 100
 			},
-			mockResponse: &ProfileSearchResponse{
-				Results:     []ProfileSearchResult{},
+			mockResponse: &search.ProfileSearchResponse{
+				Results:     []search.ProfileSearchResult{},
 				TotalCount:  0,
 				CurrentPage: 1,
 				TotalPages:  0,
@@ -143,7 +145,7 @@ func TestSearchHandler_SearchProfiles(t *testing.T) {
 			},
 			expectedStatusCode: http.StatusOK,
 			validateResponse: func(t *testing.T, response *bytes.Buffer) {
-				var result ProfileSearchResponse
+				var result search.ProfileSearchResponse
 				err := json.NewDecoder(response).Decode(&result)
 				if err != nil {
 					t.Fatalf("Failed to decode response: %v", err)
@@ -159,7 +161,7 @@ func TestSearchHandler_SearchProfiles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create mock service
 			mockService := &MockSearchService{
-				searchProfilesFn: func(ctx context.Context, req ProfileSearchRequest) (*ProfileSearchResponse, error) {
+				searchProfilesFn: func(ctx context.Context, req search.ProfileSearchRequest) (*search.ProfileSearchResponse, error) {
 					return tt.mockResponse, tt.mockError
 				},
 			}
@@ -209,11 +211,11 @@ func TestSearchHandler_SearchProfilesGet(t *testing.T) {
 		method             string
 		queryParams        map[string]string
 		queryArrayParams   map[string][]string
-		mockResponse       *ProfileSearchResponse
+		mockResponse       *search.ProfileSearchResponse
 		mockError          error
 		expectedStatusCode int
 		validateResponse   func(t *testing.T, response *bytes.Buffer)
-		validateRequest    func(t *testing.T, req ProfileSearchRequest)
+		validateRequest    func(t *testing.T, req search.ProfileSearchRequest)
 	}{
 		{
 			name:               "Invalid method",
@@ -228,15 +230,15 @@ func TestSearchHandler_SearchProfilesGet(t *testing.T) {
 				"city_id":   "1",
 				"gender":    "male",
 			},
-			mockResponse: &ProfileSearchResponse{
-				Results:     []ProfileSearchResult{},
+			mockResponse: &search.ProfileSearchResponse{
+				Results:     []search.ProfileSearchResult{},
 				TotalCount:  0,
 				CurrentPage: 1,
 				TotalPages:  0,
 				PageSize:    20,
 			},
 			expectedStatusCode: http.StatusOK,
-			validateRequest: func(t *testing.T, req ProfileSearchRequest) {
+			validateRequest: func(t *testing.T, req search.ProfileSearchRequest) {
 				if req.FullName != "John" {
 					t.Errorf("Expected full_name='John', got '%s'", req.FullName)
 				}
@@ -255,11 +257,11 @@ func TestSearchHandler_SearchProfilesGet(t *testing.T) {
 				"age_min": "20",
 				"age_max": "30",
 			},
-			mockResponse: &ProfileSearchResponse{
-				Results: []ProfileSearchResult{},
+			mockResponse: &search.ProfileSearchResponse{
+				Results: []search.ProfileSearchResult{},
 			},
 			expectedStatusCode: http.StatusOK,
-			validateRequest: func(t *testing.T, req ProfileSearchRequest) {
+			validateRequest: func(t *testing.T, req search.ProfileSearchRequest) {
 				if req.AgeMin == nil || *req.AgeMin != 20 {
 					t.Errorf("Expected age_min=20, got %v", req.AgeMin)
 				}
@@ -279,11 +281,11 @@ func TestSearchHandler_SearchProfilesGet(t *testing.T) {
 			queryArrayParams: map[string][]string{
 				"improv_style": {"Short Form", "Long Form"},
 			},
-			mockResponse: &ProfileSearchResponse{
-				Results: []ProfileSearchResult{},
+			mockResponse: &search.ProfileSearchResponse{
+				Results: []search.ProfileSearchResult{},
 			},
 			expectedStatusCode: http.StatusOK,
-			validateRequest: func(t *testing.T, req ProfileSearchRequest) {
+			validateRequest: func(t *testing.T, req search.ProfileSearchRequest) {
 				if req.ActivityType != "improv" {
 					t.Errorf("Expected activity_type='improv', got '%s'", req.ActivityType)
 				}
@@ -308,11 +310,11 @@ func TestSearchHandler_SearchProfilesGet(t *testing.T) {
 				"music_genre":      {"rock", "jazz"},
 				"music_instrument": {"guitar", "piano"},
 			},
-			mockResponse: &ProfileSearchResponse{
-				Results: []ProfileSearchResult{},
+			mockResponse: &search.ProfileSearchResponse{
+				Results: []search.ProfileSearchResult{},
 			},
 			expectedStatusCode: http.StatusOK,
-			validateRequest: func(t *testing.T, req ProfileSearchRequest) {
+			validateRequest: func(t *testing.T, req search.ProfileSearchRequest) {
 				if req.ActivityType != "music" {
 					t.Errorf("Expected activity_type='music', got '%s'", req.ActivityType)
 				}
@@ -340,15 +342,15 @@ func TestSearchHandler_SearchProfilesGet(t *testing.T) {
 				"limit":  "25",
 				"offset": "50",
 			},
-			mockResponse: &ProfileSearchResponse{
-				Results:     []ProfileSearchResult{},
+			mockResponse: &search.ProfileSearchResponse{
+				Results:     []search.ProfileSearchResult{},
 				TotalCount:  0,
 				CurrentPage: 3,
 				TotalPages:  0,
 				PageSize:    25,
 			},
 			expectedStatusCode: http.StatusOK,
-			validateRequest: func(t *testing.T, req ProfileSearchRequest) {
+			validateRequest: func(t *testing.T, req search.ProfileSearchRequest) {
 				if req.Limit != 25 {
 					t.Errorf("Expected limit=25, got %d", req.Limit)
 				}
@@ -361,11 +363,11 @@ func TestSearchHandler_SearchProfilesGet(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var capturedRequest ProfileSearchRequest
+			var capturedRequest search.ProfileSearchRequest
 
 			// Create mock service
 			mockService := &MockSearchService{
-				searchProfilesFn: func(ctx context.Context, req ProfileSearchRequest) (*ProfileSearchResponse, error) {
+				searchProfilesFn: func(ctx context.Context, req search.ProfileSearchRequest) (*search.ProfileSearchResponse, error) {
 					capturedRequest = req
 					return tt.mockResponse, tt.mockError
 				},

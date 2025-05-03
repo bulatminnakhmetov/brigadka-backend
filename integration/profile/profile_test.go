@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/auth"
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/profile"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/profile"
 	_ "github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -372,7 +372,7 @@ func (s *ProfileIntegrationTestSuite) TestCreateImprovProfile() {
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode, "Should return status 201 Created")
 
 	// Check response content
-	var createdProfile profile.ImprovProfile
+	var createdProfile profile.ImprovProfileDTO
 	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
 	assert.NoError(t, err)
 
@@ -419,7 +419,7 @@ func (s *ProfileIntegrationTestSuite) TestCreateMusicProfile() {
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode, "Should return status 201 Created")
 
 	// Check response content
-	var createdProfile profile.MusicProfile
+	var createdProfile profile.MusicProfileDTO
 	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
 	assert.NoError(t, err)
 
@@ -465,7 +465,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateImprovProfileWithSpecificEndpoin
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
 
 	// Get the profile ID
-	var createdProfile profile.ImprovProfile
+	var createdProfile profile.ImprovProfileDTO
 	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
 	assert.NoError(t, err)
 	profileID := createdProfile.ProfileID
@@ -494,7 +494,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateImprovProfileWithSpecificEndpoin
 	assert.Equal(t, http.StatusOK, updateResp.StatusCode, "Should return status 200 OK")
 
 	// Check updated profile data
-	var updatedProfile profile.ImprovProfile
+	var updatedProfile profile.ImprovProfileDTO
 	err = json.NewDecoder(updateResp.Body).Decode(&updatedProfile)
 	assert.NoError(t, err)
 
@@ -538,7 +538,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateMusicProfileWithSpecificEndpoint
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
 
 	// Get the profile ID
-	var createdProfile profile.MusicProfile
+	var createdProfile profile.MusicProfileDTO
 	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
 	assert.NoError(t, err)
 	profileID := createdProfile.ProfileID
@@ -566,7 +566,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateMusicProfileWithSpecificEndpoint
 	assert.Equal(t, http.StatusOK, updateResp.StatusCode, "Should return status 200 OK")
 
 	// Check updated profile data
-	var updatedProfile profile.MusicProfile
+	var updatedProfile profile.MusicProfileDTO
 	err = json.NewDecoder(updateResp.Body).Decode(&updatedProfile)
 	assert.NoError(t, err)
 
@@ -610,7 +610,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateProfileUnauthorized() {
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
 
 	// Get the profile ID
-	var createdProfile profile.ImprovProfile
+	var createdProfile profile.ImprovProfileDTO
 	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
 	assert.NoError(t, err)
 	profileID := createdProfile.ProfileID
@@ -671,7 +671,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateProfileWrongType() {
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
 
 	// Get the profile ID
-	var createdProfile profile.ImprovProfile
+	var createdProfile profile.ImprovProfileDTO
 	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
 	assert.NoError(t, err)
 	profileID := createdProfile.ProfileID
@@ -734,7 +734,7 @@ func (s *ProfileIntegrationTestSuite) TestUpdateProfileOtherUsersProfile() {
 	assert.Equal(t, http.StatusCreated, createResp.StatusCode)
 
 	// Get the profile ID
-	var createdProfile profile.ImprovProfile
+	var createdProfile profile.ImprovProfileDTO
 	err = json.NewDecoder(createResp.Body).Decode(&createdProfile)
 	assert.NoError(t, err)
 	profileID := createdProfile.ProfileID
@@ -795,7 +795,7 @@ func (s *ProfileIntegrationTestSuite) TestGetUserProfiles() {
 	assert.Equal(t, http.StatusCreated, improvResp.StatusCode)
 
 	// Get the improv profile ID
-	var createdImprovProfile profile.ImprovProfile
+	var createdImprovProfile profile.ImprovProfileDTO
 	err = json.NewDecoder(improvResp.Body).Decode(&createdImprovProfile)
 	assert.NoError(t, err)
 	improvProfileID := createdImprovProfile.ProfileID
@@ -823,7 +823,7 @@ func (s *ProfileIntegrationTestSuite) TestGetUserProfiles() {
 	assert.Equal(t, http.StatusCreated, musicResp.StatusCode)
 
 	// Get the music profile ID
-	var createdMusicProfile profile.MusicProfile
+	var createdMusicProfile profile.MusicProfileDTO
 	err = json.NewDecoder(musicResp.Body).Decode(&createdMusicProfile)
 	assert.NoError(t, err)
 	musicProfileID := createdMusicProfile.ProfileID

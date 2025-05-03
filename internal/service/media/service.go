@@ -1,13 +1,15 @@
 package media
 
 import (
-	"database/sql"
 	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
 	"path/filepath"
 	"strings"
+
+	mediarepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/media"
+	storageMedia "github.com/bulatminnakhmetov/brigadka-backend/internal/storage/media"
 )
 
 // Определение ошибок
@@ -17,20 +19,39 @@ var (
 	ErrFileTooBig      = errors.New("file too big")
 )
 
+type Video struct {
+	Id           int    `json:"id"`
+	Url          string `json:"url"`
+	ThumbnailUrl string `json:"thumbnail_url"`
+}
+
+type ProfileMedia struct {
+	Avatar string  `json:"avatar"`
+	Videos []Video `json:"videos"`
+}
+
 // Константы для ограничений
 const (
 	MaxFileSize = 10 * 1024 * 1024 // 10 MB
 )
 
+// Repository defines the interface for media database operations
+type MediaRepository interface {
+	CreateMedia(profileID int, mediaType, mediaRole, mediaURL string) (int, error)
+	GetMediaByProfileAndRole(profileID int, mediaRole string) ([]mediarepo.Media, error)
+	DeleteMediaByID(mediaID int) error
+	DeleteMediaByProfileAndRole(profileID int, mediaRole string) error
+}
+
 // MediaServiceImpl представляет реализацию сервиса медиа
 type MediaServiceImpl struct {
-	db              *sql.DB
-	storageProvider StorageProvider
+	mediaRepository MediaRepository
+	storageProvider storageMedia.StorageProvider
 	allowedTypes    map[string]bool // Разрешенные расширения файлов
 }
 
 // NewMediaService создает новый экземпляр MediaServiceImpl
-func NewMediaService(db *sql.DB, storageProvider StorageProvider) *MediaServiceImpl {
+func NewMediaService(mediaRepo MediaRepository, storageProvider storageMedia.StorageProvider) *MediaServiceImpl {
 	// Разрешенные типы файлов
 	allowedTypes := map[string]bool{
 		".jpg":  true,
@@ -42,7 +63,7 @@ func NewMediaService(db *sql.DB, storageProvider StorageProvider) *MediaServiceI
 	}
 
 	return &MediaServiceImpl{
-		db:              db,
+		mediaRepository: mediaRepo,
 		storageProvider: storageProvider,
 		allowedTypes:    allowedTypes,
 	}
@@ -76,7 +97,7 @@ type UploadedFile interface {
 }
 
 // UploadMedia загружает новый медиафайл
-func (s *MediaServiceImpl) UploadMedia(profileID int, mediaRole string, fileHeader UploadedFile) (*Media, error) {
+func (s *MediaServiceImpl) UploadMedia(profileID int, mediaRole string, fileHeader UploadedFile) (*int, error) {
 	// Проверяем размер файла
 	if fileHeader.GetSize() > MaxFileSize {
 		return nil, ErrFileTooBig
@@ -115,10 +136,10 @@ func (s *MediaServiceImpl) UploadMedia(profileID int, mediaRole string, fileHead
 	// Если у профиля уже есть медиа с такой ролью, удаляем старое
 	// например, у профиля может быть только один аватар
 	if mediaRole == "avatar" || mediaRole == "cover" {
-		oldMedia, err := s.GetMediaByProfile(profileID, mediaRole)
+		oldMedia, err := s.mediaRepository.GetMediaByProfileAndRole(profileID, mediaRole)
 		if err == nil && len(oldMedia) > 0 {
 			// Удаляем старое медиа из БД
-			_, err = s.db.Exec("DELETE FROM media WHERE profile_id = $1 AND role = $2", profileID, mediaRole)
+			err = s.mediaRepository.DeleteMediaByProfileAndRole(profileID, mediaRole)
 			if err != nil {
 				return nil, fmt.Errorf("failed to delete old media: %w", err)
 			}
@@ -129,102 +150,36 @@ func (s *MediaServiceImpl) UploadMedia(profileID int, mediaRole string, fileHead
 	}
 
 	// Сохраняем информацию о медиа в БД
-	var mediaID int
-	err = s.db.QueryRow(
-		"INSERT INTO media (profile_id, type, role, url) VALUES ($1, $2, $3, $4) RETURNING id",
-		profileID, mediaType, mediaRole, mediaURL,
-	).Scan(&mediaID)
-
+	mediaID, err := s.mediaRepository.CreateMedia(profileID, mediaType, mediaRole, mediaURL)
 	if err != nil {
-		return nil, fmt.Errorf("failed to save media info: %w", err)
+		return nil, err
 	}
 
-	// Получаем созданную запись
-	return s.GetMedia(mediaID)
-}
-
-// GetMedia получает медиа по ID
-func (s *MediaServiceImpl) GetMedia(mediaID int) (*Media, error) {
-	var media Media
-
-	err := s.db.QueryRow(
-		"SELECT id, profile_id, type, role, url, uploaded_at FROM media WHERE id = $1",
-		mediaID,
-	).Scan(
-		&media.ID,
-		&media.ProfileID,
-		&media.Type,
-		&media.Role,
-		&media.URL,
-		&media.CreatedAt,
-	)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return nil, ErrMediaNotFound
-		}
-		return nil, fmt.Errorf("failed to get media: %w", err)
-	}
-
-	return &media, nil
-}
-
-// GetMediaByProfile получает все медиа для профиля
-func (s *MediaServiceImpl) GetMediaByProfile(profileID int, mediaRole string) ([]Media, error) {
-	var query string
-	var args []interface{}
-
-	if mediaRole == "" {
-		// Если роль не указана, возвращаем все медиа для профиля
-		query = "SELECT id, profile_id, type, role, url, uploaded_at FROM media WHERE profile_id = $1"
-		args = []interface{}{profileID}
-	} else {
-		// Если роль указана, фильтруем по ней
-		query = "SELECT id, profile_id, type, role, url, uploaded_at FROM media WHERE profile_id = $1 AND role = $2"
-		args = []interface{}{profileID, mediaRole}
-	}
-
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get media: %w", err)
-	}
-	defer rows.Close()
-
-	var mediaList []Media
-	for rows.Next() {
-		var media Media
-		err := rows.Scan(
-			&media.ID,
-			&media.ProfileID,
-			&media.Type,
-			&media.Role,
-			&media.URL,
-			&media.CreatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan media: %w", err)
-		}
-		mediaList = append(mediaList, media)
-	}
-
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating media rows: %w", err)
-	}
-
-	return mediaList, nil
+	return &mediaID, nil
 }
 
 // DeleteMedia удаляет медиа
 func (s *MediaServiceImpl) DeleteMedia(mediaID int) error {
-	// Удаляем запись из БД
-	_, err := s.db.Exec("DELETE FROM media WHERE id = $1", mediaID)
+	return s.mediaRepository.DeleteMediaByID(mediaID)
+}
+
+func (s *MediaServiceImpl) GetProfileMedia(profileID int) (*ProfileMedia, error) {
+	// Получаем медиа для профиля
+	mediaList, err := s.mediaRepository.GetMediaByProfileAndRole(profileID, "")
 	if err != nil {
-		return fmt.Errorf("failed to delete media from DB: %w", err)
+		return nil, fmt.Errorf("failed to get profile media: %w", err)
 	}
 
-	// Имя файла в хранилище обычно последняя часть URL
-	// Но может потребоваться более сложная логика в зависимости от формирования URL
-	// Файл не удаляем из хранилища, только из БД
+	profileMedia := &ProfileMedia{}
 
-	return nil
+	for _, media := range mediaList {
+		switch media.Role {
+		case "avatar":
+			profileMedia.Avatar = media.URL
+		case "video":
+			profileMedia.Videos = append(profileMedia.Videos, Video{Url: media.URL})
+		}
+	}
+
+	return profileMedia, nil
 }
