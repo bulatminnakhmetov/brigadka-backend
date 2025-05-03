@@ -3,51 +3,127 @@ package profile
 import (
 	"encoding/json"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
-	"strings"
+	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/media"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/profile"
+	"github.com/go-chi/chi/v5"
 )
 
-// ProfileService интерфейс для работы с профилями
-type ProfileService interface {
-	CreateImprovProfile(userID int, description string, goal string, styles []string, lookingForTeam bool) (*profile.ImprovProfile, error)
-	CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*profile.MusicProfile, error)
-	GetImprovProfile(profileID int) (*profile.ImprovProfile, error)
-	GetMusicProfile(profileID int) (*profile.MusicProfile, error)
-
-	// Methods for updating profiles
-	UpdateImprovProfile(profileID int, description string, goal string, styles []string, lookingForTeam bool, fullName string, gender string, age int, cityID int) (*profile.ImprovProfile, error)
-	UpdateMusicProfile(profileID int, description string, genres []string, instruments []string, fullName string, gender string, age int, cityID int) (*profile.MusicProfile, error)
-
-	GetActivityTypes(lang string) ([]profile.TranslatedItem, error)
-	GetImprovStyles(lang string) ([]profile.TranslatedItem, error)
-	GetImprovGoals(lang string) ([]profile.TranslatedItem, error)
-	GetMusicGenres(lang string) ([]profile.TranslatedItem, error)
-	GetMusicInstruments(lang string) ([]profile.TranslatedItem, error)
-
-	GetUserProfiles(userID int) (map[string]int, error)
+// Date is a custom type that handles JSON marshaling and unmarshaling of dates
+type Date struct {
+	time.Time
 }
 
-// MediaService определяет интерфейс для работы с медиа
-type MediaService interface {
-	GetProfileMedia(profileID int) (*media.ProfileMedia, error)
+// UnmarshalJSON implements the json.Unmarshaler interface for Date
+func (d *Date) UnmarshalJSON(data []byte) error {
+	var dateStr string
+	if err := json.Unmarshal(data, &dateStr); err != nil {
+		return err
+	}
+
+	// Handle empty string case
+	if dateStr == "" {
+		d.Time = time.Time{}
+		return nil
+	}
+
+	// Parse the date string
+	parsedTime, err := time.Parse("2006-01-02", dateStr)
+	if err != nil {
+		return err
+	}
+
+	d.Time = parsedTime
+	return nil
+}
+
+// MarshalJSON implements the json.Marshaler interface for Date
+func (d Date) MarshalJSON() ([]byte, error) {
+	if d.Time.IsZero() {
+		return json.Marshal("")
+	}
+	return json.Marshal(d.Time.Format("2006-01-02"))
+}
+
+// ProfileResponse represents profile data for response
+type ProfileResponse struct {
+	FullName       string          `json:"full_name"`
+	Birthday       Date            `json:"birthday,omitempty"`
+	Gender         string          `json:"gender,omitempty"`
+	CityID         int             `json:"city_id,omitempty"`
+	CityName       string          `json:"city_name,omitempty"`
+	Bio            string          `json:"bio,omitempty"`
+	Goal           string          `json:"goal,omitempty"`
+	LookingForTeam bool            `json:"looking_for_team"`
+	ImprovStyles   []string        `json:"improv_styles,omitempty"`
+	Avatar         *profile.Image  `json:"avatar,omitempty"`
+	Videos         []profile.Video `json:"videos,omitempty"`
+}
+
+// ProfileCreateRequest represents data needed to create a profile
+type ProfileCreateRequest struct {
+	UserID         int      `json:"user_id" validate:"required"`
+	FullName       string   `json:"full_name" validate:"required"`
+	Birthday       Date     `json:"birthday"`
+	Gender         string   `json:"gender"`
+	CityID         int      `json:"city_id"`
+	Bio            string   `json:"bio"`
+	Goal           string   `json:"goal"`
+	ImprovStyles   []string `json:"improv_styles"`
+	LookingForTeam bool     `json:"looking_for_team"`
+}
+
+// ProfileUpdateRequest represents data needed to update a profile
+type ProfileUpdateRequest struct {
+	FullName       *string  `json:"full_name,omitempty"`
+	Birthday       *Date    `json:"birthday,omitempty"`
+	Gender         *string  `json:"gender,omitempty"`
+	CityID         *int     `json:"city_id,omitempty"`
+	Bio            *string  `json:"bio,omitempty"`
+	Goal           *string  `json:"goal,omitempty"`
+	ImprovStyles   []string `json:"improv_styles,omitempty"`
+	LookingForTeam *bool    `json:"looking_for_team,omitempty"`
+	Avatar         *int     `json:"avatar,omitempty"`
+	Videos         []int    `json:"videos,omitempty"`
+}
+
+// TranslatedItem represents a catalog item with translations
+// For swagger documentation
+type TranslatedItem struct {
+	Code        string
+	Label       string
+	Description string
+}
+
+// City represents a city
+// For swagger documentation
+type City struct {
+	ID   int
+	Name string
+}
+
+// ProfileService defines the interface for profile operations
+type ProfileService interface {
+	CreateProfile(req profile.ProfileCreateRequest) (*profile.Profile, error)
+	GetProfile(userID int) (*profile.Profile, error)
+	UpdateProfile(userID int, req profile.ProfileUpdateRequest) (*profile.Profile, error)
+	GetImprovStyles(lang string) ([]profile.TranslatedItem, error)
+	GetImprovGoals(lang string) ([]profile.TranslatedItem, error)
+	GetGenders(lang string) ([]profile.TranslatedItem, error)
+	GetCities() ([]profile.City, error)
 }
 
 // ProfileHandler handles requests related to profiles
 type ProfileHandler struct {
 	profileService ProfileService
-	mediaService   MediaService
 }
 
 // NewProfileHandler creates a new instance of ProfileHandler
-func NewProfileHandler(profileService ProfileService, mediaService MediaService) *ProfileHandler {
+func NewProfileHandler(profileService ProfileService) *ProfileHandler {
 	return &ProfileHandler{
 		profileService: profileService,
-		mediaService:   mediaService,
 	}
 }
 
@@ -57,541 +133,300 @@ func handleError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, profile.ErrUserNotFound):
 		http.Error(w, "User not found", http.StatusNotFound)
-	case errors.Is(err, profile.ErrInvalidActivityType):
-		http.Error(w, "Invalid activity type", http.StatusBadRequest)
 	case errors.Is(err, profile.ErrProfileAlreadyExists):
 		http.Error(w, "Profile already exists for this user", http.StatusConflict)
 	case errors.Is(err, profile.ErrInvalidImprovGoal):
 		http.Error(w, "Invalid improv goal", http.StatusBadRequest)
 	case errors.Is(err, profile.ErrInvalidImprovStyle):
 		http.Error(w, "Invalid improv style", http.StatusBadRequest)
-	case errors.Is(err, profile.ErrInvalidMusicGenre):
-		http.Error(w, "Invalid music genre", http.StatusBadRequest)
-	case errors.Is(err, profile.ErrInvalidInstrument):
-		http.Error(w, "Invalid instrument", http.StatusBadRequest)
-	case errors.Is(err, profile.ErrEmptyInstruments):
-		http.Error(w, "At least one instrument is required", http.StatusBadRequest)
+	case errors.Is(err, profile.ErrProfileNotFound):
+		http.Error(w, "Profile not found", http.StatusNotFound)
+	case errors.Is(err, profile.ErrInvalidGender):
+		http.Error(w, "Invalid gender", http.StatusBadRequest)
+	case errors.Is(err, profile.ErrInvalidCity):
+		http.Error(w, "Invalid city", http.StatusBadRequest)
 	default:
-		http.Error(w, "Failed to create profile: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Server error: "+err.Error(), http.StatusInternalServerError)
 	}
 }
 
-// @Summary      Get improv profile
-// @Description  Gets an improv profile by ID
-// @Tags         profiles
-// @Produce      json
-// @Security     BearerAuth
-// @Param        id   path      int  true  "Profile ID"
-// @Success      200  {object}  ImprovProfileResponse
-// @Failure      400  {string}  string  "Invalid ID or profile type"
-// @Failure      401  {string}  string  "Unauthorized"
-// @Failure      404  {string}  string  "Profile not found"
-// @Failure      500  {string}  string  "Internal server error"
-// @Router       /api/profiles/improv/{id} [get]
-func (h *ProfileHandler) GetImprovProfile(w http.ResponseWriter, r *http.Request) {
-	// Check request method
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+func convertToProfileResponse(profile *profile.Profile) ProfileResponse {
+	return ProfileResponse{
+		FullName:       profile.FullName,
+		Birthday:       Date{Time: profile.Birthday},
+		Gender:         profile.Gender,
+		CityID:         profile.CityID,
+		Bio:            profile.Bio,
+		Goal:           profile.Goal,
+		ImprovStyles:   profile.ImprovStyles,
+		LookingForTeam: profile.LookingForTeam,
+		Avatar:         profile.Avatar,
+		Videos:         profile.Videos,
 	}
-
-	// Extract profile ID from URL
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 2 {
-		http.Error(w, "Invalid URL", http.StatusBadRequest)
-		return
-	}
-
-	profileIDStr := pathParts[len(pathParts)-1]
-	profileID, err := strconv.Atoi(profileIDStr)
-	if err != nil {
-		http.Error(w, "Invalid profile ID", http.StatusBadRequest)
-		return
-	}
-
-	// Get improv profile directly
-	improvProfile, err := h.profileService.GetImprovProfile(profileID)
-	if err != nil {
-		switch {
-		case errors.Is(err, profile.ErrProfileNotFound):
-			http.Error(w, "Profile not found", http.StatusNotFound)
-		case errors.Is(err, profile.ErrInvalidActivityType):
-			http.Error(w, "Profile is not an improv profile", http.StatusBadRequest)
-		default:
-			http.Error(w, "Failed to get profile: "+err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-
-	profileMedia, err := h.mediaService.GetProfileMedia(improvProfile.UserID)
-	if err != nil {
-		log.Printf("Failed to get profile media: %v", err)
-	}
-
-	// Convert to API response model
-	response := ToImprovProfileResponse(improvProfile, profileMedia)
-
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
 }
 
-// @Summary      Get music profile
-// @Description  Gets a music profile by ID
-// @Tags         profiles
-// @Produce      json
-// @Security     BearerAuth
-// @Param        id   path      int  true  "Profile ID"
-// @Success      200  {object}  MusicProfileResponse
-// @Failure      400  {string}  string  "Invalid ID or profile type"
-// @Failure      401  {string}  string  "Unauthorized"
-// @Failure      404  {string}  string  "Profile not found"
-// @Failure      500  {string}  string  "Internal server error"
-// @Router       /api/profiles/music/{id} [get]
-func (h *ProfileHandler) GetMusicProfile(w http.ResponseWriter, r *http.Request) {
-	// Check request method
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
+func convertToCreateProfileRequest(req ProfileCreateRequest) profile.ProfileCreateRequest {
+	return profile.ProfileCreateRequest{
+		UserID:         req.UserID,
+		FullName:       req.FullName,
+		Birthday:       req.Birthday.Time,
+		Gender:         req.Gender,
+		CityID:         req.CityID,
+		Bio:            req.Bio,
+		Goal:           req.Goal,
+		ImprovStyles:   req.ImprovStyles,
+		LookingForTeam: req.LookingForTeam,
 	}
-
-	// Extract profile ID from URL
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 2 {
-		http.Error(w, "Invalid URL", http.StatusBadRequest)
-		return
-	}
-
-	profileIDStr := pathParts[len(pathParts)-1]
-	profileID, err := strconv.Atoi(profileIDStr)
-	if err != nil {
-		http.Error(w, "Invalid profile ID", http.StatusBadRequest)
-		return
-	}
-
-	// Get music profile directly
-	musicProfile, err := h.profileService.GetMusicProfile(profileID)
-	if err != nil {
-		switch {
-		case errors.Is(err, profile.ErrProfileNotFound):
-			http.Error(w, "Profile not found", http.StatusNotFound)
-		case errors.Is(err, profile.ErrInvalidActivityType):
-			http.Error(w, "Profile is not a music profile", http.StatusBadRequest)
-		default:
-			http.Error(w, "Failed to get profile: "+err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-
-	profileMedia, err := h.mediaService.GetProfileMedia(musicProfile.UserID)
-	if err != nil {
-		log.Printf("Failed to get profile media: %v", err)
-	}
-
-	// Convert to API response model
-	response := ToMusicProfileResponse(musicProfile, profileMedia)
-
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
 }
 
-// @Summary      Create improv profile
-// @Description  Creates a new improv profile for a user
-// @Tags         profiles
+func convertToUpdateProfileRequest(req ProfileUpdateRequest) profile.ProfileUpdateRequest {
+	var birthday *time.Time
+	if req.Birthday != nil {
+		birthday = &req.Birthday.Time
+	}
+
+	return profile.ProfileUpdateRequest{
+		FullName:       req.FullName,
+		Birthday:       birthday,
+		Gender:         req.Gender,
+		CityID:         req.CityID,
+		Bio:            req.Bio,
+		Goal:           req.Goal,
+		ImprovStyles:   req.ImprovStyles,
+		LookingForTeam: req.LookingForTeam,
+		Avatar:         req.Avatar,
+		Videos:         req.Videos,
+	}
+}
+
+// @Summary      Create Profile
+// @Description  Creates a new user profile
+// @Tags         profile
 // @Accept       json
 // @Produce      json
+// @Param        request  body  profile.ProfileCreateRequest  true  "Profile data"
+// @Success      201  {object}  profile.Profile
+// @Failure      400  {string}  string  "Invalid request body"
+// @Failure      404  {string}  string  "User not found"
+// @Failure      409  {string}  string  "Profile already exists for this user"
+// @Failure      500  {string}  string  "Server error"
+// @Router       /profiles [post]
 // @Security     BearerAuth
-// @Param        request  body  CreateImprovProfileRequest  true  "Improv profile data"
-// @Success      201      {object}  ImprovProfileDTO
-// @Failure      400      {string}  string  "Invalid data"
-// @Failure      401      {string}  string  "Unauthorized"
-// @Failure      409      {string}  string  "Profile already exists"
-// @Failure      500      {string}  string  "Internal server error"
-// @Router       /api/profiles/improv [post]
-func (h *ProfileHandler) CreateImprovProfile(w http.ResponseWriter, r *http.Request) {
-	// Check request method
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+func (h *ProfileHandler) CreateProfile(w http.ResponseWriter, r *http.Request) {
+	var req ProfileCreateRequest
 
-	// Parse request body
-	var req CreateImprovProfileRequest
+	// Parse the request body
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Field validation
-	if req.UserID <= 0 {
-		http.Error(w, "Invalid user_id", http.StatusBadRequest)
-		return
-	}
-
-	if req.Goal == "" {
-		http.Error(w, "Improv goal is required", http.StatusBadRequest)
-		return
-	}
-
-	if len(req.Styles) == 0 {
-		http.Error(w, "At least one improv style is required", http.StatusBadRequest)
-		return
-	}
-
-	profile, err := h.profileService.CreateImprovProfile(
-		req.UserID,
-		req.Description,
-		req.Goal,
-		req.Styles,
-		req.LookingForTeam,
-	)
-
+	// Call the service to create the profile
+	createdProfile, err := h.profileService.CreateProfile(convertToCreateProfileRequest(req))
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	// Convert to API response model
-	response := ToImprovProfileDTO(profile)
+	response := convertToProfileResponse(createdProfile)
 
-	// Send response
+	// Return the created profile
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
-// @Summary      Create music profile
-// @Description  Creates a new music profile for a user
-// @Tags         profiles
+// @Summary      Update Profile
+// @Description  Updates an existing user profile (partial update)
+// @Tags         profile
 // @Accept       json
 // @Produce      json
+// @Param        request  body  profile.ProfileUpdateRequest  true  "Profile update data"
+// @Success      200  {object}  profile.Profile
+// @Failure      400  {string}  string  "Invalid request body"
+// @Failure      401  {string}  string  "Unauthorized"
+// @Failure      404  {string}  string  "Profile not found"
+// @Failure      500  {string}  string  "Server error"
+// @Router       /profiles [patch]
 // @Security     BearerAuth
-// @Param        request  body  CreateMusicProfileRequest  true  "Music profile data"
-// @Success      201      {object}  MusicProfileDTO
-// @Failure      400      {string}  string  "Invalid data"
-// @Failure      401      {string}  string  "Unauthorized"
-// @Failure      409      {string}  string  "Profile already exists"
-// @Failure      500      {string}  string  "Internal server error"
-// @Router       /api/profiles/music [post]
-func (h *ProfileHandler) CreateMusicProfile(w http.ResponseWriter, r *http.Request) {
-	// Check request method
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Parse request body
-	var req CreateMusicProfileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// Field validation
-	if req.UserID <= 0 {
-		http.Error(w, "Invalid user_id", http.StatusBadRequest)
-		return
-	}
-
-	if len(req.Instruments) == 0 {
-		http.Error(w, "At least one instrument is required", http.StatusBadRequest)
-		return
-	}
-
-	profile, err := h.profileService.CreateMusicProfile(
-		req.UserID,
-		req.Description,
-		req.Genres,
-		req.Instruments,
-	)
-
-	if err != nil {
-		handleError(w, err)
-		return
-	}
-
-	// Convert to API response model
-	response := ToMusicProfileDTO(profile)
-
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(response)
-}
-
-// @Summary      Update improv profile
-// @Description  Updates an existing improv profile
-// @Tags         profiles
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Param        id       path      int  true  "Profile ID"
-// @Param        request  body      UpdateImprovProfileRequest  true  "Updated improv profile data"
-// @Success      200      {object}  ImprovProfileResponse
-// @Failure      400      {string}  string  "Invalid data"
-// @Failure      401      {string}  string  "Unauthorized"
-// @Failure      403      {string}  string  "Forbidden"
-// @Failure      404      {string}  string  "Profile not found"
-// @Failure      500      {string}  string  "Internal server error"
-// @Router       /api/profiles/improv/{id} [put]
-func (h *ProfileHandler) UpdateImprovProfile(w http.ResponseWriter, r *http.Request) {
-	// Check request method
-	if r.Method != http.MethodPut {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Extract profile ID from URL
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 2 {
-		http.Error(w, "Invalid URL", http.StatusBadRequest)
-		return
-	}
-
-	profileIDStr := pathParts[len(pathParts)-1]
-	profileID, err := strconv.Atoi(profileIDStr)
-	if err != nil {
-		http.Error(w, "Invalid profile ID", http.StatusBadRequest)
-		return
-	}
-
-	// Get user ID from context for permission check
-	userIDValue := r.Context().Value("user_id")
-	if userIDValue == nil {
+func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value("user_id").(int)
+	if !ok {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
-	userID := userIDValue.(int)
-
-	// Check if the profile belongs to the current user
-	// Get the current profile
-	currentProfile, err := h.profileService.GetImprovProfile(profileID)
-	if err != nil {
-		if errors.Is(err, profile.ErrProfileNotFound) {
-			http.Error(w, "Profile not found", http.StatusNotFound)
-		} else {
-			http.Error(w, "Failed to get profile: "+err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Check permissions
-	if currentProfile.UserID != userID {
-		http.Error(w, "Forbidden: you can only update your own profile", http.StatusForbidden)
-		return
-	}
 
 	// Parse request body
-	var req UpdateImprovProfileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	var updateReq ProfileUpdateRequest
+	if err := json.NewDecoder(r.Body).Decode(&updateReq); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Field validation
-	if req.Goal == "" {
-		http.Error(w, "Improv goal is required", http.StatusBadRequest)
-		return
-	}
-
-	if len(req.Styles) == 0 {
-		http.Error(w, "At least one improv style is required", http.StatusBadRequest)
-		return
-	}
-
-	updatedProfile, err := h.profileService.UpdateImprovProfile(
-		profileID,
-		req.Description,
-		req.Goal,
-		req.Styles,
-		req.LookingForTeam,
-		req.FullName,
-		req.Gender,
-		req.Age,
-		req.CityID,
-	)
+	// Call the service to update the profile
+	prof, err := h.profileService.UpdateProfile(userID, convertToUpdateProfileRequest(updateReq))
 
 	if err != nil {
 		handleError(w, err)
 		return
 	}
 
-	profileMedia, err := h.mediaService.GetProfileMedia(updatedProfile.UserID)
-	if err != nil {
-		log.Printf("Failed to get profile media: %v", err)
-	}
+	response := convertToProfileResponse(prof)
 
-	// Convert to API response model
-	response := ToImprovProfileResponse(updatedProfile, profileMedia)
-
-	// Send response
+	// Return the updated profile
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }
 
-// @Summary      Update music profile
-// @Description  Updates an existing music profile
-// @Tags         profiles
-// @Accept       json
+// @Summary      Get Profile
+// @Description  Retrieves a user profile by ID
+// @Tags         profile
 // @Produce      json
-// @Security     BearerAuth
-// @Param        id       path      int  true  "Profile ID"
-// @Param        request  body      UpdateMusicProfileRequest  true  "Updated music profile data"
-// @Success      200      {object}  MusicProfileResponse
-// @Failure      400      {string}  string  "Invalid data"
-// @Failure      401      {string}  string  "Unauthorized"
-// @Failure      403      {string}  string  "Forbidden"
-// @Failure      404      {string}  string  "Profile not found"
-// @Failure      500      {string}  string  "Internal server error"
-// @Router       /api/profiles/music/{id} [put]
-func (h *ProfileHandler) UpdateMusicProfile(w http.ResponseWriter, r *http.Request) {
-	// Check request method
-	if r.Method != http.MethodPut {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+// @Param        userID  path  int  true  "User ID"
+// @Success      200  {object}  profile.Profile
+// @Failure      400  {string}  string  "Invalid user ID"
+// @Failure      404  {string}  string  "Profile not found"
+// @Failure      500  {string}  string  "Server error"
+// @Router       /profiles/{userID} [get]
+func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
+	// Extract userID from URL path using Chi router
+	userIDStr := chi.URLParam(r, "userID")
+	if userIDStr == "" {
+		http.Error(w, "Missing user ID", http.StatusBadRequest)
 		return
 	}
 
-	// Extract profile ID from URL
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 2 {
-		http.Error(w, "Invalid URL", http.StatusBadRequest)
-		return
-	}
-
-	profileIDStr := pathParts[len(pathParts)-1]
-	profileID, err := strconv.Atoi(profileIDStr)
-	if err != nil {
-		http.Error(w, "Invalid profile ID", http.StatusBadRequest)
-		return
-	}
-
-	// Get user ID from context for permission check
-	userIDValue := r.Context().Value("user_id")
-	if userIDValue == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-	userID := userIDValue.(int)
-
-	// Check if the profile belongs to the current user
-	// Get the current profile
-	currentProfile, err := h.profileService.GetMusicProfile(profileID)
-	if err != nil {
-		if errors.Is(err, profile.ErrProfileNotFound) {
-			http.Error(w, "Profile not found", http.StatusNotFound)
-		} else {
-			http.Error(w, "Failed to get profile: "+err.Error(), http.StatusInternalServerError)
-		}
-		return
-	}
-
-	// Check permissions
-	if currentProfile.UserID != userID {
-		http.Error(w, "Forbidden: you can only update your own profile", http.StatusForbidden)
-		return
-	}
-
-	// Parse request body
-	var req UpdateMusicProfileRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// Field validation
-	if len(req.Instruments) == 0 {
-		http.Error(w, "At least one instrument is required", http.StatusBadRequest)
-		return
-	}
-
-	updatedProfile, err := h.profileService.UpdateMusicProfile(
-		profileID,
-		req.Description,
-		req.Genres,
-		req.Instruments,
-		req.FullName,
-		req.Gender,
-		req.Age,
-		req.CityID,
-	)
-
-	if err != nil {
-		handleError(w, err)
-		return
-	}
-
-	profileMedia, err := h.mediaService.GetProfileMedia(updatedProfile.UserID)
-	if err != nil {
-		log.Printf("Failed to get profile media: %v", err)
-	}
-
-	// Convert to API response model
-	response := ToMusicProfileResponse(updatedProfile, profileMedia)
-
-	// Send response
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-// @Summary      Get user profiles
-// @Description  Gets all profiles for a specific user
-// @Tags         profiles
-// @Produce      json
-// @Security     BearerAuth
-// @Param        user_id  path  int  true  "User ID"
-// @Success      200      {object}  UserProfilesResponse
-// @Failure      400      {string}  string  "Invalid user ID"
-// @Failure      401      {string}  string  "Unauthorized"
-// @Failure      403      {string}  string  "Forbidden"
-// @Failure      500      {string}  string  "Internal server error"
-// @Router       /api/profiles/user/{user_id} [get]
-func (h *ProfileHandler) GetUserProfiles(w http.ResponseWriter, r *http.Request) {
-	// Check request method
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Extract user ID from URL
-	pathParts := strings.Split(r.URL.Path, "/")
-	if len(pathParts) < 1 {
-		http.Error(w, "Invalid URL", http.StatusBadRequest)
-		return
-	}
-
-	userIDStr := pathParts[len(pathParts)-1]
 	userID, err := strconv.Atoi(userIDStr)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	// Check authentication
-	currentUserIDValue := r.Context().Value("user_id")
-	if currentUserIDValue == nil {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	if currentUserID := currentUserIDValue.(int); userID != currentUserID {
-		http.Error(w, "Forbidden: you can only view your own profiles", http.StatusForbidden)
-		return
-	}
-
-	// Get all profiles for the user
-	profiles, err := h.profileService.GetUserProfiles(userID)
+	// Call the service to get the profile
+	prof, err := h.profileService.GetProfile(userID)
 	if err != nil {
-		http.Error(w, "Failed to get user profiles: "+err.Error(), http.StatusInternalServerError)
+		handleError(w, err)
 		return
 	}
 
-	// Prepare response
-	response := UserProfilesResponse{
-		Profiles: profiles,
+	response := convertToProfileResponse(prof)
+
+	// Return the profile
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+// @Summary      Get Improv Styles
+// @Description  Retrieves a catalog of improv styles with translations
+// @Tags         catalog
+// @Produce      json
+// @Param        lang  query  string  false  "Language code (default: en)"
+// @Success      200  {array}  profile.TranslatedItem
+// @Failure      500  {string}  string  "Server error"
+// @Router       /catalog/improv-styles [get]
+func (h *ProfileHandler) GetImprovStyles(w http.ResponseWriter, r *http.Request) {
+	// Get language from query parameter or use default
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = "ru" // Default language
 	}
 
-	// Send response
+	// Call the service to get the styles
+	styles, err := h.profileService.GetImprovStyles(lang)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// Return the styles
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+	if err := json.NewEncoder(w).Encode(styles); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+// @Summary      Get Improv Goals
+// @Description  Retrieves a catalog of improv goals with translations
+// @Tags         catalog
+// @Produce      json
+// @Param        lang  query  string  false  "Language code (default: en)"
+// @Success      200  {array}  profile.TranslatedItem
+// @Failure      500  {string}  string  "Server error"
+// @Router       /catalog/improv-goals [get]
+func (h *ProfileHandler) GetImprovGoals(w http.ResponseWriter, r *http.Request) {
+	// Get language from query parameter or use default
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = "ru" // Default language
+	}
+
+	// Call the service to get the goals
+	goals, err := h.profileService.GetImprovGoals(lang)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// Return the goals
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(goals); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+// @Summary      Get Genders
+// @Description  Retrieves a catalog of genders with translations
+// @Tags         catalog
+// @Produce      json
+// @Param        lang  query  string  false  "Language code (default: en)"
+// @Success      200  {array}  profile.TranslatedItem
+// @Failure      500  {string}  string  "Server error"
+// @Router       /catalog/genders [get]
+func (h *ProfileHandler) GetGenders(w http.ResponseWriter, r *http.Request) {
+	// Get language from query parameter or use default
+	lang := r.URL.Query().Get("lang")
+	if lang == "" {
+		lang = "en" // Default language
+	}
+
+	// Call the service to get the genders
+	genders, err := h.profileService.GetGenders(lang)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// Return the genders
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(genders); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+// @Summary      Get Cities
+// @Description  Retrieves a list of available cities
+// @Tags         catalog
+// @Produce      json
+// @Success      200  {array}  profile.City
+// @Failure      500  {string}  string  "Server error"
+// @Router       /catalog/cities [get]
+func (h *ProfileHandler) GetCities(w http.ResponseWriter, r *http.Request) {
+	// Call the service to get the cities
+	cities, err := h.profileService.GetCities()
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// Return the cities
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(cities); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
 }

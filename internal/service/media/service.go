@@ -7,9 +7,6 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"strings"
-
-	mediarepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/media"
-	storageMedia "github.com/bulatminnakhmetov/brigadka-backend/internal/storage/media"
 )
 
 // Определение ошибок
@@ -25,8 +22,13 @@ type Video struct {
 	ThumbnailUrl string `json:"thumbnail_url"`
 }
 
+type Image struct {
+	Id  int    `json:"id"`
+	Url string `json:"url"`
+}
+
 type ProfileMedia struct {
-	Avatar string  `json:"avatar"`
+	Avatar Image   `json:"avatar"`
 	Videos []Video `json:"videos"`
 }
 
@@ -37,28 +39,31 @@ const (
 
 // Repository defines the interface for media database operations
 type MediaRepository interface {
-	CreateMedia(profileID int, mediaType, mediaRole, mediaURL string) (int, error)
-	GetMediaByProfileAndRole(profileID int, mediaRole string) ([]mediarepo.Media, error)
-	DeleteMediaByID(mediaID int) error
-	DeleteMediaByProfileAndRole(profileID int, mediaRole string) error
+	CreateMedia(userID int, mediaType, mediaURL string) (int, error)
+	DeleteMedia(userID, mediaID int) error
+}
+
+// StorageProvider определяет интерфейс для загрузки и получения файлов
+type StorageProvider interface {
+	UploadFile(file multipart.File, fileName string, contentType string) (string, error)
+	DeleteFile(fileName string) error
+	GetFileURL(fileName string) string
 }
 
 // MediaServiceImpl представляет реализацию сервиса медиа
 type MediaServiceImpl struct {
 	mediaRepository MediaRepository
-	storageProvider storageMedia.StorageProvider
-	allowedTypes    map[string]bool // Разрешенные расширения файлов
+	storageProvider StorageProvider
+	allowedTypes    map[string]bool // Разрешенные расширения
 }
 
 // NewMediaService создает новый экземпляр MediaServiceImpl
-func NewMediaService(mediaRepo MediaRepository, storageProvider storageMedia.StorageProvider) *MediaServiceImpl {
+func NewMediaService(mediaRepo MediaRepository, storageProvider StorageProvider) *MediaServiceImpl {
 	// Разрешенные типы файлов
 	allowedTypes := map[string]bool{
 		".jpg":  true,
 		".jpeg": true,
 		".png":  true,
-		".gif":  true,
-		".webp": true,
 		".mp4":  true,
 	}
 
@@ -97,16 +102,10 @@ type UploadedFile interface {
 }
 
 // UploadMedia загружает новый медиафайл
-func (s *MediaServiceImpl) UploadMedia(profileID int, mediaRole string, fileHeader UploadedFile) (*int, error) {
+func (s *MediaServiceImpl) UploadMedia(userID int, fileHeader UploadedFile) (*int, error) {
 	// Проверяем размер файла
 	if fileHeader.GetSize() > MaxFileSize {
 		return nil, ErrFileTooBig
-	}
-
-	// Проверяем расширение файла
-	ext := strings.ToLower(filepath.Ext(fileHeader.GetFilename()))
-	if _, allowed := s.allowedTypes[ext]; !allowed {
-		return nil, ErrInvalidFileType
 	}
 
 	// Открываем файл
@@ -116,6 +115,11 @@ func (s *MediaServiceImpl) UploadMedia(profileID int, mediaRole string, fileHead
 	}
 	defer file.Close()
 
+	ext := strings.ToLower(filepath.Ext(fileHeader.GetFilename()))
+	if _, allowed := s.allowedTypes[ext]; !allowed {
+		return nil, ErrInvalidFileType
+	}
+
 	// Определяем тип медиа по расширению
 	var mediaType string
 	switch ext {
@@ -124,7 +128,7 @@ func (s *MediaServiceImpl) UploadMedia(profileID int, mediaRole string, fileHead
 	case ".mp4", ".webm":
 		mediaType = "video"
 	default:
-		mediaType = "other"
+		return nil, ErrInvalidFileType
 	}
 
 	// Загружаем файл в хранилище
@@ -133,53 +137,11 @@ func (s *MediaServiceImpl) UploadMedia(profileID int, mediaRole string, fileHead
 		return nil, fmt.Errorf("failed to upload file: %w", err)
 	}
 
-	// Если у профиля уже есть медиа с такой ролью, удаляем старое
-	// например, у профиля может быть только один аватар
-	if mediaRole == "avatar" || mediaRole == "cover" {
-		oldMedia, err := s.mediaRepository.GetMediaByProfileAndRole(profileID, mediaRole)
-		if err == nil && len(oldMedia) > 0 {
-			// Удаляем старое медиа из БД
-			err = s.mediaRepository.DeleteMediaByProfileAndRole(profileID, mediaRole)
-			if err != nil {
-				return nil, fmt.Errorf("failed to delete old media: %w", err)
-			}
-
-			// Не удаляем файл из хранилища, так как это может привести к ошибкам, если файл используется где-то еще
-			// В будущем можно добавить периодическую очистку неиспользуемых файлов
-		}
-	}
-
 	// Сохраняем информацию о медиа в БД
-	mediaID, err := s.mediaRepository.CreateMedia(profileID, mediaType, mediaRole, mediaURL)
+	mediaID, err := s.mediaRepository.CreateMedia(userID, mediaType, mediaURL)
 	if err != nil {
 		return nil, err
 	}
 
 	return &mediaID, nil
-}
-
-// DeleteMedia удаляет медиа
-func (s *MediaServiceImpl) DeleteMedia(mediaID int) error {
-	return s.mediaRepository.DeleteMediaByID(mediaID)
-}
-
-func (s *MediaServiceImpl) GetProfileMedia(profileID int) (*ProfileMedia, error) {
-	// Получаем медиа для профиля
-	mediaList, err := s.mediaRepository.GetMediaByProfileAndRole(profileID, "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get profile media: %w", err)
-	}
-
-	profileMedia := &ProfileMedia{}
-
-	for _, media := range mediaList {
-		switch media.Role {
-		case "avatar":
-			profileMedia.Avatar = media.URL
-		case "video":
-			profileMedia.Videos = append(profileMedia.Videos, Video{Url: media.URL})
-		}
-	}
-
-	return profileMedia, nil
 }

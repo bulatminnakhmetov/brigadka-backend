@@ -23,7 +23,6 @@ import (
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/media"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/messaging"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/profile"
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/search"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/logging"
 	mediarepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/media"
 	profilerepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/profile"
@@ -33,7 +32,6 @@ import (
 	mediaservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/media"
 	messagingservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/messaging"
 	profileservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/profile"
-	searchservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/search"
 
 	mediastorage "github.com/bulatminnakhmetov/brigadka-backend/internal/storage/media"
 )
@@ -151,15 +149,11 @@ func main() {
 
 	// Инициализация сервиса и хендлера профилей
 	profileRepo := profilerepo.NewPostgresRepository(db)
-	profileService := profileservice.NewProfileService(profileRepo, userRepo)
-	profileHandler := profile.NewProfileHandler(profileService, mediaService)
+	profileService := profileservice.NewProfileService(profileRepo, mediaRepo)
+	profileHandler := profile.NewProfileHandler(profileService)
 
 	// Инициализация хендлера медиа
 	mediaHandler := media.NewMediaHandler(mediaService)
-
-	// Инициализация сервиса и хендлера поиска
-	searchService := searchservice.NewSearchService(db)
-	searchHandler := search.NewSearchHandler(searchService)
 
 	// Инициализация сервиса и хендлера сообщений
 	messagingService := messagingservice.NewService(db)
@@ -236,37 +230,23 @@ func main() {
 
 			// Маршруты для работы с профилями (требуют аутентификации)
 			r.Route("/profiles", func(r chi.Router) {
-				r.Get("/user/{user_id}", profileHandler.GetUserProfiles)
 
-				r.Post("/improv", profileHandler.CreateImprovProfile)
-				r.Post("/music", profileHandler.CreateMusicProfile)
-
-				r.Get("/improv/{id}", profileHandler.GetImprovProfile)
-				r.Get("/music/{id}", profileHandler.GetMusicProfile)
-
-				r.Put("/improv/{id}", profileHandler.UpdateImprovProfile)
-				r.Put("/music/{id}", profileHandler.UpdateMusicProfile)
+				r.Post("/", profileHandler.CreateProfile)
+				r.Get("/{userID}", profileHandler.GetProfile)
+				r.Patch("/{userID}", profileHandler.UpdateProfile)
 
 				// Регистрация обработчиков для справочников
 				r.Route("/catalog", func(r chi.Router) {
-					r.Get("/activity-types", profileHandler.GetActivityTypes)
 					r.Get("/improv-styles", profileHandler.GetImprovStyles)
 					r.Get("/improv-goals", profileHandler.GetImprovGoals)
-					r.Get("/music-genres", profileHandler.GetMusicGenres)
-					r.Get("/music-instruments", profileHandler.GetMusicInstruments)
+					r.Get("/genders", profileHandler.GetGenders)
+					r.Get("/cities", profileHandler.GetCities)
 				})
-			})
-
-			// Маршруты для работы с поиском (требуют аутентификации)
-			r.Route("/search", func(r chi.Router) {
-				r.Get("/profiles", searchHandler.SearchProfilesGet)
-				r.Post("/profiles", searchHandler.SearchProfiles)
 			})
 
 			// Маршруты для работы с медиа (требуют аутентификации)
 			r.Route("/media", func(r chi.Router) {
 				r.Post("/upload", mediaHandler.UploadMedia)
-				r.Delete("/{id}", mediaHandler.DeleteMedia)
 			})
 
 			// Маршруты для работы с сообщениями (требуют аутентификации)

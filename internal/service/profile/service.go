@@ -5,100 +5,212 @@ import (
 	"errors"
 	"time"
 
+	mediarepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/media"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/repository/profile"
 	profilerepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/profile"
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/repository/user"
-)
-
-// Общие типы профилей
-const (
-	ActivityTypeImprov = "improv"
-	ActivityTypeMusic  = "music"
 )
 
 // Возможные ошибки сервиса
 var (
 	ErrUserNotFound         = errors.New("user not found")
-	ErrInvalidActivityType  = errors.New("invalid activity type")
 	ErrProfileAlreadyExists = errors.New("profile already exists for this user")
 	ErrProfileNotFound      = errors.New("profile not found")
 	ErrInvalidImprovStyle   = errors.New("invalid improv style")
 	ErrInvalidImprovGoal    = errors.New("invalid improv goal")
-
-	// Ошибки для музыкального профиля
-	ErrInvalidMusicGenre = errors.New("invalid music genre")
-	ErrInvalidInstrument = errors.New("invalid instrument")
-	ErrEmptyInstruments  = errors.New("instruments list cannot be empty for music profile")
+	ErrInvalidGender        = errors.New("invalid gender")
+	ErrInvalidCity          = errors.New("invalid city")
 )
 
-type UserRepository interface {
-	BeginTx() (*sql.Tx, error)
-	GetUserInfoByID(id int) (*user.UserInfo, error)
-	UpdateUserInfo(tx *sql.Tx, userID int, info *user.UserInfo) error
+// TranslatedItem represents a catalog item with translations
+type TranslatedItem struct {
+	Code        string
+	Label       string
+	Description string
 }
 
-// Repository interface for profile data access
+// City represents a city
+type City struct {
+	ID   int
+	Name string
+}
+
+type Video struct {
+	ID           int    `json:"ID"`
+	URL          string `json:"url"`
+	ThumbnailURL string `json:"thumbnail_url"`
+}
+
+type Image struct {
+	ID  int    `json:"ID"`
+	URL string `json:"url"`
+}
+
+// Profile represents profile data for response
+type Profile struct {
+	FullName       string    `json:"full_name"`
+	Birthday       time.Time `json:"birthday,omitempty"`
+	Gender         string    `json:"gender,omitempty"`
+	CityID         int       `json:"city_id,omitempty"`
+	CityName       string    `json:"city_name,omitempty"`
+	Bio            string    `json:"bio,omitempty"`
+	Goal           string    `json:"goal,omitempty"`
+	LookingForTeam bool      `json:"looking_for_team"`
+	ImprovStyles   []string  `json:"improv_styles,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
+	Avatar         *Image    `json:"avatar,omitempty"`
+	Videos         []Video   `json:"videos,omitempty"`
+}
+
+// ProfileCreateRequest represents data needed to create a profile
+type ProfileCreateRequest struct {
+	UserID         int       `json:"user_id" validate:"required"`
+	FullName       string    `json:"full_name" validate:"required"`
+	Birthday       time.Time `json:"birthday"`
+	Gender         string    `json:"gender"`
+	CityID         int       `json:"city_id"`
+	Bio            string    `json:"bio"`
+	Goal           string    `json:"goal"`
+	ImprovStyles   []string  `json:"improv_styles"`
+	LookingForTeam bool      `json:"looking_for_team"`
+}
+
+// ProfileUpdateRequest represents data needed to update a profile
+type ProfileUpdateRequest struct {
+	FullName       *string    `json:"full_name,omitempty"`
+	Birthday       *time.Time `json:"birthday,omitempty"`
+	Gender         *string    `json:"gender,omitempty"`
+	CityID         *int       `json:"city_id,omitempty"`
+	Bio            *string    `json:"bio,omitempty"`
+	Goal           *string    `json:"goal,omitempty"`
+	ImprovStyles   []string   `json:"improv_styles,omitempty"`
+	LookingForTeam *bool      `json:"looking_for_team,omitempty"`
+	Avatar         *int       `json:"avatar,omitempty"`
+	Videos         []int      `json:"videos,omitempty"`
+}
+
+type MediaRepository interface {
+	GetMediaByIDs(userID int, mediaIDs []int) ([]mediarepo.Media, error)
+	GetMediaByID(userID int, mediaID int) (*mediarepo.Media, error)
+}
+
 type ProfileRepository interface {
-	// Transaction handling
 	BeginTx() (*sql.Tx, error)
-
-	// User verification
 	CheckUserExists(userID int) (bool, error)
-	CheckProfileExists(userID int, activityType string) (bool, error)
+	CheckProfileExists(userID int) (bool, error)
+	CreateProfile(tx *sql.Tx, profile *profile.ProfileModel) (time.Time, error)
+	AddImprovStyles(tx *sql.Tx, userID int, styles []string) error
+	GetProfile(userID int) (*profile.ProfileModel, error)
+	GetProfileByUserID(userID int) (*profile.ProfileModel, error)
 
-	// Profile creation
-	CreateBaseProfile(tx *sql.Tx, userID int, description, activityType string) (int, time.Time, error)
-	CreateImprovProfile(tx *sql.Tx, profileID int, goal string, lookingForTeam bool) error
-	AddImprovStyles(tx *sql.Tx, profileID int, styles []string) error
-	AddMusicGenres(tx *sql.Tx, profileID int, genres []string) error
-	AddMusicInstruments(tx *sql.Tx, profileID int, instruments []string) error
+	GetProfileAvatar(userID int) (*int, error)
+	SetProfileAvatar(tx *sql.Tx, userID int, mediaID int) error
+	RemoveAvatar(tx *sql.Tx, userID int) error
 
-	// Profile retrieval
-	GetProfile(profileID int) (*profilerepo.ProfileModel, error)
-	GetImprovProfileDetails(profileID int) (string, bool, error)
-	GetImprovStyles(profileID int) ([]string, error)
-	GetMusicGenres(profileID int) ([]string, error)
-	GetMusicInstruments(profileID int) ([]string, error)
-	GetUserProfiles(userID int) (map[string]int, error)
+	GetProfileVideos(userID int) ([]int, error)
+	SetProfileVideos(tx *sql.Tx, userID int, videos []int) error
 
-	// Profile update
-	UpdateProfileDescription(tx *sql.Tx, profileID int, description string) error
-	UpdateImprovProfile(tx *sql.Tx, profileID int, goal string, lookingForTeam bool) error
-	ClearImprovStyles(tx *sql.Tx, profileID int) error
-	ClearMusicGenres(tx *sql.Tx, profileID int) error
-	ClearMusicInstruments(tx *sql.Tx, profileID int) error
-
-	// Validation
+	ValidateMediaRole(role string) (bool, error)
+	GetImprovStyles(userID int) ([]string, error)
+	UpdateProfile(tx *sql.Tx, profile *profile.UpdateProfileModel) error
+	ClearImprovStyles(tx *sql.Tx, userID int) error
+	ClearProfileMedia(tx *sql.Tx, userID int, role string) error
 	ValidateImprovGoal(goal string) (bool, error)
 	ValidateImprovStyle(style string) (bool, error)
-	ValidateMusicGenre(genre string) (bool, error)
-	ValidateMusicInstrument(instrument string) (bool, error)
-
-	// Catalogs
-	GetActivityTypesCatalog(lang string) ([]TranslatedItem, error)
-	GetImprovStylesCatalog(lang string) ([]TranslatedItem, error)
-	GetImprovGoalsCatalog(lang string) ([]TranslatedItem, error)
-	GetMusicGenresCatalog(lang string) ([]TranslatedItem, error)
-	GetMusicInstrumentsCatalog(lang string) ([]TranslatedItem, error)
+	ValidateGender(gender string) (bool, error)
+	ValidateCity(cityID int) (bool, error)
+	GetImprovStylesCatalog(lang string) ([]profile.TranslatedItem, error)
+	GetImprovGoalsCatalog(lang string) ([]profile.TranslatedItem, error)
+	GetGendersCatalog(lang string) ([]profile.TranslatedItem, error)
+	GetCities() ([]struct {
+		ID   int
+		Name string
+	}, error)
 }
 
 // ProfileServiceImpl реализует интерфейс ProfileService
 type ProfileServiceImpl struct {
 	profileRepo ProfileRepository
-	userRepo    UserRepository
+	mediaRepo   MediaRepository
 }
 
 // NewProfileService создает новый экземпляр сервиса профилей
-func NewProfileService(profileRepo ProfileRepository, userRepo UserRepository) *ProfileServiceImpl {
+func NewProfileService(profileRepo ProfileRepository, mediaRepo MediaRepository) *ProfileServiceImpl {
 	return &ProfileServiceImpl{
 		profileRepo: profileRepo,
-		userRepo:    userRepo,
+		mediaRepo:   mediaRepo,
 	}
 }
 
-// CreateImprovProfile creates a new improv profile
-func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string, goal string, styles []string, lookingForTeam bool) (*ImprovProfile, error) {
+func convertToImage(media *mediarepo.Media) *Image {
+	if media == nil {
+		return nil
+	}
+	return &Image{
+		ID:  media.ID,
+		URL: media.URL,
+	}
+}
+
+func convertToVideo(media *mediarepo.Media) *Video {
+	if media == nil {
+		return nil
+	}
+	return &Video{
+		ID:  media.ID,
+		URL: media.URL,
+	}
+}
+
+func convertToVideos(mediaList []mediarepo.Media) []Video {
+	videos := make([]Video, len(mediaList))
+	for i, media := range mediaList {
+		videos[i] = *convertToVideo(&media)
+	}
+	return videos
+}
+
+// convertToProfile преобразует данные из репозитория в структуру для ответа
+func convertToProfile(profile *profilerepo.ProfileModel, styles []string, cityName string, avatar *mediarepo.Media, videos []mediarepo.Media) *Profile {
+	return &Profile{
+		FullName:       profile.FullName,
+		Birthday:       profile.Birthday,
+		Gender:         profile.Gender,
+		CityID:         profile.CityID,
+		CityName:       cityName,
+		Bio:            profile.Bio,
+		Goal:           profile.Goal,
+		LookingForTeam: profile.LookingForTeam,
+		ImprovStyles:   styles,
+		CreatedAt:      profile.CreatedAt,
+		Avatar:         convertToImage(avatar),
+		Videos:         convertToVideos(videos),
+	}
+}
+
+// getCityNameByID получает название города по его ID
+func (s *ProfileServiceImpl) getCityNameByID(cityID int) (*string, error) {
+	if cityID == 0 {
+		return nil, nil
+	}
+
+	cities, err := s.profileRepo.GetCities()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, city := range cities {
+		if city.ID == cityID {
+			return &city.Name, nil
+		}
+	}
+
+	return nil, ErrInvalidCity
+}
+
+// CreateProfile creates a new profile
+func (s *ProfileServiceImpl) CreateProfile(req ProfileCreateRequest) (*Profile, error) {
 	// Check user exists
-	exists, err := s.profileRepo.CheckUserExists(userID)
+	exists, err := s.profileRepo.CheckUserExists(req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -106,14 +218,8 @@ func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string,
 		return nil, ErrUserNotFound
 	}
 
-	// Get user info
-	userInfo, err := s.userRepo.GetUserInfoByID(userID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Check if profile already exists
-	exists, err = s.profileRepo.CheckProfileExists(userID, ActivityTypeImprov)
+	exists, err = s.profileRepo.CheckProfileExists(req.UserID)
 	if err != nil {
 		return nil, err
 	}
@@ -121,8 +227,24 @@ func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string,
 		return nil, ErrProfileAlreadyExists
 	}
 
-	// Validate goal
-	valid, err := s.profileRepo.ValidateImprovGoal(goal)
+	// Validate fields
+	valid, err := s.profileRepo.ValidateGender(req.Gender)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, ErrInvalidGender
+	}
+
+	valid, err = s.profileRepo.ValidateCity(req.CityID)
+	if err != nil {
+		return nil, err
+	}
+	if !valid {
+		return nil, ErrInvalidCity
+	}
+
+	valid, err = s.profileRepo.ValidateImprovGoal(req.Goal)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +253,7 @@ func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string,
 	}
 
 	// Validate styles
-	for _, style := range styles {
+	for _, style := range req.ImprovStyles {
 		valid, err = s.profileRepo.ValidateImprovStyle(style)
 		if err != nil {
 			return nil, err
@@ -154,45 +276,53 @@ func (s *ProfileServiceImpl) CreateImprovProfile(userID int, description string,
 		err = tx.Commit()
 	}()
 
-	// Create base profile
-	profileID, _, err := s.profileRepo.CreateBaseProfile(tx, userID, description, ActivityTypeImprov)
+	// Create profile
+	profileModel := &profilerepo.ProfileModel{
+		UserID:         req.UserID,
+		FullName:       req.FullName,
+		Birthday:       req.Birthday,
+		Gender:         req.Gender,
+		CityID:         req.CityID,
+		Bio:            req.Bio,
+		Goal:           req.Goal,
+		LookingForTeam: req.LookingForTeam,
+	}
+
+	createdAt, err := s.profileRepo.CreateProfile(tx, profileModel)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create improv profile
-	err = s.profileRepo.CreateImprovProfile(tx, profileID, goal, lookingForTeam)
+	// Add improv styles if provided
+	if len(req.ImprovStyles) > 0 {
+		err = s.profileRepo.AddImprovStyles(tx, req.UserID, req.ImprovStyles)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	cityName, err := s.getCityNameByID(req.CityID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Add improv styles
-	err = s.profileRepo.AddImprovStyles(tx, profileID, styles)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return created profile with user info
-	return &ImprovProfile{
-		Profile: Profile{
-			ProfileID:   profileID,
-			UserID:      userID,
-			UserInfo:    *userInfo,
-			Description: description,
-		},
-		Goal:           goal,
-		Styles:         styles,
-		LookingForTeam: lookingForTeam,
+	// Return created profile
+	return &Profile{
+		FullName:       req.FullName,
+		Birthday:       req.Birthday,
+		Gender:         req.Gender,
+		CityID:         req.CityID,
+		CityName:       *cityName,
+		Bio:            req.Bio,
+		Goal:           req.Goal,
+		LookingForTeam: req.LookingForTeam,
+		ImprovStyles:   req.ImprovStyles,
+		CreatedAt:      createdAt,
 	}, nil
 }
 
-// CreateMusicProfile creates a new music profile
-func (s *ProfileServiceImpl) CreateMusicProfile(userID int, description string, genres []string, instruments []string) (*MusicProfile, error) {
-	// Check if instruments list is empty
-	if len(instruments) == 0 {
-		return nil, ErrEmptyInstruments
-	}
-
+// GetProfileByUserID retrieves a profile by user ID
+func (s *ProfileServiceImpl) GetProfile(userID int) (*Profile, error) {
 	// Check user exists
 	exists, err := s.profileRepo.CheckUserExists(userID)
 	if err != nil {
@@ -202,208 +332,87 @@ func (s *ProfileServiceImpl) CreateMusicProfile(userID int, description string, 
 		return nil, ErrUserNotFound
 	}
 
-	// Get user info
-	userInfo, err := s.userRepo.GetUserInfoByID(userID)
+	// Get profile
+	profile, err := s.profileRepo.GetProfileByUserID(userID)
+	if err != nil {
+		if errors.Is(err, profilerepo.ErrProfileNotExists) {
+			return nil, ErrProfileNotFound
+		}
+		return nil, err
+	}
+
+	// Get improv styles
+	styles, err := s.profileRepo.GetImprovStyles(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Check if profile already exists
-	exists, err = s.profileRepo.CheckProfileExists(userID, ActivityTypeMusic)
+	cityName, err := s.getCityNameByID(profile.CityID)
 	if err != nil {
 		return nil, err
 	}
-	if exists {
-		return nil, ErrProfileAlreadyExists
+
+	// Get avatar
+	var avatar *mediarepo.Media
+	if profile.Avatar != nil {
+		media, _ := s.mediaRepo.GetMediaByID(userID, *profile.Avatar)
+		if media != nil {
+			avatar = media
+		}
 	}
 
-	// Validate genres
-	for _, genre := range genres {
-		valid, err := s.profileRepo.ValidateMusicGenre(genre)
+	// Get videos
+	videos, _ := s.mediaRepo.GetMediaByIDs(userID, profile.Videos)
+
+	// Return profile info
+	return convertToProfile(profile, styles, *cityName, avatar, videos), nil
+}
+
+// UpdateProfile updates an existing profile
+func (s *ProfileServiceImpl) UpdateProfile(userID int, req ProfileUpdateRequest) (*Profile, error) {
+	// Get profile to check if it exists
+	profile, err := s.profileRepo.GetProfileByUserID(userID)
+	if err != nil {
+		if errors.Is(err, profilerepo.ErrProfileNotExists) {
+			return nil, ErrProfileNotFound
+		}
+		return nil, err
+	}
+
+	// Validate fields
+	if req.Gender != nil {
+		valid, err := s.profileRepo.ValidateGender(*req.Gender)
 		if err != nil {
 			return nil, err
 		}
 		if !valid {
-			return nil, ErrInvalidMusicGenre
+			return nil, ErrInvalidGender
 		}
 	}
 
-	// Validate instruments
-	for _, instrument := range instruments {
-		valid, err := s.profileRepo.ValidateMusicInstrument(instrument)
+	if req.CityID != nil {
+		valid, err := s.profileRepo.ValidateCity(*req.CityID)
 		if err != nil {
 			return nil, err
 		}
 		if !valid {
-			return nil, ErrInvalidInstrument
+			return nil, ErrInvalidCity
 		}
 	}
 
-	// Start transaction
-	tx, err := s.profileRepo.BeginTx()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
+	if req.Goal != nil {
+		valid, err := s.profileRepo.ValidateImprovGoal(*req.Goal)
 		if err != nil {
-			tx.Rollback()
-			return
+			return nil, err
 		}
-		err = tx.Commit()
-	}()
-
-	// Create base profile
-	profileID, _, err := s.profileRepo.CreateBaseProfile(tx, userID, description, ActivityTypeMusic)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add music genres
-	err = s.profileRepo.AddMusicGenres(tx, profileID, genres)
-	if err != nil {
-		return nil, err
-	}
-
-	// Add music instruments
-	err = s.profileRepo.AddMusicInstruments(tx, profileID, instruments)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return created profile with user info
-	return &MusicProfile{
-		Profile: Profile{
-			ProfileID:   profileID,
-			UserID:      userID,
-			UserInfo:    *userInfo,
-			Description: description,
-		},
-		Genres:      genres,
-		Instruments: instruments,
-	}, nil
-}
-
-// GetImprovProfile retrieves an improv profile by ID
-func (s *ProfileServiceImpl) GetImprovProfile(profileID int) (*ImprovProfile, error) {
-	// Get base profile
-	baseProfile, err := s.profileRepo.GetProfile(profileID)
-	if err != nil {
-		if errors.Is(err, profilerepo.ErrProfileNotExists) {
-			return nil, ErrProfileNotFound
+		if !valid {
+			return nil, ErrInvalidImprovGoal
 		}
-		return nil, err
-	}
-
-	// Check profile type
-	if baseProfile.ActivityType != ActivityTypeImprov {
-		return nil, ErrInvalidActivityType
-	}
-
-	// Get user info
-	userInfo, err := s.userRepo.GetUserInfoByID(baseProfile.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get improv profile details
-	goal, lookingForTeam, err := s.profileRepo.GetImprovProfileDetails(profileID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get styles
-	styles, err := s.profileRepo.GetImprovStyles(profileID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ImprovProfile{
-		Profile: Profile{
-			ProfileID:   baseProfile.ID,
-			UserID:      baseProfile.UserID,
-			Description: baseProfile.Description,
-			UserInfo:    *userInfo,
-		},
-		Goal:           goal,
-		Styles:         styles,
-		LookingForTeam: lookingForTeam,
-	}, nil
-}
-
-// GetMusicProfile retrieves a music profile by ID
-func (s *ProfileServiceImpl) GetMusicProfile(profileID int) (*MusicProfile, error) {
-	// Get base profile
-	baseProfile, err := s.profileRepo.GetProfile(profileID)
-	if err != nil {
-		if errors.Is(err, profilerepo.ErrProfileNotExists) {
-			return nil, ErrProfileNotFound
-		}
-		return nil, err
-	}
-
-	// Check profile type
-	if baseProfile.ActivityType != ActivityTypeMusic {
-		return nil, ErrInvalidActivityType
-	}
-
-	// Get user info
-	userInfo, err := s.userRepo.GetUserInfoByID(baseProfile.UserID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get genres
-	genres, err := s.profileRepo.GetMusicGenres(profileID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get instruments
-	instruments, err := s.profileRepo.GetMusicInstruments(profileID)
-	if err != nil {
-		return nil, err
-	}
-
-	return &MusicProfile{
-		Profile: Profile{
-			ProfileID:   baseProfile.ID,
-			UserID:      baseProfile.UserID,
-			UserInfo:    *userInfo,
-			Description: baseProfile.Description,
-		},
-		Genres:      genres,
-		Instruments: instruments,
-	}, nil
-}
-
-// UpdateImprovProfile updates an existing improv profile and user info
-func (s *ProfileServiceImpl) UpdateImprovProfile(profileID int, description string, goal string, styles []string, lookingForTeam bool, fullName string, gender string, age int, cityID int) (*ImprovProfile, error) {
-	// Get base profile to check if it exists and get user ID
-	baseProfile, err := s.profileRepo.GetProfile(profileID)
-	if err != nil {
-		if errors.Is(err, profilerepo.ErrProfileNotExists) {
-			return nil, ErrProfileNotFound
-		}
-		return nil, err
-	}
-
-	// Check profile type
-	if baseProfile.ActivityType != ActivityTypeImprov {
-		return nil, ErrInvalidActivityType
-	}
-
-	// Validate goal
-	valid, err := s.profileRepo.ValidateImprovGoal(goal)
-	if err != nil {
-		return nil, err
-	}
-	if !valid {
-		return nil, ErrInvalidImprovGoal
 	}
 
 	// Validate styles
-	for _, style := range styles {
-		valid, err = s.profileRepo.ValidateImprovStyle(style)
+	for _, style := range req.ImprovStyles {
+		valid, err := s.profileRepo.ValidateImprovStyle(style)
 		if err != nil {
 			return nil, err
 		}
@@ -422,211 +431,127 @@ func (s *ProfileServiceImpl) UpdateImprovProfile(profileID int, description stri
 			tx.Rollback()
 			return
 		}
-		err = tx.Commit()
 	}()
 
-	// Update user info
-	userInfo := &user.UserInfo{
-		FullName: fullName,
-		Gender:   gender,
-		Age:      age,
-		CityID:   cityID,
-	}
-	err = s.userRepo.UpdateUserInfo(tx, baseProfile.UserID, userInfo)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update base profile
-	err = s.profileRepo.UpdateProfileDescription(tx, profileID, description)
-	if err != nil {
-		return nil, err
+	// Update profile
+	updateProfileModel := &profilerepo.UpdateProfileModel{
+		UserID:         profile.UserID,
+		FullName:       req.FullName,
+		Birthday:       req.Birthday,
+		Gender:         req.Gender,
+		CityID:         req.CityID,
+		Bio:            req.Bio,
+		Goal:           req.Goal,
+		LookingForTeam: req.LookingForTeam,
 	}
 
-	// Update improv profile
-	err = s.profileRepo.UpdateImprovProfile(tx, profileID, goal, lookingForTeam)
+	err = s.profileRepo.UpdateProfile(tx, updateProfileModel)
 	if err != nil {
 		return nil, err
 	}
 
 	// Clear and re-add styles
-	err = s.profileRepo.ClearImprovStyles(tx, profileID)
+	err = s.profileRepo.ClearImprovStyles(tx, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.profileRepo.AddImprovStyles(tx, profileID, styles)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return updated profile with user info
-	return &ImprovProfile{
-		Profile: Profile{
-			ProfileID:   profileID,
-			UserID:      baseProfile.UserID,
-			UserInfo:    *userInfo,
-			Description: description,
-		},
-		Goal:           goal,
-		Styles:         styles,
-		LookingForTeam: lookingForTeam,
-	}, nil
-}
-
-// UpdateMusicProfile updates an existing music profile and user info
-func (s *ProfileServiceImpl) UpdateMusicProfile(profileID int, description string, genres []string, instruments []string, fullName string, gender string, age int, cityID int) (*MusicProfile, error) {
-	// Check if instruments list is empty
-	if len(instruments) == 0 {
-		return nil, ErrEmptyInstruments
-	}
-
-	// Get base profile to check if it exists and get user ID
-	baseProfile, err := s.profileRepo.GetProfile(profileID)
-	if err != nil {
-		if errors.Is(err, profilerepo.ErrProfileNotExists) {
-			return nil, ErrProfileNotFound
-		}
-		return nil, err
-	}
-
-	// Check profile type
-	if baseProfile.ActivityType != ActivityTypeMusic {
-		return nil, ErrInvalidActivityType
-	}
-
-	// Validate genres
-	for _, genre := range genres {
-		valid, err := s.profileRepo.ValidateMusicGenre(genre)
+	if len(req.ImprovStyles) > 0 {
+		err = s.profileRepo.AddImprovStyles(tx, userID, req.ImprovStyles)
 		if err != nil {
 			return nil, err
 		}
-		if !valid {
-			return nil, ErrInvalidMusicGenre
-		}
 	}
 
-	// Validate instruments
-	for _, instrument := range instruments {
-		valid, err := s.profileRepo.ValidateMusicInstrument(instrument)
+	if req.Avatar != nil {
+		err := s.profileRepo.SetProfileAvatar(tx, userID, *req.Avatar)
 		if err != nil {
 			return nil, err
 		}
-		if !valid {
-			return nil, ErrInvalidInstrument
-		}
 	}
 
-	// Start transaction
-	tx, err := s.profileRepo.BeginTx()
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
+	if req.Videos != nil {
+		err := s.profileRepo.SetProfileVideos(tx, userID, req.Videos)
 		if err != nil {
-			tx.Rollback()
-			return
+			return nil, err
 		}
-		err = tx.Commit()
-	}()
-
-	// Update user info
-	userInfo := &user.UserInfo{
-		FullName: fullName,
-		Gender:   gender,
-		Age:      age,
-		CityID:   cityID,
 	}
-	err = s.userRepo.UpdateUserInfo(tx, baseProfile.UserID, userInfo)
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, err
 	}
 
-	// Update base profile
-	err = s.profileRepo.UpdateProfileDescription(tx, profileID, description)
-	if err != nil {
-		return nil, err
-	}
-
-	// Clear and re-add genres
-	err = s.profileRepo.ClearMusicGenres(tx, profileID)
-	if err != nil {
-		return nil, err
-	}
-	err = s.profileRepo.AddMusicGenres(tx, profileID, genres)
-	if err != nil {
-		return nil, err
-	}
-
-	// Clear and re-add instruments
-	err = s.profileRepo.ClearMusicInstruments(tx, profileID)
-	if err != nil {
-		return nil, err
-	}
-	err = s.profileRepo.AddMusicInstruments(tx, profileID, instruments)
-	if err != nil {
-		return nil, err
-	}
-
-	// Return updated profile with user info
-	return &MusicProfile{
-		Profile: Profile{
-			ProfileID:   profileID,
-			UserID:      baseProfile.UserID,
-			UserInfo:    *userInfo,
-			Description: description,
-		},
-		Genres:      genres,
-		Instruments: instruments,
-	}, nil
-}
-
-// GetUserProfiles retrieves all profiles for a specific user
-func (s *ProfileServiceImpl) GetUserProfiles(userID int) (map[string]int, error) {
-	return s.profileRepo.GetUserProfiles(userID)
-}
-
-// GetActivityTypes returns activity types catalog with translations
-func (s *ProfileServiceImpl) GetActivityTypes(lang string) ([]TranslatedItem, error) {
-	items, err := s.profileRepo.GetActivityTypesCatalog(lang)
-	if err != nil {
-		return nil, err
-	}
-	return items, nil
+	return s.GetProfile(userID)
 }
 
 // GetImprovStyles returns improv styles catalog with translations
 func (s *ProfileServiceImpl) GetImprovStyles(lang string) ([]TranslatedItem, error) {
-	items, err := s.profileRepo.GetImprovStylesCatalog(lang)
+	repoItems, err := s.profileRepo.GetImprovStylesCatalog(lang)
 	if err != nil {
 		return nil, err
+	}
+
+	items := make([]TranslatedItem, len(repoItems))
+	for i, item := range repoItems {
+		items[i] = TranslatedItem{
+			Code:        item.Code,
+			Label:       item.Label,
+			Description: item.Description,
+		}
 	}
 	return items, nil
 }
 
 // GetImprovGoals returns improv goals catalog with translations
 func (s *ProfileServiceImpl) GetImprovGoals(lang string) ([]TranslatedItem, error) {
-	items, err := s.profileRepo.GetImprovGoalsCatalog(lang)
+	repoItems, err := s.profileRepo.GetImprovGoalsCatalog(lang)
 	if err != nil {
 		return nil, err
+	}
+
+	items := make([]TranslatedItem, len(repoItems))
+	for i, item := range repoItems {
+		items[i] = TranslatedItem{
+			Code:        item.Code,
+			Label:       item.Label,
+			Description: item.Description,
+		}
 	}
 	return items, nil
 }
 
-// GetMusicGenres returns music genres catalog with translations
-func (s *ProfileServiceImpl) GetMusicGenres(lang string) ([]TranslatedItem, error) {
-	items, err := s.profileRepo.GetMusicGenresCatalog(lang)
+// GetGenders returns gender catalog with translations
+func (s *ProfileServiceImpl) GetGenders(lang string) ([]TranslatedItem, error) {
+	repoItems, err := s.profileRepo.GetGendersCatalog(lang)
 	if err != nil {
 		return nil, err
+	}
+
+	items := make([]TranslatedItem, len(repoItems))
+	for i, item := range repoItems {
+		items[i] = TranslatedItem{
+			Code:        item.Code,
+			Label:       item.Label,
+			Description: item.Description,
+		}
 	}
 	return items, nil
 }
 
-// GetMusicInstruments returns music instruments catalog with translations
-func (s *ProfileServiceImpl) GetMusicInstruments(lang string) ([]TranslatedItem, error) {
-	items, err := s.profileRepo.GetMusicInstrumentsCatalog(lang)
+// GetCities returns available cities
+func (s *ProfileServiceImpl) GetCities() ([]City, error) {
+	repoCities, err := s.profileRepo.GetCities()
 	if err != nil {
 		return nil, err
 	}
-	return items, nil
+
+	cities := make([]City, len(repoCities))
+	for i, city := range repoCities {
+		cities[i] = City{
+			ID:   city.ID,
+			Name: city.Name,
+		}
+	}
+	return cities, nil
 }

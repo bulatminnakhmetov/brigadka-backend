@@ -30,7 +30,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Проверка валидности JWT токена",
+                "description": "Verify JWT token validity",
                 "consumes": [
                     "application/json"
                 ],
@@ -40,1061 +40,16 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Проверка токена",
+                "summary": "Token verification",
                 "responses": {
                     "200": {
-                        "description": "Токен валиден",
+                        "description": "Token is valid",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "401": {
-                        "description": "Невалидный токен",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/media/upload": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Загружает медиа файл для профиля",
-                "consumes": [
-                    "multipart/form-data"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "media"
-                ],
-                "summary": "Загрузка медиа файла",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID профиля",
-                        "name": "profile_id",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Роль медиа (avatar, gallery, cover)",
-                        "name": "role",
-                        "in": "formData",
-                        "required": true
-                    },
-                    {
-                        "type": "file",
-                        "description": "Файл для загрузки",
-                        "name": "file",
-                        "in": "formData",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/media.MediaResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Невалидные данные",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Не авторизован",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "413": {
-                        "description": "Файл слишком большой",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "415": {
-                        "description": "Неподдерживаемый тип файла",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/media/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Возвращает информацию о медиа по ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "media"
-                ],
-                "summary": "Получение медиа по ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID медиа",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/media.MediaResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Невалидный ID",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Не авторизован",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "404": {
-                        "description": "Медиа не найдено",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "delete": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Удаляет медиа файл",
-                "tags": [
-                    "media"
-                ],
-                "summary": "Удаление медиа",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID медиа",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "400": {
-                        "description": "Невалидный ID",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Не авторизован",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "404": {
-                        "description": "Медиа не найдено",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/catalog/activity-types": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Возвращает список доступных типов активности профиля",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Получение типов активности",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Код языка (по умолчанию 'ru')",
-                        "name": "lang",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/profile.TranslatedItem"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/catalog/improv-goals": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Возвращает список доступных целей для занятий импровизацией",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Получение целей импровизации",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Код языка (по умолчанию 'ru')",
-                        "name": "lang",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/profile.TranslatedItem"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/catalog/improv-styles": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Возвращает список доступных стилей импровизации",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Получение стилей импровизации",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Код языка (по умолчанию 'ru')",
-                        "name": "lang",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/profile.TranslatedItem"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/catalog/music-genres": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Возвращает список доступных музыкальных жанров",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Получение музыкальных жанров",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Код языка (по умолчанию 'ru')",
-                        "name": "lang",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/profile.TranslatedItem"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/catalog/music-instruments": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Возвращает список доступных музыкальных инструментов",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Получение музыкальных инструментов",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Код языка (по умолчанию 'ru')",
-                        "name": "lang",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/profile.TranslatedItem"
-                            }
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/improv": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Creates a new improv profile for a user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Create improv profile",
-                "parameters": [
-                    {
-                        "description": "Improv profile data",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/profile.CreateImprovProfileRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/profile.ImprovProfile"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid data",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "409": {
-                        "description": "Profile already exists",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/improv/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Gets an improv profile by ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Get improv profile",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Profile ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/profile.ImprovProfile"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid ID or profile type",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "404": {
-                        "description": "Profile not found",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Updates an existing improv profile",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Update improv profile",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Profile ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Updated improv profile data",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/profile.UpdateImprovProfileRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/profile.ImprovProfile"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid data",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "404": {
-                        "description": "Profile not found",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/music": {
-            "post": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Creates a new music profile for a user",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Create music profile",
-                "parameters": [
-                    {
-                        "description": "Music profile data",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/profile.CreateMusicProfileRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/profile.MusicProfile"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid data",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "409": {
-                        "description": "Profile already exists",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/music/{id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Gets a music profile by ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Get music profile",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Profile ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/profile.MusicProfile"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid ID or profile type",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "404": {
-                        "description": "Profile not found",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Updates an existing music profile",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Update music profile",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "Profile ID",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Updated music profile data",
-                        "name": "request",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/profile.UpdateMusicProfileRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/profile.MusicProfile"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid data",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "404": {
-                        "description": "Profile not found",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/user/{user_id}": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Gets all profiles for a specific user",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "profiles"
-                ],
-                "summary": "Get user profiles",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "User ID",
-                        "name": "user_id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/profile.UserProfilesResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid user ID",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "403": {
-                        "description": "Forbidden",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/profiles/{profile_id}/media": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Возвращает список медиа файлов для профиля",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "media"
-                ],
-                "summary": "Получение медиа для профиля",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID профиля",
-                        "name": "profile_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "type": "string",
-                        "description": "Роль медиа (фильтр)",
-                        "name": "role",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/media.MediaListResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Невалидный ID профиля",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "401": {
-                        "description": "Не авторизован",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Внутренняя ошибка сервера",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            }
-        },
-        "/api/search/profiles": {
-            "get": {
-                "description": "Search profiles by query parameters (simplified version)",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "search"
-                ],
-                "summary": "Search profiles (GET version)",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Full name to search",
-                        "name": "full_name",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "City ID",
-                        "name": "city_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Activity type (improv, music)",
-                        "name": "activity_type",
-                        "in": "query"
-                    },
-                    {
-                        "type": "boolean",
-                        "description": "Looking for team",
-                        "name": "improv_looking_for_team",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Improv goal code",
-                        "name": "improv_goal",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Improv style code (can be used multiple times)",
-                        "name": "improv_style",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Music genre code (can be used multiple times)",
-                        "name": "music_genre",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Music instrument code (can be used multiple times)",
-                        "name": "music_instrument",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Results per page (default 20, max 100)",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Offset for pagination",
-                        "name": "offset",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/search.ProfileSearchResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "string"
-                        }
-                    }
-                }
-            },
-            "post": {
-                "description": "Search profiles by various criteria",
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "search"
-                ],
-                "summary": "Search profiles",
-                "parameters": [
-                    {
-                        "description": "Search parameters",
-                        "name": "request",
-                        "in": "body",
-                        "schema": {
-                            "$ref": "#/definitions/search.ProfileSearchRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/search.ProfileSearchResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Invalid request",
-                        "schema": {
-                            "type": "string"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
+                        "description": "Invalid token",
                         "schema": {
                             "type": "string"
                         }
@@ -1104,7 +59,7 @@ const docTemplate = `{
         },
         "/auth/login": {
             "post": {
-                "description": "Аутентификация пользователя по email и паролю",
+                "description": "Authenticate user by email and password",
                 "consumes": [
                     "application/json"
                 ],
@@ -1114,10 +69,10 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Вход пользователя",
+                "summary": "User login",
                 "parameters": [
                     {
-                        "description": "Данные для входа",
+                        "description": "Login data",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -1130,23 +85,23 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.AuthResponse"
+                            "$ref": "#/definitions/internal_handler_auth.AuthResponse"
                         }
                     },
                     "400": {
-                        "description": "Невалидные данные",
+                        "description": "Invalid data",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "401": {
-                        "description": "Неверные учетные данные",
+                        "description": "Invalid credentials",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Внутренняя ошибка сервера",
+                        "description": "Internal server error",
                         "schema": {
                             "type": "string"
                         }
@@ -1156,7 +111,7 @@ const docTemplate = `{
         },
         "/auth/refresh": {
             "post": {
-                "description": "Получение нового токена с помощью refresh токена",
+                "description": "Get a new token using a refresh token",
                 "consumes": [
                     "application/json"
                 ],
@@ -1166,10 +121,10 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Обновление токена",
+                "summary": "Token refresh",
                 "parameters": [
                     {
-                        "description": "Данные для обновления токена",
+                        "description": "Token refresh data",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -1182,23 +137,23 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.AuthResponse"
+                            "$ref": "#/definitions/internal_handler_auth.AuthResponse"
                         }
                     },
                     "400": {
-                        "description": "Невалидные данные",
+                        "description": "Invalid data",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "401": {
-                        "description": "Невалидный refresh токен",
+                        "description": "Invalid refresh token",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Внутренняя ошибка сервера",
+                        "description": "Internal server error",
                         "schema": {
                             "type": "string"
                         }
@@ -1208,7 +163,7 @@ const docTemplate = `{
         },
         "/auth/register": {
             "post": {
-                "description": "Создание нового пользователя",
+                "description": "Create a new user",
                 "consumes": [
                     "application/json"
                 ],
@@ -1218,10 +173,10 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Регистрация пользователя",
+                "summary": "User registration",
                 "parameters": [
                     {
-                        "description": "Данные для регистрации",
+                        "description": "Registration data",
                         "name": "request",
                         "in": "body",
                         "required": true,
@@ -1234,23 +189,163 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/auth.AuthResponse"
+                            "$ref": "#/definitions/internal_handler_auth.AuthResponse"
                         }
                     },
                     "400": {
-                        "description": "Невалидные данные",
+                        "description": "Invalid data",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "409": {
-                        "description": "Email уже зарегистрирован",
+                        "description": "Email already registered",
                         "schema": {
                             "type": "string"
                         }
                     },
                     "500": {
-                        "description": "Внутренняя ошибка сервера",
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/catalog/cities": {
+            "get": {
+                "description": "Retrieves a list of available cities",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Get Cities",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_handler_profile.City"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/catalog/genders": {
+            "get": {
+                "description": "Retrieves a catalog of genders with translations",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Get Genders",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Language code (default: en)",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_handler_profile.TranslatedItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/catalog/improv-goals": {
+            "get": {
+                "description": "Retrieves a catalog of improv goals with translations",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Get Improv Goals",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Language code (default: en)",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_handler_profile.TranslatedItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/catalog/improv-styles": {
+            "get": {
+                "description": "Retrieves a catalog of improv styles with translations",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "catalog"
+                ],
+                "summary": "Get Improv Styles",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Language code (default: en)",
+                        "name": "lang",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/internal_handler_profile.TranslatedItem"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
                         "schema": {
                             "type": "string"
                         }
@@ -1283,23 +378,241 @@ const docTemplate = `{
                     }
                 }
             }
-        }
-    },
-    "definitions": {
-        "auth.AuthResponse": {
-            "type": "object",
-            "properties": {
-                "refresh_token": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "user": {
-                    "$ref": "#/definitions/auth.User"
+        },
+        "/media/video": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Upload media file (image or video)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "media"
+                ],
+                "summary": "Upload media",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "File to upload",
+                        "name": "file",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/media.MediaResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid file",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "413": {
+                        "description": "File too large",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
                 }
             }
         },
+        "/profiles": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Creates a new user profile",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Create Profile",
+                "parameters": [
+                    {
+                        "description": "Profile data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_profile.ProfileCreateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/profile.Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "User not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Profile already exists for this user",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Updates an existing user profile (partial update)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Update Profile",
+                "parameters": [
+                    {
+                        "description": "Profile update data",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_profile.ProfileUpdateRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/profile.Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request body",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Profile not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
+        "/profiles/{userID}": {
+            "get": {
+                "description": "Retrieves a user profile by ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Get Profile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "userID",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/profile.Profile"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid user ID",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "404": {
+                        "description": "Profile not found",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
         "auth.LoginRequest": {
             "type": "object",
             "properties": {
@@ -1322,19 +635,7 @@ const docTemplate = `{
         "auth.RegisterRequest": {
             "type": "object",
             "properties": {
-                "age": {
-                    "type": "integer"
-                },
-                "city_id": {
-                    "type": "integer"
-                },
                 "email": {
-                    "type": "string"
-                },
-                "full_name": {
-                    "type": "string"
-                },
-                "gender": {
                     "type": "string"
                 },
                 "password": {
@@ -1342,17 +643,46 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.User": {
+        "internal_handler_auth.AuthResponse": {
             "type": "object",
             "properties": {
-                "age": {
+                "refresh_token": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "internal_handler_profile.City": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler_profile.ProfileCreateRequest": {
+            "type": "object",
+            "required": [
+                "full_name",
+                "user_id"
+            ],
+            "properties": {
+                "bio": {
+                    "type": "string"
+                },
+                "birthday": {
+                    "$ref": "#/definitions/profile.Date"
                 },
                 "city_id": {
                     "type": "integer"
-                },
-                "email": {
-                    "type": "string"
                 },
                 "full_name": {
                     "type": "string"
@@ -1360,8 +690,75 @@ const docTemplate = `{
                 "gender": {
                     "type": "string"
                 },
-                "id": {
+                "goal": {
+                    "type": "string"
+                },
+                "improv_styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "looking_for_team": {
+                    "type": "boolean"
+                },
+                "user_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "internal_handler_profile.ProfileUpdateRequest": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "type": "integer"
+                },
+                "bio": {
+                    "type": "string"
+                },
+                "birthday": {
+                    "$ref": "#/definitions/profile.Date"
+                },
+                "city_id": {
+                    "type": "integer"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "improv_styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "looking_for_team": {
+                    "type": "boolean"
+                },
+                "videos": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
+        "internal_handler_profile.TranslatedItem": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "label": {
+                    "type": "string"
                 }
             }
         },
@@ -1379,326 +776,52 @@ const docTemplate = `{
                 }
             }
         },
-        "media.Media": {
+        "media.MediaResponse": {
             "type": "object",
             "properties": {
                 "id": {
                     "type": "integer"
-                },
-                "profile_id": {
+                }
+            }
+        },
+        "profile.Date": {
+            "type": "object",
+            "properties": {
+                "time.Time": {
+                    "type": "string"
+                }
+            }
+        },
+        "profile.Image": {
+            "type": "object",
+            "properties": {
+                "ID": {
                     "type": "integer"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "type": {
-                    "type": "string"
-                },
-                "uploaded_at": {
-                    "type": "string"
                 },
                 "url": {
                     "type": "string"
                 }
             }
         },
-        "media.MediaListResponse": {
+        "profile.Profile": {
             "type": "object",
             "properties": {
-                "media": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/media.Media"
-                    }
-                }
-            }
-        },
-        "media.MediaResponse": {
-            "type": "object",
-            "properties": {
-                "media": {
-                    "$ref": "#/definitions/media.Media"
-                }
-            }
-        },
-        "profile.CreateImprovProfileRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
+                "avatar": {
+                    "$ref": "#/definitions/profile.Image"
+                },
+                "bio": {
                     "type": "string"
                 },
-                "goal": {
+                "birthday": {
                     "type": "string"
-                },
-                "looking_for_team": {
-                    "type": "boolean"
-                },
-                "styles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "profile.CreateMusicProfileRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "genres": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "instruments": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "profile.ImprovProfile": {
-            "type": "object",
-            "properties": {
-                "activity_type": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "goal": {
-                    "type": "string"
-                },
-                "looking_for_team": {
-                    "type": "boolean"
-                },
-                "profile_id": {
-                    "type": "integer"
-                },
-                "styles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "profile.MusicProfile": {
-            "type": "object",
-            "properties": {
-                "activity_type": {
-                    "type": "string"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "genres": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "instruments": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "profile_id": {
-                    "type": "integer"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "profile.TranslatedItem": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "label": {
-                    "type": "string"
-                }
-            }
-        },
-        "profile.UpdateImprovProfileRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "goal": {
-                    "type": "string"
-                },
-                "looking_for_team": {
-                    "type": "boolean"
-                },
-                "styles": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "profile.UpdateMusicProfileRequest": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "genres": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "instruments": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "profile.UserProfilesResponse": {
-            "type": "object",
-            "properties": {
-                "profiles": {
-                    "description": "activity_type -\u003e profile_id",
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "integer"
-                    }
-                }
-            }
-        },
-        "search.ProfileSearchRequest": {
-            "type": "object",
-            "properties": {
-                "activity_type": {
-                    "description": "Activity type (improv, music)",
-                    "type": "string"
-                },
-                "age_max": {
-                    "description": "Maximum age",
-                    "type": "integer"
-                },
-                "age_min": {
-                    "description": "Minimum age",
-                    "type": "integer"
                 },
                 "city_id": {
-                    "description": "City ID",
                     "type": "integer"
                 },
-                "full_name": {
-                    "description": "General search parameters",
+                "city_name": {
                     "type": "string"
                 },
-                "gender": {
-                    "description": "Gender code",
-                    "type": "string"
-                },
-                "improv_goal": {
-                    "description": "Improv profile parameters",
-                    "type": "string"
-                },
-                "improv_looking_for_team": {
-                    "description": "Looking for team flag",
-                    "type": "boolean"
-                },
-                "improv_styles": {
-                    "description": "Array of style codes",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "limit": {
-                    "description": "Pagination",
-                    "type": "integer"
-                },
-                "music_genres": {
-                    "description": "Music profile parameters",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "music_instruments": {
-                    "description": "Array of instrument codes",
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "offset": {
-                    "description": "Default: 0",
-                    "type": "integer"
-                }
-            }
-        },
-        "search.ProfileSearchResponse": {
-            "type": "object",
-            "properties": {
-                "current_page": {
-                    "type": "integer"
-                },
-                "page_size": {
-                    "type": "integer"
-                },
-                "results": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/search.ProfileSearchResult"
-                    }
-                },
-                "total_count": {
-                    "type": "integer"
-                },
-                "total_pages": {
-                    "type": "integer"
-                }
-            }
-        },
-        "search.ProfileSearchResult": {
-            "type": "object",
-            "properties": {
-                "activity_type": {
-                    "type": "string"
-                },
-                "age": {
-                    "type": "integer"
-                },
-                "city": {
-                    "type": "string"
-                },
-                "description": {
+                "created_at": {
                     "type": "string"
                 },
                 "full_name": {
@@ -1707,12 +830,8 @@ const docTemplate = `{
                 "gender": {
                     "type": "string"
                 },
-                "improv_goal": {
-                    "description": "Improv-specific fields (will be null for music profiles)",
+                "goal": {
                     "type": "string"
-                },
-                "improv_looking_for_team": {
-                    "type": "boolean"
                 },
                 "improv_styles": {
                     "type": "array",
@@ -1720,24 +839,28 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
-                "music_genres": {
-                    "description": "Music-specific fields (will be null for improv profiles)",
+                "looking_for_team": {
+                    "type": "boolean"
+                },
+                "videos": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/profile.Video"
                     }
-                },
-                "music_instruments": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "profile_id": {
+                }
+            }
+        },
+        "profile.Video": {
+            "type": "object",
+            "properties": {
+                "ID": {
                     "type": "integer"
                 },
-                "user_id": {
-                    "type": "integer"
+                "thumbnail_url": {
+                    "type": "string"
+                },
+                "url": {
+                    "type": "string"
                 }
             }
         }

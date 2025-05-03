@@ -72,7 +72,7 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	serviceResponse, err := h.authService.Register(req.Email, req.Password, req.FullName, req.Gender, req.Age, req.CityID)
+	serviceResponse, err := h.authService.Register(req.Email, req.Password)
 	if err != nil {
 		if err.Error() == "email already registered" {
 			http.Error(w, err.Error(), http.StatusConflict)

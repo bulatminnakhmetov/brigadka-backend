@@ -80,10 +80,6 @@ func (s *MessagingIntegrationTestSuite) createTestUser() (int, string, error) {
 	registerData := auth.RegisterRequest{
 		Email:    testEmail,
 		Password: testPassword,
-		FullName: "Messaging Test User",
-		Gender:   "male",
-		Age:      30,
-		CityID:   1,
 	}
 
 	registerJSON, _ := json.Marshal(registerData)
@@ -108,7 +104,7 @@ func (s *MessagingIntegrationTestSuite) createTestUser() (int, string, error) {
 		return 0, "", fmt.Errorf("failed to decode register response: %v", err)
 	}
 
-	return registerResult.User.ID, registerResult.Token, nil
+	return registerResult.UserID, registerResult.Token, nil
 }
 
 // Helper function to create a chat

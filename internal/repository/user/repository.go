@@ -5,15 +5,7 @@ import (
 	"errors"
 )
 
-type UserInfo struct {
-	FullName string `json:"full_name"`
-	Gender   string `json:"gender,omitempty"`
-	Age      int    `json:"age,omitempty"`
-	CityID   int    `json:"city_id,omitempty"`
-}
-
 type User struct {
-	UserInfo
 	ID           int    `json:"id"`
 	Email        string `json:"email"`
 	PasswordHash string `json:"-"`
@@ -42,7 +34,7 @@ func (r *PostgresUserRepository) BeginTx() (*sql.Tx, error) {
 // GetUserByEmail получает пользователя по email
 func (r *PostgresUserRepository) GetUserByEmail(email string) (*User, error) {
 	query := `
-        SELECT id, email, password_hash, full_name, gender, age, city_id 
+        SELECT id, email, password_hash
         FROM users 
         WHERE email = $1
     `
@@ -52,10 +44,6 @@ func (r *PostgresUserRepository) GetUserByEmail(email string) (*User, error) {
 		&user.ID,
 		&user.Email,
 		&user.PasswordHash,
-		&user.FullName,
-		&user.Gender,
-		&user.Age,
-		&user.CityID,
 	)
 
 	if err != nil {
@@ -71,8 +59,8 @@ func (r *PostgresUserRepository) GetUserByEmail(email string) (*User, error) {
 // CreateUser создает нового пользователя в базе данных
 func (r *PostgresUserRepository) CreateUser(user *User) error {
 	query := `
-        INSERT INTO users (email, password_hash, full_name, gender, age, city_id)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO users (email, password_hash)
+        VALUES ($1, $2)
         RETURNING id
     `
 
@@ -80,10 +68,6 @@ func (r *PostgresUserRepository) CreateUser(user *User) error {
 		query,
 		user.Email,
 		user.PasswordHash,
-		user.FullName,
-		user.Gender,
-		user.Age,
-		user.CityID,
 	).Scan(&user.ID)
 
 	if err != nil {
@@ -96,7 +80,7 @@ func (r *PostgresUserRepository) CreateUser(user *User) error {
 // GetUserByID получает пользователя по ID
 func (r *PostgresUserRepository) GetUserByID(id int) (*User, error) {
 	query := `
-        SELECT id, email, password_hash, full_name, gender, age, city_id 
+        SELECT id, email, password_hash
         FROM users 
         WHERE id = $1
     `
@@ -106,10 +90,6 @@ func (r *PostgresUserRepository) GetUserByID(id int) (*User, error) {
 		&user.ID,
 		&user.Email,
 		&user.PasswordHash,
-		&user.FullName,
-		&user.Gender,
-		&user.Age,
-		&user.CityID,
 	)
 
 	if err != nil {
@@ -120,47 +100,4 @@ func (r *PostgresUserRepository) GetUserByID(id int) (*User, error) {
 	}
 
 	return &user, nil
-}
-
-// GetUserByID получает пользователя по ID
-func (r *PostgresUserRepository) GetUserInfoByID(id int) (*UserInfo, error) {
-	user, err := r.GetUserByID(id)
-	if err != nil {
-		return nil, err
-	}
-
-	return &user.UserInfo, nil
-}
-
-// UpdateUserInfo updates the user information for a given user ID
-func (r *PostgresUserRepository) UpdateUserInfo(tx *sql.Tx, userID int, info *UserInfo) error {
-	query := `
-        UPDATE users 
-        SET full_name = $1, gender = $2, age = $3, city_id = $4
-        WHERE id = $5
-    `
-
-	result, err := tx.Exec(
-		query,
-		info.FullName,
-		info.Gender,
-		info.Age,
-		info.CityID,
-		userID,
-	)
-
-	if err != nil {
-		return err
-	}
-
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return ErrUserNotFound
-	}
-
-	return nil
 }

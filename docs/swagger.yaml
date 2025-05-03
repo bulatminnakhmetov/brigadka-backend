@@ -1,14 +1,5 @@
 basePath: /api
 definitions:
-  auth.AuthResponse:
-    properties:
-      refresh_token:
-        type: string
-      token:
-        type: string
-      user:
-        $ref: '#/definitions/auth.User'
-    type: object
   auth.LoginRequest:
     properties:
       email:
@@ -23,33 +14,88 @@ definitions:
     type: object
   auth.RegisterRequest:
     properties:
-      age:
-        type: integer
-      city_id:
-        type: integer
       email:
-        type: string
-      full_name:
-        type: string
-      gender:
         type: string
       password:
         type: string
     type: object
-  auth.User:
+  internal_handler_auth.AuthResponse:
     properties:
-      age:
+      refresh_token:
+        type: string
+      token:
+        type: string
+      user_id:
         type: integer
+    type: object
+  internal_handler_profile.City:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  internal_handler_profile.ProfileCreateRequest:
+    properties:
+      bio:
+        type: string
+      birthday:
+        $ref: '#/definitions/profile.Date'
       city_id:
         type: integer
-      email:
-        type: string
       full_name:
         type: string
       gender:
         type: string
-      id:
+      goal:
+        type: string
+      improv_styles:
+        items:
+          type: string
+        type: array
+      looking_for_team:
+        type: boolean
+      user_id:
         type: integer
+    required:
+    - full_name
+    - user_id
+    type: object
+  internal_handler_profile.ProfileUpdateRequest:
+    properties:
+      avatar:
+        type: integer
+      bio:
+        type: string
+      birthday:
+        $ref: '#/definitions/profile.Date'
+      city_id:
+        type: integer
+      full_name:
+        type: string
+      gender:
+        type: string
+      goal:
+        type: string
+      improv_styles:
+        items:
+          type: string
+        type: array
+      looking_for_team:
+        type: boolean
+      videos:
+        items:
+          type: integer
+        type: array
+    type: object
+  internal_handler_profile.TranslatedItem:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      label:
+        type: string
     type: object
   main.HealthResponse:
     properties:
@@ -60,247 +106,62 @@ definitions:
       version:
         type: string
     type: object
-  media.Media:
+  media.MediaResponse:
     properties:
       id:
         type: integer
-      profile_id:
+    type: object
+  profile.Date:
+    properties:
+      time.Time:
+        type: string
+    type: object
+  profile.Image:
+    properties:
+      ID:
         type: integer
-      role:
-        type: string
-      type:
-        type: string
-      uploaded_at:
-        type: string
       url:
         type: string
     type: object
-  media.MediaListResponse:
+  profile.Profile:
     properties:
-      media:
-        items:
-          $ref: '#/definitions/media.Media'
-        type: array
-    type: object
-  media.MediaResponse:
-    properties:
-      media:
-        $ref: '#/definitions/media.Media'
-    type: object
-  profile.CreateImprovProfileRequest:
-    properties:
-      description:
+      avatar:
+        $ref: '#/definitions/profile.Image'
+      bio:
         type: string
-      goal:
+      birthday:
         type: string
-      looking_for_team:
-        type: boolean
-      styles:
-        items:
-          type: string
-        type: array
-      user_id:
-        type: integer
-    type: object
-  profile.CreateMusicProfileRequest:
-    properties:
-      description:
-        type: string
-      genres:
-        items:
-          type: string
-        type: array
-      instruments:
-        items:
-          type: string
-        type: array
-      user_id:
-        type: integer
-    type: object
-  profile.ImprovProfile:
-    properties:
-      activity_type:
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      goal:
-        type: string
-      looking_for_team:
-        type: boolean
-      profile_id:
-        type: integer
-      styles:
-        items:
-          type: string
-        type: array
-      user_id:
-        type: integer
-    type: object
-  profile.MusicProfile:
-    properties:
-      activity_type:
-        type: string
-      created_at:
-        type: string
-      description:
-        type: string
-      genres:
-        items:
-          type: string
-        type: array
-      instruments:
-        items:
-          type: string
-        type: array
-      profile_id:
-        type: integer
-      user_id:
-        type: integer
-    type: object
-  profile.TranslatedItem:
-    properties:
-      code:
-        type: string
-      description:
-        type: string
-      label:
-        type: string
-    type: object
-  profile.UpdateImprovProfileRequest:
-    properties:
-      description:
-        type: string
-      goal:
-        type: string
-      looking_for_team:
-        type: boolean
-      styles:
-        items:
-          type: string
-        type: array
-    type: object
-  profile.UpdateMusicProfileRequest:
-    properties:
-      description:
-        type: string
-      genres:
-        items:
-          type: string
-        type: array
-      instruments:
-        items:
-          type: string
-        type: array
-    type: object
-  profile.UserProfilesResponse:
-    properties:
-      profiles:
-        additionalProperties:
-          type: integer
-        description: activity_type -> profile_id
-        type: object
-    type: object
-  search.ProfileSearchRequest:
-    properties:
-      activity_type:
-        description: Activity type (improv, music)
-        type: string
-      age_max:
-        description: Maximum age
-        type: integer
-      age_min:
-        description: Minimum age
-        type: integer
       city_id:
-        description: City ID
         type: integer
-      full_name:
-        description: General search parameters
+      city_name:
         type: string
-      gender:
-        description: Gender code
-        type: string
-      improv_goal:
-        description: Improv profile parameters
-        type: string
-      improv_looking_for_team:
-        description: Looking for team flag
-        type: boolean
-      improv_styles:
-        description: Array of style codes
-        items:
-          type: string
-        type: array
-      limit:
-        description: Pagination
-        type: integer
-      music_genres:
-        description: Music profile parameters
-        items:
-          type: string
-        type: array
-      music_instruments:
-        description: Array of instrument codes
-        items:
-          type: string
-        type: array
-      offset:
-        description: 'Default: 0'
-        type: integer
-    type: object
-  search.ProfileSearchResponse:
-    properties:
-      current_page:
-        type: integer
-      page_size:
-        type: integer
-      results:
-        items:
-          $ref: '#/definitions/search.ProfileSearchResult'
-        type: array
-      total_count:
-        type: integer
-      total_pages:
-        type: integer
-    type: object
-  search.ProfileSearchResult:
-    properties:
-      activity_type:
-        type: string
-      age:
-        type: integer
-      city:
-        type: string
-      description:
+      created_at:
         type: string
       full_name:
         type: string
       gender:
         type: string
-      improv_goal:
-        description: Improv-specific fields (will be null for music profiles)
+      goal:
         type: string
-      improv_looking_for_team:
-        type: boolean
       improv_styles:
         items:
           type: string
         type: array
-      music_genres:
-        description: Music-specific fields (will be null for improv profiles)
+      looking_for_team:
+        type: boolean
+      videos:
         items:
-          type: string
+          $ref: '#/definitions/profile.Video'
         type: array
-      music_instruments:
-        items:
-          type: string
-        type: array
-      profile_id:
+    type: object
+  profile.Video:
+    properties:
+      ID:
         type: integer
-      user_id:
-        type: integer
+      thumbnail_url:
+        type: string
+      url:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -319,698 +180,30 @@ paths:
     get:
       consumes:
       - application/json
-      description: Проверка валидности JWT токена
+      description: Verify JWT token validity
       produces:
       - application/json
       responses:
         "200":
-          description: Токен валиден
+          description: Token is valid
           schema:
             type: string
         "401":
-          description: Невалидный токен
+          description: Invalid token
           schema:
             type: string
       security:
       - BearerAuth: []
-      summary: Проверка токена
+      summary: Token verification
       tags:
       - auth
-  /api/media/{id}:
-    delete:
-      description: Удаляет медиа файл
-      parameters:
-      - description: ID медиа
-        in: path
-        name: id
-        required: true
-        type: integer
-      responses:
-        "204":
-          description: No Content
-          schema:
-            type: string
-        "400":
-          description: Невалидный ID
-          schema:
-            type: string
-        "401":
-          description: Не авторизован
-          schema:
-            type: string
-        "404":
-          description: Медиа не найдено
-          schema:
-            type: string
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Удаление медиа
-      tags:
-      - media
-    get:
-      description: Возвращает информацию о медиа по ID
-      parameters:
-      - description: ID медиа
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/media.MediaResponse'
-        "400":
-          description: Невалидный ID
-          schema:
-            type: string
-        "401":
-          description: Не авторизован
-          schema:
-            type: string
-        "404":
-          description: Медиа не найдено
-          schema:
-            type: string
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получение медиа по ID
-      tags:
-      - media
-  /api/media/upload:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Загружает медиа файл для профиля
-      parameters:
-      - description: ID профиля
-        in: formData
-        name: profile_id
-        required: true
-        type: integer
-      - description: Роль медиа (avatar, gallery, cover)
-        in: formData
-        name: role
-        required: true
-        type: string
-      - description: Файл для загрузки
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/media.MediaResponse'
-        "400":
-          description: Невалидные данные
-          schema:
-            type: string
-        "401":
-          description: Не авторизован
-          schema:
-            type: string
-        "413":
-          description: Файл слишком большой
-          schema:
-            type: string
-        "415":
-          description: Неподдерживаемый тип файла
-          schema:
-            type: string
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Загрузка медиа файла
-      tags:
-      - media
-  /api/profiles/{profile_id}/media:
-    get:
-      description: Возвращает список медиа файлов для профиля
-      parameters:
-      - description: ID профиля
-        in: path
-        name: profile_id
-        required: true
-        type: integer
-      - description: Роль медиа (фильтр)
-        in: query
-        name: role
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/media.MediaListResponse'
-        "400":
-          description: Невалидный ID профиля
-          schema:
-            type: string
-        "401":
-          description: Не авторизован
-          schema:
-            type: string
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получение медиа для профиля
-      tags:
-      - media
-  /api/profiles/catalog/activity-types:
-    get:
-      description: Возвращает список доступных типов активности профиля
-      parameters:
-      - description: Код языка (по умолчанию 'ru')
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/profile.TranslatedItem'
-            type: array
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получение типов активности
-      tags:
-      - profiles
-  /api/profiles/catalog/improv-goals:
-    get:
-      description: Возвращает список доступных целей для занятий импровизацией
-      parameters:
-      - description: Код языка (по умолчанию 'ru')
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/profile.TranslatedItem'
-            type: array
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получение целей импровизации
-      tags:
-      - profiles
-  /api/profiles/catalog/improv-styles:
-    get:
-      description: Возвращает список доступных стилей импровизации
-      parameters:
-      - description: Код языка (по умолчанию 'ru')
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/profile.TranslatedItem'
-            type: array
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получение стилей импровизации
-      tags:
-      - profiles
-  /api/profiles/catalog/music-genres:
-    get:
-      description: Возвращает список доступных музыкальных жанров
-      parameters:
-      - description: Код языка (по умолчанию 'ru')
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/profile.TranslatedItem'
-            type: array
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получение музыкальных жанров
-      tags:
-      - profiles
-  /api/profiles/catalog/music-instruments:
-    get:
-      description: Возвращает список доступных музыкальных инструментов
-      parameters:
-      - description: Код языка (по умолчанию 'ru')
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/profile.TranslatedItem'
-            type: array
-        "500":
-          description: Внутренняя ошибка сервера
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Получение музыкальных инструментов
-      tags:
-      - profiles
-  /api/profiles/improv:
-    post:
-      consumes:
-      - application/json
-      description: Creates a new improv profile for a user
-      parameters:
-      - description: Improv profile data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/profile.CreateImprovProfileRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/profile.ImprovProfile'
-        "400":
-          description: Invalid data
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "409":
-          description: Profile already exists
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Create improv profile
-      tags:
-      - profiles
-  /api/profiles/improv/{id}:
-    get:
-      description: Gets an improv profile by ID
-      parameters:
-      - description: Profile ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.ImprovProfile'
-        "400":
-          description: Invalid ID or profile type
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "404":
-          description: Profile not found
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Get improv profile
-      tags:
-      - profiles
-    put:
-      consumes:
-      - application/json
-      description: Updates an existing improv profile
-      parameters:
-      - description: Profile ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Updated improv profile data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/profile.UpdateImprovProfileRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.ImprovProfile'
-        "400":
-          description: Invalid data
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "403":
-          description: Forbidden
-          schema:
-            type: string
-        "404":
-          description: Profile not found
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Update improv profile
-      tags:
-      - profiles
-  /api/profiles/music:
-    post:
-      consumes:
-      - application/json
-      description: Creates a new music profile for a user
-      parameters:
-      - description: Music profile data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/profile.CreateMusicProfileRequest'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/profile.MusicProfile'
-        "400":
-          description: Invalid data
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "409":
-          description: Profile already exists
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Create music profile
-      tags:
-      - profiles
-  /api/profiles/music/{id}:
-    get:
-      description: Gets a music profile by ID
-      parameters:
-      - description: Profile ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.MusicProfile'
-        "400":
-          description: Invalid ID or profile type
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "404":
-          description: Profile not found
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Get music profile
-      tags:
-      - profiles
-    put:
-      consumes:
-      - application/json
-      description: Updates an existing music profile
-      parameters:
-      - description: Profile ID
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: Updated music profile data
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/profile.UpdateMusicProfileRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.MusicProfile'
-        "400":
-          description: Invalid data
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "403":
-          description: Forbidden
-          schema:
-            type: string
-        "404":
-          description: Profile not found
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Update music profile
-      tags:
-      - profiles
-  /api/profiles/user/{user_id}:
-    get:
-      description: Gets all profiles for a specific user
-      parameters:
-      - description: User ID
-        in: path
-        name: user_id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/profile.UserProfilesResponse'
-        "400":
-          description: Invalid user ID
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "403":
-          description: Forbidden
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Get user profiles
-      tags:
-      - profiles
-  /api/search/profiles:
-    get:
-      description: Search profiles by query parameters (simplified version)
-      parameters:
-      - description: Full name to search
-        in: query
-        name: full_name
-        type: string
-      - description: City ID
-        in: query
-        name: city_id
-        type: integer
-      - description: Activity type (improv, music)
-        in: query
-        name: activity_type
-        type: string
-      - description: Looking for team
-        in: query
-        name: improv_looking_for_team
-        type: boolean
-      - description: Improv goal code
-        in: query
-        name: improv_goal
-        type: string
-      - description: Improv style code (can be used multiple times)
-        in: query
-        name: improv_style
-        type: string
-      - description: Music genre code (can be used multiple times)
-        in: query
-        name: music_genre
-        type: string
-      - description: Music instrument code (can be used multiple times)
-        in: query
-        name: music_instrument
-        type: string
-      - description: Results per page (default 20, max 100)
-        in: query
-        name: limit
-        type: integer
-      - description: Offset for pagination
-        in: query
-        name: offset
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/search.ProfileSearchResponse'
-        "400":
-          description: Invalid request
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      summary: Search profiles (GET version)
-      tags:
-      - search
-    post:
-      consumes:
-      - application/json
-      description: Search profiles by various criteria
-      parameters:
-      - description: Search parameters
-        in: body
-        name: request
-        schema:
-          $ref: '#/definitions/search.ProfileSearchRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/search.ProfileSearchResponse'
-        "400":
-          description: Invalid request
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      summary: Search profiles
-      tags:
-      - search
   /auth/login:
     post:
       consumes:
       - application/json
-      description: Аутентификация пользователя по email и паролю
+      description: Authenticate user by email and password
       parameters:
-      - description: Данные для входа
+      - description: Login data
         in: body
         name: request
         required: true
@@ -1022,29 +215,29 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.AuthResponse'
+            $ref: '#/definitions/internal_handler_auth.AuthResponse'
         "400":
-          description: Невалидные данные
+          description: Invalid data
           schema:
             type: string
         "401":
-          description: Неверные учетные данные
+          description: Invalid credentials
           schema:
             type: string
         "500":
-          description: Внутренняя ошибка сервера
+          description: Internal server error
           schema:
             type: string
-      summary: Вход пользователя
+      summary: User login
       tags:
       - auth
   /auth/refresh:
     post:
       consumes:
       - application/json
-      description: Получение нового токена с помощью refresh токена
+      description: Get a new token using a refresh token
       parameters:
-      - description: Данные для обновления токена
+      - description: Token refresh data
         in: body
         name: request
         required: true
@@ -1056,29 +249,29 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/auth.AuthResponse'
+            $ref: '#/definitions/internal_handler_auth.AuthResponse'
         "400":
-          description: Невалидные данные
+          description: Invalid data
           schema:
             type: string
         "401":
-          description: Невалидный refresh токен
+          description: Invalid refresh token
           schema:
             type: string
         "500":
-          description: Внутренняя ошибка сервера
+          description: Internal server error
           schema:
             type: string
-      summary: Обновление токена
+      summary: Token refresh
       tags:
       - auth
   /auth/register:
     post:
       consumes:
       - application/json
-      description: Создание нового пользователя
+      description: Create a new user
       parameters:
-      - description: Данные для регистрации
+      - description: Registration data
         in: body
         name: request
         required: true
@@ -1090,22 +283,113 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/auth.AuthResponse'
+            $ref: '#/definitions/internal_handler_auth.AuthResponse'
         "400":
-          description: Невалидные данные
+          description: Invalid data
           schema:
             type: string
         "409":
-          description: Email уже зарегистрирован
+          description: Email already registered
           schema:
             type: string
         "500":
-          description: Внутренняя ошибка сервера
+          description: Internal server error
           schema:
             type: string
-      summary: Регистрация пользователя
+      summary: User registration
       tags:
       - auth
+  /catalog/cities:
+    get:
+      description: Retrieves a list of available cities
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler_profile.City'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get Cities
+      tags:
+      - catalog
+  /catalog/genders:
+    get:
+      description: Retrieves a catalog of genders with translations
+      parameters:
+      - description: 'Language code (default: en)'
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler_profile.TranslatedItem'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get Genders
+      tags:
+      - catalog
+  /catalog/improv-goals:
+    get:
+      description: Retrieves a catalog of improv goals with translations
+      parameters:
+      - description: 'Language code (default: en)'
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler_profile.TranslatedItem'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get Improv Goals
+      tags:
+      - catalog
+  /catalog/improv-styles:
+    get:
+      description: Retrieves a catalog of improv styles with translations
+      parameters:
+      - description: 'Language code (default: en)'
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler_profile.TranslatedItem'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get Improv Styles
+      tags:
+      - catalog
   /health:
     get:
       description: Возвращает статус сервиса
@@ -1123,6 +407,155 @@ paths:
       summary: Проверка здоровья сервиса
       tags:
       - health
+  /media/video:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload media file (image or video)
+      parameters:
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/media.MediaResponse'
+        "400":
+          description: Invalid file
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "413":
+          description: File too large
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Upload media
+      tags:
+      - media
+  /profiles:
+    patch:
+      consumes:
+      - application/json
+      description: Updates an existing user profile (partial update)
+      parameters:
+      - description: Profile update data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_profile.ProfileUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.Profile'
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Profile not found
+          schema:
+            type: string
+        "500":
+          description: Server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Update Profile
+      tags:
+      - profile
+    post:
+      consumes:
+      - application/json
+      description: Creates a new user profile
+      parameters:
+      - description: Profile data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_profile.ProfileCreateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/profile.Profile'
+        "400":
+          description: Invalid request body
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "409":
+          description: Profile already exists for this user
+          schema:
+            type: string
+        "500":
+          description: Server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Create Profile
+      tags:
+      - profile
+  /profiles/{userID}:
+    get:
+      description: Retrieves a user profile by ID
+      parameters:
+      - description: User ID
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.Profile'
+        "400":
+          description: Invalid user ID
+          schema:
+            type: string
+        "404":
+          description: Profile not found
+          schema:
+            type: string
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get Profile
+      tags:
+      - profile
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -11,7 +12,6 @@ import (
 )
 
 type User = userrepo.User
-type UserInfo = userrepo.UserInfo
 
 type UserRepository interface {
 	GetUserByEmail(email string) (*User, error)
@@ -43,8 +43,13 @@ func NewAuthService(userRepo UserRepository, jwtSecret string) *AuthService {
 
 func (s *AuthService) Login(email, password string) (*AuthResponse, error) {
 	user, err := s.userRepository.GetUserByEmail(email)
-	if err != nil {
-		return nil, errors.New("invalid credentials")
+
+	if err != nil && err != userrepo.ErrUserNotFound {
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	if user == nil {
+		return nil, errors.New("user not found")
 	}
 
 	// Check password
@@ -75,9 +80,14 @@ func (s *AuthService) Login(email, password string) (*AuthResponse, error) {
 	}, nil
 }
 
-func (s *AuthService) Register(email, password, fullName, gender string, age, cityID int) (*AuthResponse, error) {
+func (s *AuthService) Register(email, password string) (*AuthResponse, error) {
 	// Check if user already exists
-	existingUser, _ := s.userRepository.GetUserByEmail(email)
+	existingUser, err := s.userRepository.GetUserByEmail(email)
+
+	if err != nil && err != userrepo.ErrUserNotFound {
+		return nil, fmt.Errorf("failed to check user existence: %w", err)
+	}
+
 	if existingUser != nil {
 		return nil, errors.New("email already registered")
 	}
@@ -91,12 +101,6 @@ func (s *AuthService) Register(email, password, fullName, gender string, age, ci
 	newUser := &User{
 		Email:        email,
 		PasswordHash: string(hashedPassword),
-		UserInfo: UserInfo{
-			FullName: fullName,
-			Gender:   gender,
-			Age:      age,
-			CityID:   cityID,
-		},
 	}
 
 	// Save user to DB
