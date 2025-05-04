@@ -72,6 +72,8 @@ type ProfileCreateRequest struct {
 	Goal           string    `json:"goal"`
 	ImprovStyles   []string  `json:"improv_styles"`
 	LookingForTeam bool      `json:"looking_for_team"`
+	Avatar         *int      `json:"avatar,omitempty"`
+	Videos         []int     `json:"videos,omitempty"`
 }
 
 // ProfileUpdateRequest represents data needed to update a profile
@@ -273,7 +275,6 @@ func (s *ProfileServiceImpl) CreateProfile(req ProfileCreateRequest) (*Profile, 
 			tx.Rollback()
 			return
 		}
-		err = tx.Commit()
 	}()
 
 	// Create profile
@@ -288,7 +289,7 @@ func (s *ProfileServiceImpl) CreateProfile(req ProfileCreateRequest) (*Profile, 
 		LookingForTeam: req.LookingForTeam,
 	}
 
-	createdAt, err := s.profileRepo.CreateProfile(tx, profileModel)
+	_, err = s.profileRepo.CreateProfile(tx, profileModel)
 	if err != nil {
 		return nil, err
 	}
@@ -301,24 +302,26 @@ func (s *ProfileServiceImpl) CreateProfile(req ProfileCreateRequest) (*Profile, 
 		}
 	}
 
-	cityName, err := s.getCityNameByID(req.CityID)
+	if req.Avatar != nil {
+		err := s.profileRepo.SetProfileAvatar(tx, req.UserID, *req.Avatar)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if req.Videos != nil {
+		err := s.profileRepo.SetProfileVideos(tx, req.UserID, req.Videos)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	err = tx.Commit()
 	if err != nil {
 		return nil, err
 	}
 
-	// Return created profile
-	return &Profile{
-		FullName:       req.FullName,
-		Birthday:       req.Birthday,
-		Gender:         req.Gender,
-		CityID:         req.CityID,
-		CityName:       *cityName,
-		Bio:            req.Bio,
-		Goal:           req.Goal,
-		LookingForTeam: req.LookingForTeam,
-		ImprovStyles:   req.ImprovStyles,
-		CreatedAt:      createdAt,
-	}, nil
+	return s.GetProfile(req.UserID)
 }
 
 // GetProfileByUserID retrieves a profile by user ID

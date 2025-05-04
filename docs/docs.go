@@ -675,6 +675,9 @@ const docTemplate = `{
                 "user_id"
             ],
             "properties": {
+                "avatar": {
+                    "type": "integer"
+                },
                 "bio": {
                     "type": "string"
                 },
@@ -704,6 +707,12 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
+                },
+                "videos": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },

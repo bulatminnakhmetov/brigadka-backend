@@ -217,6 +217,9 @@ func (s *ProfileIntegrationTestSuite) TestCreateProfile() {
 	// Register a new user for this test
 	authToken, userID := s.registerTestUser(t)
 
+	// Upload test media for this user
+	avatarID, mediaIDs := s.uploadTestMedia(t, authToken)
+
 	// Prepare create request
 	createReqMap := map[string]interface{}{
 		"user_id":          userID,
@@ -228,6 +231,8 @@ func (s *ProfileIntegrationTestSuite) TestCreateProfile() {
 		"goal":             "hobby",
 		"improv_styles":    []string{"shortform", "longform"},
 		"looking_for_team": true,
+		"avatar":           avatarID,
+		"videos":           mediaIDs,
 	}
 
 	reqBody, _ := json.Marshal(createReqMap)
@@ -254,6 +259,8 @@ func (s *ProfileIntegrationTestSuite) TestCreateProfile() {
 	assert.Equal(t, "hobby", profileResp.Goal)
 	assert.Equal(t, []string{"shortform", "longform"}, profileResp.ImprovStyles)
 	assert.True(t, profileResp.LookingForTeam)
+	assert.Equal(t, avatarID, profileResp.Avatar.ID)
+	assert.Equal(t, len(mediaIDs), len(profileResp.Videos))
 }
 
 // TestUpdateProfile tests updating a profile

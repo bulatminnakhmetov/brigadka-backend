@@ -73,6 +73,8 @@ type ProfileCreateRequest struct {
 	Goal           string   `json:"goal"`
 	ImprovStyles   []string `json:"improv_styles"`
 	LookingForTeam bool     `json:"looking_for_team"`
+	Avatar         *int     `json:"avatar,omitempty"`
+	Videos         []int    `json:"videos,omitempty"`
 }
 
 // ProfileUpdateRequest represents data needed to update a profile
@@ -176,6 +178,8 @@ func convertToCreateProfileRequest(req ProfileCreateRequest) profile.ProfileCrea
 		Goal:           req.Goal,
 		ImprovStyles:   req.ImprovStyles,
 		LookingForTeam: req.LookingForTeam,
+		Avatar:         req.Avatar,
+		Videos:         req.Videos,
 	}
 }
 
