@@ -51,7 +51,6 @@ type Profile struct {
 	Birthday       time.Time `json:"birthday,omitempty"`
 	Gender         string    `json:"gender,omitempty"`
 	CityID         int       `json:"city_id,omitempty"`
-	CityName       string    `json:"city_name,omitempty"`
 	Bio            string    `json:"bio,omitempty"`
 	Goal           string    `json:"goal,omitempty"`
 	LookingForTeam bool      `json:"looking_for_team"`
@@ -172,13 +171,12 @@ func convertToVideos(mediaList []mediarepo.Media) []Video {
 }
 
 // convertToProfile преобразует данные из репозитория в структуру для ответа
-func convertToProfile(profile *profilerepo.ProfileModel, styles []string, cityName string, avatar *mediarepo.Media, videos []mediarepo.Media) *Profile {
+func convertToProfile(profile *profilerepo.ProfileModel, styles []string, avatar *mediarepo.Media, videos []mediarepo.Media) *Profile {
 	return &Profile{
 		FullName:       profile.FullName,
 		Birthday:       profile.Birthday,
 		Gender:         profile.Gender,
 		CityID:         profile.CityID,
-		CityName:       cityName,
 		Bio:            profile.Bio,
 		Goal:           profile.Goal,
 		LookingForTeam: profile.LookingForTeam,
@@ -187,26 +185,6 @@ func convertToProfile(profile *profilerepo.ProfileModel, styles []string, cityNa
 		Avatar:         convertToImage(avatar),
 		Videos:         convertToVideos(videos),
 	}
-}
-
-// getCityNameByID получает название города по его ID
-func (s *ProfileServiceImpl) getCityNameByID(cityID int) (*string, error) {
-	if cityID == 0 {
-		return nil, nil
-	}
-
-	cities, err := s.profileRepo.GetCities()
-	if err != nil {
-		return nil, err
-	}
-
-	for _, city := range cities {
-		if city.ID == cityID {
-			return &city.Name, nil
-		}
-	}
-
-	return nil, ErrInvalidCity
 }
 
 // CreateProfile creates a new profile
@@ -350,11 +328,6 @@ func (s *ProfileServiceImpl) GetProfile(userID int) (*Profile, error) {
 		return nil, err
 	}
 
-	cityName, err := s.getCityNameByID(profile.CityID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Get avatar
 	var avatar *mediarepo.Media
 	if profile.Avatar != nil {
@@ -368,7 +341,7 @@ func (s *ProfileServiceImpl) GetProfile(userID int) (*Profile, error) {
 	videos, _ := s.mediaRepo.GetMediaByIDs(userID, profile.Videos)
 
 	// Return profile info
-	return convertToProfile(profile, styles, *cityName, avatar, videos), nil
+	return convertToProfile(profile, styles, avatar, videos), nil
 }
 
 // UpdateProfile updates an existing profile
