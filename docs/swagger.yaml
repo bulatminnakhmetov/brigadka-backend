@@ -64,7 +64,13 @@ definitions:
           type: integer
         type: array
     required:
+    - bio
+    - birthday
+    - city_id
     - full_name
+    - gender
+    - goal
+    - improv_styles
     - user_id
     type: object
   internal_handler_profile.ProfileUpdateRequest:

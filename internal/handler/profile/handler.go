@@ -66,12 +66,12 @@ type ProfileResponse struct {
 type ProfileCreateRequest struct {
 	UserID         int      `json:"user_id" validate:"required"`
 	FullName       string   `json:"full_name" validate:"required"`
-	Birthday       Date     `json:"birthday"`
-	Gender         string   `json:"gender"`
-	CityID         int      `json:"city_id"`
-	Bio            string   `json:"bio"`
-	Goal           string   `json:"goal"`
-	ImprovStyles   []string `json:"improv_styles"`
+	Birthday       Date     `json:"birthday" validate:"required"`
+	Gender         string   `json:"gender" validate:"required"`
+	CityID         int      `json:"city_id" validate:"required"`
+	Bio            string   `json:"bio" validate:"required"`
+	Goal           string   `json:"goal" validate:"required"`
+	ImprovStyles   []string `json:"improv_styles" validate:"required"`
 	LookingForTeam bool     `json:"looking_for_team"`
 	Avatar         *int     `json:"avatar,omitempty"`
 	Videos         []int    `json:"videos,omitempty"`

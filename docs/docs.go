@@ -671,7 +671,13 @@ const docTemplate = `{
         "internal_handler_profile.ProfileCreateRequest": {
             "type": "object",
             "required": [
+                "bio",
+                "birthday",
+                "city_id",
                 "full_name",
+                "gender",
+                "goal",
+                "improv_styles",
                 "user_id"
             ],
             "properties": {
