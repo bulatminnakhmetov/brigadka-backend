@@ -225,6 +225,7 @@ paths:
       - description: Thumbnail file
         in: formData
         name: thumbnail
+        required: true
         type: file
       produces:
       - application/json
