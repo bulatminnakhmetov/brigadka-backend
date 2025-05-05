@@ -105,7 +105,7 @@ func (s *ProfileIntegrationTestSuite) uploadTestMedia(t *testing.T, authToken st
 
 // Upload a file and return its media ID
 func (s *ProfileIntegrationTestSuite) uploadFile(filePath string, authToken string) (int, error) {
-	req, err := createMultipartRequest(s.appUrl+"/api/media/upload", "file", filePath, authToken)
+	req, err := createMultipartRequest(s.appUrl+"/api/media", "file", filePath, authToken)
 	if err != nil {
 		return 0, err
 	}

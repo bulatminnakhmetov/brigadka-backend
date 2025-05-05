@@ -246,7 +246,7 @@ func main() {
 
 			// Маршруты для работы с медиа (требуют аутентификации)
 			r.Route("/media", func(r chi.Router) {
-				r.Post("/upload", mediaHandler.UploadMedia)
+				r.Post("/", mediaHandler.UploadMedia)
 			})
 
 			// Маршруты для работы с сообщениями (требуют аутентификации)

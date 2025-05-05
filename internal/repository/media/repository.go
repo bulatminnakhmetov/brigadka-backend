@@ -14,11 +14,12 @@ var (
 
 // Media представляет запись о медиафайле
 type Media struct {
-	ID         int       `json:"id"`
-	UserID     int       `json:"user_id"`
-	Role       string    `json:"role"`
-	URL        string    `json:"url"`
-	UploadedAt time.Time `json:"uploaded_at"`
+	ID           int       `json:"id"`
+	UserID       int       `json:"user_id"`
+	Role         string    `json:"role"`
+	URL          string    `json:"url"`
+	ThumbnailURL string    `json:"thumbnail_url"`
+	UploadedAt   time.Time `json:"uploaded_at"`
 }
 
 // RepositoryImpl implements the Repository interface
@@ -34,11 +35,11 @@ func NewRepository(db *sql.DB) *RepositoryImpl {
 }
 
 // CreateMedia saves media information in the database
-func (r *RepositoryImpl) CreateMedia(userID int, mediaType, mediaURL string) (int, error) {
+func (r *RepositoryImpl) CreateMedia(userID int, mediaType, mediaURL, thumbnailURL string) (int, error) {
 	var mediaID int
 	err := r.db.QueryRow(
-		"INSERT INTO media (owner_id, type, url) VALUES ($1, $2, $3) RETURNING id",
-		userID, mediaType, mediaURL,
+		"INSERT INTO media (owner_id, type, url, thumbnail_url) VALUES ($1, $2, $3, $4) RETURNING id",
+		userID, mediaType, mediaURL, thumbnailURL,
 	).Scan(&mediaID)
 
 	if err != nil {
@@ -61,9 +62,9 @@ func (r *RepositoryImpl) DeleteMedia(userID, mediaID int) error {
 func (r *RepositoryImpl) GetMediaByID(userID int, mediaID int) (*Media, error) {
 	var m Media
 	err := r.db.QueryRow(
-		"SELECT id, owner_id, type, url, uploaded_at FROM media WHERE id = $1 AND owner_id = $2",
+		"SELECT id, owner_id, type, url, thumbnail_url, uploaded_at FROM media WHERE id = $1 AND owner_id = $2",
 		mediaID, userID,
-	).Scan(&m.ID, &m.UserID, &m.Role, &m.URL, &m.UploadedAt)
+	).Scan(&m.ID, &m.UserID, &m.Role, &m.URL, &m.ThumbnailURL, &m.UploadedAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {

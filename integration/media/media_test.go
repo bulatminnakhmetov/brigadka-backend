@@ -21,10 +21,11 @@ import (
 // MediaIntegrationTestSuite defines a set of integration tests for media operations
 type MediaIntegrationTestSuite struct {
 	suite.Suite
-	appUrl        string
-	authToken     string
-	testImagePath string
-	testVideoPath string
+	appUrl            string
+	authToken         string
+	testImagePath     string
+	testVideoPath     string
+	testThumbnailPath string
 }
 
 // SetupSuite prepares the test environment before running all tests
@@ -37,6 +38,7 @@ func (s *MediaIntegrationTestSuite) SetupSuite() {
 	// Set paths for test media files
 	s.testImagePath = filepath.Join("testdata", "test_image.jpg")
 	s.testVideoPath = filepath.Join("testdata", "test_video.mp4")
+	s.testThumbnailPath = filepath.Join("testdata", "test_thumbnail.jpg")
 
 	// Create test directory if it doesn't exist
 	os.MkdirAll("testdata", 0755)
@@ -47,6 +49,9 @@ func (s *MediaIntegrationTestSuite) SetupSuite() {
 	// Generate test video file
 	s.createTestVideo()
 
+	// Generate test thumbnail
+	s.createTestThumbnail()
+
 	// Register a test user and get authentication token
 	s.authToken = s.registerTestUser()
 }
@@ -56,7 +61,8 @@ func (s *MediaIntegrationTestSuite) TearDownSuite() {
 	// Clean up test files
 	os.Remove(s.testImagePath)
 	os.Remove(s.testVideoPath)
-	os.Remove("testdata")
+	os.Remove(s.testThumbnailPath)
+	os.RemoveAll("testdata")
 }
 
 // Helper function to generate a test image
@@ -87,6 +93,36 @@ func (s *MediaIntegrationTestSuite) createTestImage() {
 		0xFF, 0xD9,
 	}
 	_ = os.WriteFile(s.testImagePath, data, 0644)
+}
+
+// Helper function to generate a test thumbnail (using same JPEG format as the test image)
+func (s *MediaIntegrationTestSuite) createTestThumbnail() {
+	// Create a simple thumbnail using the same format as the test image
+	data := []byte{
+		0xFF, 0xD8, // SOI marker
+		0xFF, 0xE0, 0x00, 0x10, // APP0 marker
+		'J', 'F', 'I', 'F', 0x00, // JFIF identifier
+		0x01, 0x01, // version
+		0x00,                   // units (0 = no units)
+		0x00, 0x01, 0x00, 0x01, // X and Y densities
+		0x00, 0x00, // thumbnail width/height
+		0xFF, 0xDB, 0x00, 0x43, 0x00, // DQT marker
+		// Quantization table (simplified)
+		0x08, 0x06, 0x06, 0x07, 0x06, 0x05, 0x08, 0x07,
+		0x07, 0x07, 0x09, 0x09, 0x08, 0x0A, 0x0C, 0x14,
+		0x0D, 0x0C, 0x0B, 0x0B, 0x0C, 0x19, 0x12, 0x13,
+		0x0F, 0x14, 0x1D, 0x1A, 0x1F, 0x1E, 0x1D, 0x1A,
+		0x1C, 0x1C, 0x20, 0x24, 0x2E, 0x27, 0x20, 0x22,
+		0x2C, 0x23, 0x1C, 0x1C, 0x28, 0x37, 0x29, 0x2C,
+		0x30, 0x31, 0x34, 0x34, 0x34, 0x1F, 0x27, 0x39,
+		0x3D, 0x38, 0x32, 0x3C, 0x2E, 0x33, 0x34, 0x32,
+		// Rest of the JPEG structure
+		0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00,
+		0xFF, 0xC4, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x09,
+		0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01, 0x00, 0x00, 0x3F, 0x00, 0xD2, 0xCF, 0x20,
+		0xFF, 0xD9,
+	}
+	_ = os.WriteFile(s.testThumbnailPath, data, 0644)
 }
 
 // Helper function to generate a test video
@@ -142,25 +178,31 @@ func (s *MediaIntegrationTestSuite) registerTestUser() string {
 	return authResponse.Token
 }
 
-// Helper function to create a multipart request with a file
-func createMultipartRequest(url, fieldName, filePath string, authToken string) (*http.Request, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
+// Helper function to create a multipart request with a file and optional thumbnail
+func createMultipartRequestWithFiles(url string, files map[string]string, authToken string) (*http.Request, error) {
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile(fieldName, filepath.Base(filePath))
-	if err != nil {
-		return nil, err
+
+	// Add each file to the request
+	for fieldName, filePath := range files {
+		file, err := os.Open(filePath)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+
+		part, err := writer.CreateFormFile(fieldName, filepath.Base(filePath))
+		if err != nil {
+			return nil, err
+		}
+
+		_, err = io.Copy(part, file)
+		if err != nil {
+			return nil, err
+		}
 	}
-	_, err = io.Copy(part, file)
-	if err != nil {
-		return nil, err
-	}
-	err = writer.Close()
+
+	err := writer.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -176,11 +218,16 @@ func createMultipartRequest(url, fieldName, filePath string, authToken string) (
 	return req, nil
 }
 
-// TestUploadMediaImage tests uploading an image
+// TestUploadMediaImage tests uploading an image with a thumbnail
 func (s *MediaIntegrationTestSuite) TestUploadMediaImage() {
 	t := s.T()
 
-	req, err := createMultipartRequest(s.appUrl+"/api/media/upload", "file", s.testImagePath, s.authToken)
+	files := map[string]string{
+		"file":      s.testImagePath,
+		"thumbnail": s.testThumbnailPath,
+	}
+
+	req, err := createMultipartRequestWithFiles(s.appUrl+"/api/media", files, s.authToken)
 	assert.NoError(t, err)
 
 	client := &http.Client{}
@@ -196,15 +243,22 @@ func (s *MediaIntegrationTestSuite) TestUploadMediaImage() {
 	err = json.NewDecoder(resp.Body).Decode(&mediaResponse)
 	assert.NoError(t, err)
 
-	// Verify the response contains a media ID
+	// Verify the response contains a media ID and URLs
 	assert.Greater(t, mediaResponse.ID, 0, "Media ID should be positive")
+	assert.NotEmpty(t, mediaResponse.URL, "URL should not be empty")
+	assert.NotEmpty(t, mediaResponse.ThumbnailURL, "ThumbnailURL should not be empty")
 }
 
-// TestUploadMediaVideo tests uploading a video
+// TestUploadMediaVideo tests uploading a video with a thumbnail
 func (s *MediaIntegrationTestSuite) TestUploadMediaVideo() {
 	t := s.T()
 
-	req, err := createMultipartRequest(s.appUrl+"/api/media/upload", "file", s.testVideoPath, s.authToken)
+	files := map[string]string{
+		"file":      s.testVideoPath,
+		"thumbnail": s.testThumbnailPath,
+	}
+
+	req, err := createMultipartRequestWithFiles(s.appUrl+"/api/media", files, s.authToken)
 	assert.NoError(t, err)
 
 	client := &http.Client{}
@@ -228,7 +282,12 @@ func (s *MediaIntegrationTestSuite) TestUploadMediaVideo() {
 func (s *MediaIntegrationTestSuite) TestUploadMediaNoAuth() {
 	t := s.T()
 
-	req, err := createMultipartRequest(s.appUrl+"/api/media/upload", "file", s.testImagePath, "")
+	files := map[string]string{
+		"file":      s.testImagePath,
+		"thumbnail": s.testThumbnailPath,
+	}
+
+	req, err := createMultipartRequestWithFiles(s.appUrl+"/api/media", files, "")
 	assert.NoError(t, err)
 
 	client := &http.Client{}
@@ -250,7 +309,12 @@ func (s *MediaIntegrationTestSuite) TestUploadInvalidFile() {
 	assert.NoError(t, err)
 	defer os.Remove(invalidFilePath)
 
-	req, err := createMultipartRequest(s.appUrl+"/api/media/upload", "file", invalidFilePath, s.authToken)
+	files := map[string]string{
+		"file":      invalidFilePath,
+		"thumbnail": s.testThumbnailPath,
+	}
+
+	req, err := createMultipartRequestWithFiles(s.appUrl+"/api/media", files, s.authToken)
 	assert.NoError(t, err)
 
 	client := &http.Client{}
@@ -266,15 +330,13 @@ func (s *MediaIntegrationTestSuite) TestUploadInvalidFile() {
 func (s *MediaIntegrationTestSuite) TestUploadNoFile() {
 	t := s.T()
 
-	// Create a request without a file
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	writer.Close()
+	// Create a request with only a thumbnail but no main file
+	files := map[string]string{
+		"thumbnail": s.testThumbnailPath,
+	}
 
-	req, err := http.NewRequest("POST", s.appUrl+"/api/media/upload", body)
+	req, err := createMultipartRequestWithFiles(s.appUrl+"/api/media", files, s.authToken)
 	assert.NoError(t, err)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("Authorization", "Bearer "+s.authToken)
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -282,6 +344,27 @@ func (s *MediaIntegrationTestSuite) TestUploadNoFile() {
 	defer resp.Body.Close()
 
 	// Should return bad request
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Should return status 400 Bad Request")
+}
+
+// TestUploadNoThumbnail tests uploading media without a thumbnail
+func (s *MediaIntegrationTestSuite) TestUploadNoThumbnail() {
+	t := s.T()
+
+	// Create a request with only the main file but no thumbnail
+	files := map[string]string{
+		"file": s.testImagePath,
+	}
+
+	req, err := createMultipartRequestWithFiles(s.appUrl+"/api/media", files, s.authToken)
+	assert.NoError(t, err)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Should return bad request since thumbnail is required
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Should return status 400 Bad Request")
 }
 

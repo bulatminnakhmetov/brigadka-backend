@@ -16,20 +16,10 @@ var (
 	ErrFileTooBig      = errors.New("file too big")
 )
 
-type Video struct {
-	Id           int    `json:"id"`
-	Url          string `json:"url"`
-	ThumbnailUrl string `json:"thumbnail_url"`
-}
-
-type Image struct {
-	Id  int    `json:"id"`
-	Url string `json:"url"`
-}
-
-type ProfileMedia struct {
-	Avatar Image   `json:"avatar"`
-	Videos []Video `json:"videos"`
+type Media struct {
+	ID           int    `json:"id"`
+	URL          string `json:"url"`
+	ThumbnailURL string `json:"thumbnail_url"`
 }
 
 // Константы для ограничений
@@ -39,13 +29,13 @@ const (
 
 // Repository defines the interface for media database operations
 type MediaRepository interface {
-	CreateMedia(userID int, mediaType, mediaURL string) (int, error)
+	CreateMedia(userID int, mediaType, mediaURL, thumbnailURL string) (int, error)
 	DeleteMedia(userID, mediaID int) error
 }
 
 // StorageProvider определяет интерфейс для загрузки и получения файлов
 type StorageProvider interface {
-	UploadFile(file multipart.File, fileName string, contentType string) (string, error)
+	UploadFile(file multipart.File, fileName string) (string, error)
 	DeleteFile(fileName string) error
 	GetFileURL(fileName string) string
 }
@@ -101,14 +91,19 @@ type UploadedFile interface {
 	GetHeader() textproto.MIMEHeader
 }
 
-// UploadMedia загружает новый медиафайл
-func (s *MediaServiceImpl) UploadMedia(userID int, fileHeader UploadedFile) (*int, error) {
-	// Проверяем размер файла
+// UploadMedia uploads a new media file and its thumbnail
+func (s *MediaServiceImpl) UploadMedia(userID int, fileHeader, thumbnailHeader UploadedFile) (*Media, error) {
+	// Проверяем размер основного файла
 	if fileHeader.GetSize() > MaxFileSize {
 		return nil, ErrFileTooBig
 	}
 
-	// Открываем файл
+	// Проверяем размер thumbnail файла, если он предоставлен
+	if thumbnailHeader.GetSize() > MaxFileSize {
+		return nil, ErrFileTooBig
+	}
+
+	// Открываем основной файл
 	file, err := fileHeader.Open()
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
@@ -131,17 +126,39 @@ func (s *MediaServiceImpl) UploadMedia(userID int, fileHeader UploadedFile) (*in
 		return nil, ErrInvalidFileType
 	}
 
-	// Загружаем файл в хранилище
-	mediaURL, err := s.storageProvider.UploadFile(file, fileHeader.GetFilename(), fileHeader.GetHeader().Get("Content-Type"))
+	// Загружаем основной файл в хранилище
+	mediaURL, err := s.storageProvider.UploadFile(file, fileHeader.GetFilename())
 	if err != nil {
 		return nil, fmt.Errorf("failed to upload file: %w", err)
 	}
 
+	var thumbnailURL string
+	// Загружаем thumbnail, если он предоставлен
+	thumbFile, err := thumbnailHeader.Open()
+	if err != nil {
+		return nil, fmt.Errorf("failed to open thumbnail file: %w", err)
+	}
+	defer thumbFile.Close()
+
+	thumbExt := strings.ToLower(filepath.Ext(thumbnailHeader.GetFilename()))
+	if _, allowed := s.allowedTypes[thumbExt]; !allowed {
+		return nil, ErrInvalidFileType
+	}
+
+	thumbnailURL, err = s.storageProvider.UploadFile(thumbFile, thumbnailHeader.GetFilename())
+	if err != nil {
+		return nil, fmt.Errorf("failed to upload thumbnail: %w", err)
+	}
+
 	// Сохраняем информацию о медиа в БД
-	mediaID, err := s.mediaRepository.CreateMedia(userID, mediaType, mediaURL)
+	mediaID, err := s.mediaRepository.CreateMedia(userID, mediaType, mediaURL, thumbnailURL)
 	if err != nil {
 		return nil, err
 	}
 
-	return &mediaID, nil
+	return &Media{
+		ID:           mediaID,
+		URL:          mediaURL,
+		ThumbnailURL: thumbnailURL,
+	}, nil
 }

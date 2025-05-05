@@ -122,6 +122,10 @@ definitions:
     properties:
       id:
         type: integer
+      thumbnail_url:
+        type: string
+      url:
+        type: string
     type: object
   profile.Date:
     properties:
@@ -145,8 +149,6 @@ definitions:
         type: string
       city_id:
         type: integer
-      city_name:
-        type: string
       created_at:
         type: string
       full_name:
@@ -209,6 +211,49 @@ paths:
       summary: Token verification
       tags:
       - auth
+  /api/media:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload media file (image or video) with optional thumbnail
+      parameters:
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Thumbnail file
+        in: formData
+        name: thumbnail
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/media.MediaResponse'
+        "400":
+          description: Invalid file
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "413":
+          description: File too large
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Upload media
+      tags:
+      - media
   /auth/login:
     post:
       consumes:
@@ -311,97 +356,6 @@ paths:
       summary: User registration
       tags:
       - auth
-  /catalog/cities:
-    get:
-      description: Retrieves a list of available cities
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/internal_handler_profile.City'
-            type: array
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Get Cities
-      tags:
-      - catalog
-  /catalog/genders:
-    get:
-      description: Retrieves a catalog of genders with translations
-      parameters:
-      - description: 'Language code (default: en)'
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/internal_handler_profile.TranslatedItem'
-            type: array
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Get Genders
-      tags:
-      - catalog
-  /catalog/improv-goals:
-    get:
-      description: Retrieves a catalog of improv goals with translations
-      parameters:
-      - description: 'Language code (default: en)'
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/internal_handler_profile.TranslatedItem'
-            type: array
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Get Improv Goals
-      tags:
-      - catalog
-  /catalog/improv-styles:
-    get:
-      description: Retrieves a catalog of improv styles with translations
-      parameters:
-      - description: 'Language code (default: en)'
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/internal_handler_profile.TranslatedItem'
-            type: array
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Get Improv Styles
-      tags:
-      - catalog
   /health:
     get:
       description: Возвращает статус сервиса
@@ -419,45 +373,6 @@ paths:
       summary: Проверка здоровья сервиса
       tags:
       - health
-  /media/video:
-    post:
-      consumes:
-      - multipart/form-data
-      description: Upload media file (image or video)
-      parameters:
-      - description: File to upload
-        in: formData
-        name: file
-        required: true
-        type: file
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/media.MediaResponse'
-        "400":
-          description: Invalid file
-          schema:
-            type: string
-        "401":
-          description: Unauthorized
-          schema:
-            type: string
-        "413":
-          description: File too large
-          schema:
-            type: string
-        "500":
-          description: Internal server error
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Upload media
-      tags:
-      - media
   /profiles:
     patch:
       consumes:
@@ -568,6 +483,97 @@ paths:
       summary: Get Profile
       tags:
       - profile
+  /profiles/catalog/cities:
+    get:
+      description: Retrieves a list of available cities
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler_profile.City'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get Cities
+      tags:
+      - catalog
+  /profiles/catalog/genders:
+    get:
+      description: Retrieves a catalog of genders with translations
+      parameters:
+      - description: 'Language code (default: en)'
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler_profile.TranslatedItem'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get Genders
+      tags:
+      - catalog
+  /profiles/catalog/improv-goals:
+    get:
+      description: Retrieves a catalog of improv goals with translations
+      parameters:
+      - description: 'Language code (default: en)'
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler_profile.TranslatedItem'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get Improv Goals
+      tags:
+      - catalog
+  /profiles/catalog/improv-styles:
+    get:
+      description: Retrieves a catalog of improv styles with translations
+      parameters:
+      - description: 'Language code (default: en)'
+        in: query
+        name: lang
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_handler_profile.TranslatedItem'
+            type: array
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Get Improv Styles
+      tags:
+      - catalog
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.

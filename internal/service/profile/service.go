@@ -23,15 +23,15 @@ var (
 
 // TranslatedItem represents a catalog item with translations
 type TranslatedItem struct {
-	Code        string
-	Label       string
-	Description string
+	Code        string `json:"code"`
+	Label       string `json:"label"`
+	Description string `json:"description"`
 }
 
 // City represents a city
 type City struct {
-	ID   int
-	Name string
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 type Video struct {

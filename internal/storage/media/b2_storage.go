@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
-	"net/url"
 	"path/filepath"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/minio/minio-go/v7"
@@ -19,7 +17,6 @@ type MinioClient interface {
 	BucketExists(ctx context.Context, bucketName string) (bool, error)
 	PutObject(ctx context.Context, bucketName string, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (info minio.UploadInfo, err error)
 	RemoveObject(ctx context.Context, bucketName string, objectName string, opts minio.RemoveObjectOptions) error
-	PresignedGetObject(ctx context.Context, bucketName string, objectName string, expires time.Duration, reqParams url.Values) (*url.URL, error)
 }
 
 // S3StorageProvider представляет провайдер хранилища для S3-совместимых сервисов (включая Backblaze B2)
@@ -76,7 +73,7 @@ func NewS3StorageProvider(accessKeyID, secretAccessKey, endpoint, bucketName, cd
 }
 
 // UploadFile загружает файл в хранилище
-func (s *S3StorageProvider) UploadFile(file multipart.File, fileName string, contentTypeHeader string) (string, error) {
+func (s *S3StorageProvider) UploadFile(file multipart.File, fileName string) (string, error) {
 	ctx := context.Background()
 
 	// Генерируем уникальное имя файла, используя UUID
@@ -84,13 +81,11 @@ func (s *S3StorageProvider) UploadFile(file multipart.File, fileName string, con
 	uniqueFileName := fmt.Sprintf("%s/%s%s", s.uploadPath, uuid.New().String(), extension)
 
 	// Определяем тип контента
-	contentType := contentTypeHeader
-	if contentType == "" {
-		if knownType, ok := s.contentType[extension]; ok {
-			contentType = knownType
-		} else {
-			contentType = "application/octet-stream"
-		}
+	contentType := ""
+	if knownType, ok := s.contentType[extension]; ok {
+		contentType = knownType
+	} else {
+		contentType = "application/octet-stream"
 	}
 
 	// Опции для загрузки файла
@@ -132,18 +127,4 @@ func (s *S3StorageProvider) GetFileURL(fileName string) string {
 	// Иначе используем прямую ссылку на S3-совместимое хранилище
 	// Обратите внимание: для Backblaze B2 URL может иметь другой формат
 	return fmt.Sprintf("https://%s/%s/%s", s.endpoint, s.bucketName, fileName)
-}
-
-// GetPresignedURL генерирует временную ссылку на файл
-// Полезно для приватных бакетов, когда нужен временный доступ к файлу
-func (s *S3StorageProvider) GetPresignedURL(fileName string, expires time.Duration) (string, error) {
-	ctx := context.Background()
-
-	// Создаем пресайн URL с указанным сроком действия
-	presignedURL, err := s.client.PresignedGetObject(ctx, s.bucketName, fileName, expires, nil)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate presigned URL: %w", err)
-	}
-
-	return presignedURL.String(), nil
 }

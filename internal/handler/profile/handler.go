@@ -53,7 +53,6 @@ type ProfileResponse struct {
 	Birthday       Date            `json:"birthday,omitempty"`
 	Gender         string          `json:"gender,omitempty"`
 	CityID         int             `json:"city_id,omitempty"`
-	CityName       string          `json:"city_name,omitempty"`
 	Bio            string          `json:"bio,omitempty"`
 	Goal           string          `json:"goal,omitempty"`
 	LookingForTeam bool            `json:"looking_for_team"`
@@ -333,7 +332,7 @@ func (h *ProfileHandler) GetProfile(w http.ResponseWriter, r *http.Request) {
 // @Param        lang  query  string  false  "Language code (default: en)"
 // @Success      200  {array}  profile.TranslatedItem
 // @Failure      500  {string}  string  "Server error"
-// @Router       /catalog/improv-styles [get]
+// @Router       /profiles/catalog/improv-styles [get]
 func (h *ProfileHandler) GetImprovStyles(w http.ResponseWriter, r *http.Request) {
 	// Get language from query parameter or use default
 	lang := r.URL.Query().Get("lang")
@@ -362,7 +361,7 @@ func (h *ProfileHandler) GetImprovStyles(w http.ResponseWriter, r *http.Request)
 // @Param        lang  query  string  false  "Language code (default: en)"
 // @Success      200  {array}  profile.TranslatedItem
 // @Failure      500  {string}  string  "Server error"
-// @Router       /catalog/improv-goals [get]
+// @Router       /profiles/catalog/improv-goals [get]
 func (h *ProfileHandler) GetImprovGoals(w http.ResponseWriter, r *http.Request) {
 	// Get language from query parameter or use default
 	lang := r.URL.Query().Get("lang")
@@ -391,7 +390,7 @@ func (h *ProfileHandler) GetImprovGoals(w http.ResponseWriter, r *http.Request) 
 // @Param        lang  query  string  false  "Language code (default: en)"
 // @Success      200  {array}  profile.TranslatedItem
 // @Failure      500  {string}  string  "Server error"
-// @Router       /catalog/genders [get]
+// @Router       /profiles/catalog/genders [get]
 func (h *ProfileHandler) GetGenders(w http.ResponseWriter, r *http.Request) {
 	// Get language from query parameter or use default
 	lang := r.URL.Query().Get("lang")
@@ -419,7 +418,7 @@ func (h *ProfileHandler) GetGenders(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Success      200  {array}  profile.City
 // @Failure      500  {string}  string  "Server error"
-// @Router       /catalog/cities [get]
+// @Router       /profiles/catalog/cities [get]
 func (h *ProfileHandler) GetCities(w http.ResponseWriter, r *http.Request) {
 	// Call the service to get the cities
 	cities, err := h.profileService.GetCities()

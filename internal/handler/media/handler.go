@@ -9,7 +9,7 @@ import (
 
 // MediaService определяет интерфейс для работы с медиа
 type MediaService interface {
-	UploadMedia(userID int, fileHeader media.UploadedFile) (*int, error)
+	UploadMedia(userID int, fileHeader, thumbnailHeader media.UploadedFile) (*media.Media, error)
 }
 
 // MediaHandler handles requests for media operations
@@ -26,21 +26,24 @@ func NewMediaHandler(service MediaService) *MediaHandler {
 
 // Response for media operations
 type MediaResponse struct {
-	ID int `json:"id,omitempty"`
+	ID           int    `json:"id"`
+	URL          string `json:"url"`
+	ThumbnailURL string `json:"thumbnail_url"`
 }
 
 // @Summary      Upload media
-// @Description  Upload media file (image or video)
+// @Description  Upload media file (image or video) with optional thumbnail
 // @Tags         media
 // @Accept       multipart/form-data
 // @Produce      json
-// @Param        file  formData  file  true  "File to upload"
+// @Param        file       formData  file  true   "File to upload"
+// @Param        thumbnail  formData  file  false  "Thumbnail file"
 // @Success      200   {object}  MediaResponse
 // @Failure      400   {string}  string  "Invalid file"
 // @Failure      401   {string}  string  "Unauthorized"
 // @Failure      413   {string}  string  "File too large"
 // @Failure      500   {string}  string  "Internal server error"
-// @Router       /media/video [post]
+// @Router       /api/media [post]
 // @Security     BearerAuth
 func (h *MediaHandler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	// Get user ID from context (assuming it's set by auth middleware)
@@ -57,7 +60,7 @@ func (h *MediaHandler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get file from request
+	// Get main file from request
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		http.Error(w, "Could not get file", http.StatusBadRequest)
@@ -65,11 +68,23 @@ func (h *MediaHandler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// Create wrapper for the file header
+	// Create wrapper for the main file header
 	fileWrapper := &media.FileHeaderWrapper{FileHeader: header}
 
-	// Upload video
-	mediaID, err := h.service.UploadMedia(userID, fileWrapper)
+	// Check for thumbnail file (optional)
+	var thumbnailWrapper *media.FileHeaderWrapper
+	thumbnailFile, thumbnailHeader, err := r.FormFile("thumbnail")
+	if err != nil {
+		http.Error(w, "Could not get thumbnail", http.StatusBadRequest)
+		return
+	}
+
+	defer thumbnailFile.Close()
+
+	thumbnailWrapper = &media.FileHeaderWrapper{FileHeader: thumbnailHeader}
+
+	// Upload media
+	uploaded, err := h.service.UploadMedia(userID, fileWrapper, thumbnailWrapper)
 	if err != nil {
 		switch err {
 		case media.ErrInvalidFileType:
@@ -84,5 +99,9 @@ func (h *MediaHandler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 
 	// Return success response
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(MediaResponse{ID: *mediaID})
+	json.NewEncoder(w).Encode(MediaResponse{
+		ID:           uploaded.ID,
+		URL:          uploaded.URL,
+		ThumbnailURL: uploaded.ThumbnailURL,
+	})
 }
