@@ -78,11 +78,6 @@ migrate-create:
 	@read -p "Enter migration name: " name; \
 	migrate create -ext sql -dir db/migrations -seq $$name
 
-# --- Подключение к базе данных ---
-connect-local-db:
-	# Подключение к локальной БД в Docker-контейнере
-	docker exec -it brigadka-backend-postgres-1 psql -U ${DB_USER} -d ${DB_NAME}
-
 connect-db:
 	# Подключение к БД по параметрам из .env
 	PGPASSWORD=${DB_PASSWORD} psql -h ${DB_HOST} -p ${DB_PORT} -U ${DB_USER} -d ${DB_NAME}
