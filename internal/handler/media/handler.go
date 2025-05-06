@@ -2,6 +2,7 @@ package media
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/media"
@@ -86,6 +87,7 @@ func (h *MediaHandler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	// Upload media
 	uploaded, err := h.service.UploadMedia(userID, fileWrapper, thumbnailWrapper)
 	if err != nil {
+		log.Printf("Error uploading media: %v", err)
 		switch err {
 		case media.ErrInvalidFileType:
 			http.Error(w, "Invalid file type", http.StatusBadRequest)

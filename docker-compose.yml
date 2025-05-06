@@ -53,6 +53,7 @@ services:
       /bin/sh -c "
         mc alias set minio https://minio:9000 ${B2_ACCESS_KEY_ID:?B2_ACCESS_KEY_ID is not set} ${B2_SECRET_ACCESS_KEY:?B2_SECRET_ACCESS_KEY is not set} &&
         mc mb -p minio/${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set} || true
+        mc policy set download minio/${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set}
       "
 
   migrations:
@@ -67,7 +68,6 @@ services:
       - DB_NAME=${DB_NAME:?DB_NAME is not set}
     command: go run ./cmd/migrate -up
     profiles:
-      - debug
       - test
     depends_on:
       postgres:

@@ -29,7 +29,7 @@ run-unit-tests:
 
 # --- Тесты ---
 run-integration-tests: generate-local-ca
-	cp .env.example .env
+	cp .env.docker .env
 	# Запуск интеграционных тестов в Docker
 ifdef DEBUG-ENV
 	# Запуск с выводом логов в консоль
@@ -95,21 +95,10 @@ generate-swagger:
 # --- Подготовка окружения для отладки ---
 prepare-debug-env: generate-local-ca
 	# Копируем пример .env в рабочий .env
-	cp .env.example .env
+	cp .env.debug .env
 	@echo "Detecting Docker environment..."
 	@bash -c ' \
-		DOCKER_HOST_IP=$$(colima status --json 2>/dev/null | jq -r ".ip_address" || echo ""); \
-		if [ -z "$$DOCKER_HOST_IP" ] || [ "$$DOCKER_HOST_IP" = "null" ]; then \
-			echo "Colima IP address не найден (попробуйте colima start --network-address), используем localhost для Docker Desktop"; \
-			DOCKER_HOST_IP=127.0.0.1; \
-		else \
-			echo "Colima IP: $$DOCKER_HOST_IP"; \
-		fi; \
 		ABS_CERT_PATH=$$(cd certs/ca && pwd)/ca.crt; \
-		echo "Updating .env with DB_HOST=$$DOCKER_HOST_IP"; \
-		sed -i.bak "s/^DB_HOST=.*/DB_HOST=$$DOCKER_HOST_IP/" .env && rm .env.bak; \
-		echo "Updating .env with B2_ENDPOINT=$$DOCKER_HOST_IP:9000"; \
-		sed -i.bak "s/^B2_ENDPOINT=.*/B2_ENDPOINT=$$DOCKER_HOST_IP:9000/" .env && rm .env.bak; \
 		echo "Updating .env with SSL_CERT_FILE=$$ABS_CERT_PATH"; \
 		if grep -q "^SSL_CERT_FILE=" .env; then \
 			sed -i.bak "s|^SSL_CERT_FILE=.*|SSL_CERT_FILE=$$ABS_CERT_PATH|" .env && rm .env.bak; \
@@ -124,7 +113,8 @@ start-debug-env: prepare-debug-env
 	@echo "Press Ctrl+C to stop the debug environment";
 	@trap 'docker compose --profile debug down -v --remove-orphans; exit' INT; \
 	docker compose --profile debug up -d --build --force-recreate && \
-	docker compose wait minio-init migrations && \
+	docker compose wait minio-init && \
+	$(MAKE) migrate-up && \
 	echo "✅ \033[1;32mДебаг-окружение готово! Теперь можно запустить сервис (например, make run-debug) и подебажить. Нажмите CTRL + C, чтобы остановить окружение.\033[0m"; \
 	while true; do sleep 1; done
 
@@ -143,13 +133,7 @@ generate-local-ca:
 	openssl genrsa -out certs/minio/private.key 4096
 	# Все команды выполняем в одном блоке shell
 	@( \
-		DOCKER_HOST_IP=$$(colima status --json 2>/dev/null | jq -r '.ip_address' || echo ""); \
-		if [ -z "$$DOCKER_HOST_IP" ] || [ "$$DOCKER_HOST_IP" = "null" ]; then \
-			echo "Colima IP address не найден (попробуйте colima start --network-address), используем localhost для Docker Desktop"; \
-			DOCKER_HOST_IP=127.0.0.1; \
-		else \
-			echo "Colima IP: $$DOCKER_HOST_IP"; \
-		fi; \
+		DOCKER_HOST_IP=127.0.0.1; \
 		echo "Using DOCKER_HOST_IP=$$DOCKER_HOST_IP"; \
 		cat certs/minio/openssl.cnf.template | sed "s/{{DOCKER_HOST_IP}}/$$DOCKER_HOST_IP/g" > certs/minio/openssl.cnf; \
 		openssl req -new -key certs/minio/private.key -out certs/minio/minio.csr -subj "/C=RU/ST=Local/L=Local/O=MinIO/CN=minio" -config certs/minio/openssl.cnf; \
