@@ -87,7 +87,8 @@ const docTemplate = `{
                         "type": "file",
                         "description": "Thumbnail file",
                         "name": "thumbnail",
-                        "in": "formData"
+                        "in": "formData",
+                        "required": true
                     }
                 ],
                 "responses": {

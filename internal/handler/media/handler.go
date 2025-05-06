@@ -37,8 +37,8 @@ type MediaResponse struct {
 // @Tags         media
 // @Accept       multipart/form-data
 // @Produce      json
-// @Param        file       formData  file  true   "File to upload"
-// @Param        thumbnail  formData  file  false  "Thumbnail file"
+// @Param        file       formData  file  true  "File to upload"
+// @Param        thumbnail  formData  file  true  "Thumbnail file"
 // @Success      200   {object}  MediaResponse
 // @Failure      400   {string}  string  "Invalid file"
 // @Failure      401   {string}  string  "Unauthorized"
@@ -72,7 +72,7 @@ func (h *MediaHandler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	// Create wrapper for the main file header
 	fileWrapper := &media.FileHeaderWrapper{FileHeader: header}
 
-	// Check for thumbnail file (optional)
+	// Check for thumbnail file
 	var thumbnailWrapper *media.FileHeaderWrapper
 	thumbnailFile, thumbnailHeader, err := r.FormFile("thumbnail")
 	if err != nil {

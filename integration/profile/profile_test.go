@@ -105,7 +105,11 @@ func (s *ProfileIntegrationTestSuite) uploadTestMedia(t *testing.T, authToken st
 
 // Upload a file and return its media ID
 func (s *ProfileIntegrationTestSuite) uploadFile(filePath string, authToken string) (int, error) {
-	req, err := createMultipartRequest(s.appUrl+"/api/media", "file", filePath, authToken)
+	// Both main file and thumbnail are required now
+	thumbnailPath := filepath.Join(s.testDirPath, fmt.Sprintf("thumb_%s", filepath.Base(filePath)))
+	createTestJPEGFile(thumbnailPath)
+
+	req, err := createMultipartRequest(s.appUrl+"/api/media", "file", filePath, "thumbnail", thumbnailPath, authToken)
 	if err != nil {
 		return 0, err
 	}
@@ -128,6 +132,61 @@ func (s *ProfileIntegrationTestSuite) uploadFile(filePath string, authToken stri
 	}
 
 	return mediaResponse.ID, nil
+}
+
+// Helper function to create a multipart request with a file and thumbnail
+func createMultipartRequest(url, fileField, filePath, thumbField, thumbPath, authToken string) (*http.Request, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	thumb, err := os.Open(thumbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer thumb.Close()
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	// Add main file
+	part, err := writer.CreateFormFile(fileField, filepath.Base(filePath))
+	if err != nil {
+		return nil, err
+	}
+	_, err = io.Copy(part, file)
+	if err != nil {
+		return nil, err
+	}
+
+	// Add thumbnail file
+	thumbPart, err := writer.CreateFormFile(thumbField, filepath.Base(thumbPath))
+	if err != nil {
+		return nil, err
+	}
+	_, err = io.Copy(thumbPart, thumb)
+	if err != nil {
+		return nil, err
+	}
+
+	err = writer.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", url, body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	if authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+authToken)
+	}
+
+	return req, nil
 }
 
 // Helper function to create a test JPEG file
@@ -170,44 +229,6 @@ func createTestMP4File(path string) {
 		0x00, 0x00, 0x00, 0x08, 'f', 'r', 'e', 'e',
 	}
 	_ = os.WriteFile(path, data, 0644)
-}
-
-// Helper function to create a multipart request with a file
-func createMultipartRequest(url, fieldName, filePath string, authToken string) (*http.Request, error) {
-	file, err := os.Open(filePath)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	part, err := writer.CreateFormFile(fieldName, filepath.Base(filePath))
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = io.Copy(part, file)
-	if err != nil {
-		return nil, err
-	}
-
-	err = writer.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", url, body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	if authToken != "" {
-		req.Header.Set("Authorization", "Bearer "+authToken)
-	}
-
-	return req, nil
 }
 
 // TestCreateProfile tests creating a new profile
