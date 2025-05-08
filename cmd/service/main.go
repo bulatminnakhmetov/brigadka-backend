@@ -243,6 +243,8 @@ func main() {
 					r.Get("/genders", profileHandler.GetGenders)
 					r.Get("/cities", profileHandler.GetCities)
 				})
+
+				r.Post("/search", profileHandler.SearchProfiles)
 			})
 
 			// Маршруты для работы с медиа (требуют аутентификации)

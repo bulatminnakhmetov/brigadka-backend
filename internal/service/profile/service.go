@@ -3,6 +3,7 @@ package profile
 import (
 	"database/sql"
 	"errors"
+	"log"
 	"time"
 
 	mediarepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/media"
@@ -85,8 +86,8 @@ type ProfileUpdateRequest struct {
 }
 
 type MediaRepository interface {
-	GetMediaByIDs(userID int, mediaIDs []int) ([]mediarepo.Media, error)
-	GetMediaByID(userID int, mediaID int) (*mediarepo.Media, error)
+	GetMediaByIDs(mediaIDs []int) ([]mediarepo.Media, error)
+	GetMediaByID(mediaID int) (*mediarepo.Media, error)
 }
 
 type ProfileRepository interface {
@@ -121,6 +122,21 @@ type ProfileRepository interface {
 		ID   int
 		Name string
 	}, error)
+	SearchProfiles(
+		fullName *string,
+		lookingForTeam *bool,
+		goal *string,
+		improvStyles []string,
+		birthDateMin *time.Time,
+		birthDateMax *time.Time,
+		gender *string,
+		cityID *int,
+		hasAvatar *bool,
+		hasVideo *bool,
+		createdAfter *time.Time,
+		page int,
+		pageSize int,
+	) ([]*profile.ProfileModel, int, error)
 }
 
 // ProfileServiceImpl реализует интерфейс ProfileService
@@ -288,6 +304,37 @@ func (s *ProfileServiceImpl) CreateProfile(req ProfileCreateRequest) (*Profile, 
 	return s.GetProfile(req.UserID)
 }
 
+func (s *ProfileServiceImpl) ExpandProfile(profile *profile.ProfileModel) (*Profile, error) {
+	if profile == nil {
+		return nil, nil
+	}
+
+	// Get improv styles
+	styles, err := s.profileRepo.GetImprovStyles(profile.UserID)
+	if err != nil {
+		log.Printf("failed to get improv styles: %v", err)
+	}
+
+	// Get avatar
+	var avatar *mediarepo.Media
+	if profile.Avatar != nil {
+		media, err := s.mediaRepo.GetMediaByID(*profile.Avatar)
+		if media != nil {
+			avatar = media
+		}
+		if err != nil {
+			log.Printf("failed to get avatar media: %v", err)
+		}
+	}
+
+	// Get videos
+	videos, err := s.mediaRepo.GetMediaByIDs(profile.Videos)
+	if err != nil {
+		log.Printf("failed to get videos media: %v", err)
+	}
+	return convertToProfile(profile, styles, avatar, videos), nil
+}
+
 // GetProfileByUserID retrieves a profile by user ID
 func (s *ProfileServiceImpl) GetProfile(userID int) (*Profile, error) {
 	// Check user exists
@@ -308,26 +355,7 @@ func (s *ProfileServiceImpl) GetProfile(userID int) (*Profile, error) {
 		return nil, err
 	}
 
-	// Get improv styles
-	styles, err := s.profileRepo.GetImprovStyles(userID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Get avatar
-	var avatar *mediarepo.Media
-	if profile.Avatar != nil {
-		media, _ := s.mediaRepo.GetMediaByID(userID, *profile.Avatar)
-		if media != nil {
-			avatar = media
-		}
-	}
-
-	// Get videos
-	videos, _ := s.mediaRepo.GetMediaByIDs(userID, profile.Videos)
-
-	// Return profile info
-	return convertToProfile(profile, styles, avatar, videos), nil
+	return s.ExpandProfile(profile)
 }
 
 // UpdateProfile updates an existing profile

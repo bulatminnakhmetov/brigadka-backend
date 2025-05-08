@@ -59,11 +59,11 @@ func (r *RepositoryImpl) DeleteMedia(userID, mediaID int) error {
 }
 
 // GetMediaByID retrieves media by its ID
-func (r *RepositoryImpl) GetMediaByID(userID int, mediaID int) (*Media, error) {
+func (r *RepositoryImpl) GetMediaByID(mediaID int) (*Media, error) {
 	var m Media
 	err := r.db.QueryRow(
-		"SELECT id, owner_id, type, url, thumbnail_url, uploaded_at FROM media WHERE id = $1 AND owner_id = $2",
-		mediaID, userID,
+		"SELECT id, owner_id, type, url, thumbnail_url, uploaded_at FROM media WHERE id = $1",
+		mediaID,
 	).Scan(&m.ID, &m.UserID, &m.Role, &m.URL, &m.ThumbnailURL, &m.UploadedAt)
 
 	if err != nil {
@@ -77,13 +77,13 @@ func (r *RepositoryImpl) GetMediaByID(userID int, mediaID int) (*Media, error) {
 }
 
 // GetMediaByID retrieves media by its ID
-func (r *RepositoryImpl) GetMediaByIDs(userID int, mediaIDs []int) ([]Media, error) {
+func (r *RepositoryImpl) GetMediaByIDs(mediaIDs []int) ([]Media, error) {
 	if len(mediaIDs) == 0 {
 		return nil, nil
 	}
 	result := make([]Media, 0, len(mediaIDs))
 	for _, id := range mediaIDs {
-		media, err := r.GetMediaByID(userID, id)
+		media, err := r.GetMediaByID(id)
 		if err != nil {
 			log.Printf("failed to get media by ID %d: %v", id, err)
 			continue

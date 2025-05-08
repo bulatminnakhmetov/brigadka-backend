@@ -511,3 +511,200 @@ func (r *PostgresRepository) GetCities() ([]struct {
 
 	return cities, rows.Err()
 }
+
+// SearchProfiles searches for profiles based on the provided filters
+func (r *PostgresRepository) SearchProfiles(
+	fullName *string,
+	lookingForTeam *bool,
+	goal *string,
+	improvStyles []string,
+	birthDateMin *time.Time,
+	birthDateMax *time.Time,
+	gender *string,
+	cityID *int,
+	hasAvatar *bool,
+	hasVideo *bool,
+	createdAfter *time.Time,
+	page int,
+	pageSize int,
+) ([]*ProfileModel, int, error) {
+	// Start building the query
+	baseQuery := `
+        SELECT DISTINCT p.user_id, p.full_name, p.birthday, p.gender, 
+               p.city_id, p.bio, p.goal, p.looking_for_team, p.created_at
+        FROM profiles p
+    `
+
+	countQuery := `SELECT COUNT(DISTINCT p.user_id) FROM profiles p`
+
+	// Add joins if needed
+	joins := []string{}
+
+	// For improv styles filter
+	if len(improvStyles) > 0 {
+		joins = append(joins, "JOIN improv_profile_styles ips ON p.user_id = ips.user_id")
+	}
+
+	// For has_avatar filter
+	if hasAvatar != nil {
+		if *hasAvatar {
+			joins = append(joins, "JOIN profile_media pa ON p.user_id = pa.user_id AND pa.role = 'avatar'")
+		} else {
+			joins = append(joins, "LEFT JOIN profile_media pa ON p.user_id = pa.user_id AND pa.role = 'avatar'")
+		}
+	}
+
+	// For has_video filter
+	if hasVideo != nil {
+		if *hasVideo {
+			joins = append(joins, "JOIN profile_media pv ON p.user_id = pv.user_id AND pv.role = 'video'")
+		} else {
+			joins = append(joins, "LEFT JOIN profile_media pv ON p.user_id = pv.user_id AND pv.role = 'video'")
+		}
+	}
+
+	// Add all joins to the queries
+	for _, join := range joins {
+		baseQuery += " " + join
+		countQuery += " " + join
+	}
+
+	// Build WHERE clause
+	conditions := []string{}
+	args := []interface{}{}
+	argIndex := 1
+
+	// Full name search (using ILIKE for case-insensitive search)
+	if fullName != nil && *fullName != "" {
+		conditions = append(conditions, fmt.Sprintf("p.full_name ILIKE $%d", argIndex))
+		args = append(args, "%"+*fullName+"%")
+		argIndex++
+	}
+
+	// Looking for team filter
+	if lookingForTeam != nil {
+		conditions = append(conditions, fmt.Sprintf("p.looking_for_team = $%d", argIndex))
+		args = append(args, *lookingForTeam)
+		argIndex++
+	}
+
+	// Goal filter
+	if goal != nil && *goal != "" {
+		conditions = append(conditions, fmt.Sprintf("p.goal = $%d", argIndex))
+		args = append(args, *goal)
+		argIndex++
+	}
+
+	// Improv styles filter
+	if len(improvStyles) > 0 {
+		placeholders := make([]string, len(improvStyles))
+		for i, _ := range improvStyles {
+			placeholders[i] = fmt.Sprintf("$%d", argIndex)
+			args = append(args, improvStyles[i])
+			argIndex++
+		}
+		conditions = append(conditions, fmt.Sprintf("ips.style IN (%s)", strings.Join(placeholders, ", ")))
+	}
+
+	// Age range filter (converted to birthday range)
+	if birthDateMin != nil {
+		conditions = append(conditions, fmt.Sprintf("p.birthday >= $%d", argIndex))
+		args = append(args, *birthDateMin)
+		argIndex++
+	}
+	if birthDateMax != nil {
+		conditions = append(conditions, fmt.Sprintf("p.birthday <= $%d", argIndex))
+		args = append(args, *birthDateMax)
+		argIndex++
+	}
+
+	// Gender filter
+	if gender != nil && *gender != "" {
+		conditions = append(conditions, fmt.Sprintf("p.gender = $%d", argIndex))
+		args = append(args, *gender)
+		argIndex++
+	}
+
+	// City filter
+	if cityID != nil {
+		conditions = append(conditions, fmt.Sprintf("p.city_id = $%d", argIndex))
+		args = append(args, *cityID)
+		argIndex++
+	}
+
+	// Has avatar filter (if NOT included in joins)
+	if hasAvatar != nil && !*hasAvatar {
+		conditions = append(conditions, "pa.media_id IS NULL")
+	}
+
+	// Has video filter (if NOT included in joins)
+	if hasVideo != nil && !*hasVideo {
+		conditions = append(conditions, "pv.media_id IS NULL")
+	}
+
+	// Add createdAfter condition to the WHERE clause if provided
+	if createdAfter != nil {
+		conditions = append(conditions, fmt.Sprintf("p.created_at >= $%d", argIndex))
+		args = append(args, *createdAfter)
+		argIndex++
+	}
+
+	// Add WHERE clause if there are conditions
+	if len(conditions) > 0 {
+		whereClause := " WHERE " + strings.Join(conditions, " AND ")
+		baseQuery += whereClause
+		countQuery += whereClause
+	}
+
+	// Get total count
+	var totalCount int
+	err := r.db.QueryRow(countQuery, args...).Scan(&totalCount)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Add ORDER BY and pagination to the base query
+	baseQuery += " ORDER BY p.created_at DESC"
+	baseQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
+	args = append(args, pageSize, (page-1)*pageSize)
+
+	// Execute the query
+	rows, err := r.db.Query(baseQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	// Parse results
+	profiles := []*ProfileModel{}
+	for rows.Next() {
+		profile := &ProfileModel{}
+		if err := rows.Scan(
+			&profile.UserID, &profile.FullName, &profile.Birthday,
+			&profile.Gender, &profile.CityID, &profile.Bio,
+			&profile.Goal, &profile.LookingForTeam, &profile.CreatedAt,
+		); err != nil {
+			return nil, 0, err
+		}
+
+		// Get avatar
+		avatar, err := r.GetProfileAvatar(profile.UserID)
+		if err == nil && avatar != nil {
+			profile.Avatar = avatar
+		}
+
+		// Get videos
+		videos, err := r.GetProfileVideos(profile.UserID)
+		if err == nil {
+			profile.Videos = videos
+		}
+
+		profiles = append(profiles, profile)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return profiles, totalCount, nil
+}

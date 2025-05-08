@@ -111,7 +111,7 @@ CREATE TABLE profiles (
     
     goal VARCHAR(50) REFERENCES improv_goals_catalog(goal_id),
     looking_for_team BOOLEAN DEFAULT FALSE,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Таблица соответствий профилей и стилей импровизации

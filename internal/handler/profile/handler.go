@@ -90,6 +90,31 @@ type ProfileUpdateRequest struct {
 	Videos         []int    `json:"videos,omitempty"`
 }
 
+// SearchRequest represents the search query parameters
+type SearchRequest struct {
+	FullName       *string    `json:"full_name,omitempty"`
+	LookingForTeam *bool      `json:"looking_for_team,omitempty"`
+	Goal           *string    `json:"goal,omitempty"`
+	ImprovStyles   []string   `json:"improv_styles,omitempty"`
+	AgeMin         *int       `json:"age_min,omitempty"`
+	AgeMax         *int       `json:"age_max,omitempty"`
+	Gender         *string    `json:"gender,omitempty"`
+	CityID         *int       `json:"city_id,omitempty"`
+	HasAvatar      *bool      `json:"has_avatar,omitempty"`
+	HasVideo       *bool      `json:"has_video,omitempty"`
+	CreatedAfter   *time.Time `json:"created_after,omitempty"`
+	Page           int        `json:"page"`
+	PageSize       int        `json:"page_size"`
+}
+
+// SearchResponse represents the search response
+type SearchResponse struct {
+	Profiles   []ProfileResponse `json:"profiles"`
+	TotalCount int               `json:"total_count"`
+	Page       int               `json:"page"`
+	PageSize   int               `json:"page_size"`
+}
+
 // TranslatedItem represents a catalog item with translations
 // For swagger documentation
 type TranslatedItem struct {
@@ -114,6 +139,7 @@ type ProfileService interface {
 	GetImprovGoals(lang string) ([]profile.TranslatedItem, error)
 	GetGenders(lang string) ([]profile.TranslatedItem, error)
 	GetCities() ([]profile.City, error)
+	Search(filter profile.SearchFilter) (*profile.SearchResult, error)
 }
 
 // ProfileHandler handles requests related to profiles
@@ -430,6 +456,70 @@ func (h *ProfileHandler) GetCities(w http.ResponseWriter, r *http.Request) {
 	// Return the cities
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(cities); err != nil {
+		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+// @Summary      Search Profiles
+// @Description  Search for profiles with various filters
+// @Tags         profile
+// @Accept       json
+// @Produce      json
+// @Param        request  body      SearchRequest  true  "Search filters"
+// @Success      200      {object}  SearchResponse
+// @Failure      400      {string}  string  "Invalid request"
+// @Failure      500      {string}  string  "Server error"
+// @Router       /profiles/search [post]
+func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) {
+	var req SearchRequest
+
+	// Parse the request body
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request body: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Convert request to service filter
+	filter := profile.SearchFilter{
+		FullName:       req.FullName,
+		LookingForTeam: req.LookingForTeam,
+		Goal:           req.Goal,
+		ImprovStyles:   req.ImprovStyles,
+		AgeMin:         req.AgeMin,
+		AgeMax:         req.AgeMax,
+		Gender:         req.Gender,
+		CityID:         req.CityID,
+		HasAvatar:      req.HasAvatar,
+		HasVideo:       req.HasVideo,
+		CreatedAfter:   req.CreatedAfter,
+		Page:           req.Page,
+		PageSize:       req.PageSize,
+	}
+
+	// Call the service to perform the search
+	result, err := h.profileService.Search(filter)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+
+	// Convert service profiles to response profiles
+	profiles := make([]ProfileResponse, 0, len(result.Profiles))
+	for _, p := range result.Profiles {
+		profiles = append(profiles, convertToProfileResponse(&p))
+	}
+
+	// Create the response
+	response := SearchResponse{
+		Profiles:   profiles,
+		TotalCount: result.TotalCount,
+		Page:       result.Page,
+		PageSize:   result.PageSize,
+	}
+
+	// Return the response
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
 }
