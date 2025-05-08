@@ -120,7 +120,7 @@ func TestUploadFile(t *testing.T) {
 			})).Return(minio.UploadInfo{}, nil)
 
 		// Имитация открытия файла из multipart.FileHeader
-		fileURL, err := provider.UploadFile(mockFile, filePart.Filename, filePart.Header.Get("Content-Type"))
+		fileURL, err := provider.UploadFile(mockFile, filePart.Filename)
 
 		// Проверяем результаты
 		assert.NoError(t, err)
@@ -168,7 +168,7 @@ func TestUploadFile(t *testing.T) {
 			mock.Anything).Return(minio.UploadInfo{}, os.ErrPermission)
 
 		// Имитация открытия файла из multipart.FileHeader
-		fileURL, err := provider.UploadFile(mockFile, filePart.Filename, "")
+		fileURL, err := provider.UploadFile(mockFile, filePart.Filename)
 
 		// Проверяем результаты
 		assert.Error(t, err)

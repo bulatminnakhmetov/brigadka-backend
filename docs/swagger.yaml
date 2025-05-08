@@ -132,17 +132,19 @@ definitions:
       time.Time:
         type: string
     type: object
-  profile.Image:
+  profile.Media:
     properties:
-      ID:
+      id:
         type: integer
+      thumbnail_url:
+        type: string
       url:
         type: string
     type: object
   profile.Profile:
     properties:
       avatar:
-        $ref: '#/definitions/profile.Image'
+        $ref: '#/definitions/profile.Media'
       bio:
         type: string
       birthday:
@@ -165,17 +167,8 @@ definitions:
         type: boolean
       videos:
         items:
-          $ref: '#/definitions/profile.Video'
+          $ref: '#/definitions/profile.Media'
         type: array
-    type: object
-  profile.Video:
-    properties:
-      ID:
-        type: integer
-      thumbnail_url:
-        type: string
-      url:
-        type: string
     type: object
 host: localhost:8080
 info:

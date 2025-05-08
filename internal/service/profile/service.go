@@ -34,15 +34,10 @@ type City struct {
 	Name string `json:"name"`
 }
 
-type Video struct {
-	ID           int    `json:"ID"`
+type Media struct {
+	ID           int    `json:"id"`
 	URL          string `json:"url"`
 	ThumbnailURL string `json:"thumbnail_url"`
-}
-
-type Image struct {
-	ID  int    `json:"ID"`
-	URL string `json:"url"`
 }
 
 // Profile represents profile data for response
@@ -56,8 +51,8 @@ type Profile struct {
 	LookingForTeam bool      `json:"looking_for_team"`
 	ImprovStyles   []string  `json:"improv_styles,omitempty"`
 	CreatedAt      time.Time `json:"created_at"`
-	Avatar         *Image    `json:"avatar,omitempty"`
-	Videos         []Video   `json:"videos,omitempty"`
+	Avatar         *Media    `json:"avatar,omitempty"`
+	Videos         []Media   `json:"videos,omitempty"`
 }
 
 // ProfileCreateRequest represents data needed to create a profile
@@ -142,32 +137,23 @@ func NewProfileService(profileRepo ProfileRepository, mediaRepo MediaRepository)
 	}
 }
 
-func convertToImage(media *mediarepo.Media) *Image {
+func convertMedia(media *mediarepo.Media) *Media {
 	if media == nil {
 		return nil
 	}
-	return &Image{
-		ID:  media.ID,
-		URL: media.URL,
+	return &Media{
+		ID:           media.ID,
+		URL:          media.URL,
+		ThumbnailURL: media.ThumbnailURL,
 	}
 }
 
-func convertToVideo(media *mediarepo.Media) *Video {
-	if media == nil {
-		return nil
-	}
-	return &Video{
-		ID:  media.ID,
-		URL: media.URL,
-	}
-}
-
-func convertToVideos(mediaList []mediarepo.Media) []Video {
-	videos := make([]Video, len(mediaList))
+func convertMediaList(mediaList []mediarepo.Media) []Media {
+	converted := make([]Media, len(mediaList))
 	for i, media := range mediaList {
-		videos[i] = *convertToVideo(&media)
+		converted[i] = *convertMedia(&media)
 	}
-	return videos
+	return converted
 }
 
 // convertToProfile преобразует данные из репозитория в структуру для ответа
@@ -182,8 +168,8 @@ func convertToProfile(profile *profilerepo.ProfileModel, styles []string, avatar
 		LookingForTeam: profile.LookingForTeam,
 		ImprovStyles:   styles,
 		CreatedAt:      profile.CreatedAt,
-		Avatar:         convertToImage(avatar),
-		Videos:         convertToVideos(videos),
+		Avatar:         convertMedia(avatar),
+		Videos:         convertMediaList(videos),
 	}
 }
 

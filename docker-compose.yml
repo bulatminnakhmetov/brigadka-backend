@@ -52,8 +52,8 @@ services:
     entrypoint: >
       /bin/sh -c "
         mc alias set minio https://minio:9000 ${B2_ACCESS_KEY_ID:?B2_ACCESS_KEY_ID is not set} ${B2_SECRET_ACCESS_KEY:?B2_SECRET_ACCESS_KEY is not set} &&
-        mc mb -p minio/${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set} || true
-        mc policy set download minio/${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set}
+        (mc mb -p minio/${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set} || true) &&
+        mc anonymous set download minio/${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set}
       "
 
   migrations:
@@ -89,6 +89,7 @@ services:
       - B2_SECRET_ACCESS_KEY=${B2_SECRET_ACCESS_KEY:?B2_SECRET_ACCESS_KEY is not set}
       - B2_ENDPOINT=${B2_ENDPOINT:?B2_ENDPOINT is not set}
       - B2_BUCKET_NAME=${B2_BUCKET_NAME:?B2_BUCKET_NAME is not set}
+      - B2_PUBLIC_ENDPOINT=${B2_PUBLIC_ENDPOINT:-}
       - CLOUDFLARE_CDN_DOMAIN=${CLOUDFLARE_CDN_DOMAIN}
     depends_on:
       migrations:

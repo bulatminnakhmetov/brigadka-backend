@@ -820,11 +820,14 @@ const docTemplate = `{
                 }
             }
         },
-        "profile.Image": {
+        "profile.Media": {
             "type": "object",
             "properties": {
-                "ID": {
+                "id": {
                     "type": "integer"
+                },
+                "thumbnail_url": {
+                    "type": "string"
                 },
                 "url": {
                     "type": "string"
@@ -835,7 +838,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "avatar": {
-                    "$ref": "#/definitions/profile.Image"
+                    "$ref": "#/definitions/profile.Media"
                 },
                 "bio": {
                     "type": "string"
@@ -870,22 +873,8 @@ const docTemplate = `{
                 "videos": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/profile.Video"
+                        "$ref": "#/definitions/profile.Media"
                     }
-                }
-            }
-        },
-        "profile.Video": {
-            "type": "object",
-            "properties": {
-                "ID": {
-                    "type": "integer"
-                },
-                "thumbnail_url": {
-                    "type": "string"
-                },
-                "url": {
-                    "type": "string"
                 }
             }
         }

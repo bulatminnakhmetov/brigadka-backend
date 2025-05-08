@@ -57,8 +57,8 @@ type ProfileResponse struct {
 	Goal           string          `json:"goal,omitempty"`
 	LookingForTeam bool            `json:"looking_for_team"`
 	ImprovStyles   []string        `json:"improv_styles,omitempty"`
-	Avatar         *profile.Image  `json:"avatar,omitempty"`
-	Videos         []profile.Video `json:"videos,omitempty"`
+	Avatar         *profile.Media  `json:"avatar,omitempty"`
+	Videos         []profile.Media `json:"videos,omitempty"`
 }
 
 // ProfileCreateRequest represents data needed to create a profile
@@ -290,7 +290,7 @@ func (h *ProfileHandler) UpdateProfile(w http.ResponseWriter, r *http.Request) {
 // @Tags         profile
 // @Produce      json
 // @Param        userID  path  int  true  "User ID"
-// @Success      200  {object}  profile.Profile
+// @Success      200  {object}  ProfileResponse
 // @Failure      400  {string}  string  "Invalid user ID"
 // @Failure      404  {string}  string  "Profile not found"
 // @Failure      500  {string}  string  "Server error"

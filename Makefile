@@ -119,22 +119,62 @@ start-debug-env: prepare-debug-env
 generate-local-ca:
 	@echo "🔧 \033[1;34mГенерируем CA и серверные сертификаты...\033[0m"
 	# Создаём директории для CA и MinIO сертификатов
-	mkdir -p certs/ca certs/minio
-	# Генерируем приватный ключ CA
-	openssl genrsa -out certs/ca/ca.key 4096
-	# Генерируем самоподписанный CA сертификат
-	openssl req -x509 -new -nodes -key certs/ca/ca.key -sha256 -days 3650 -out certs/ca/ca.crt -subj "/C=RU/ST=Local/L=Local/O=Local CA/CN=Local CA"
-	# Генерируем приватный ключ для MinIO
-	openssl genrsa -out certs/minio/private.key 4096
+	mkdir -p certs/ca certs/minio certs/android
+	# Генерируем приватный ключ CA, если не существует
+	@if [ ! -f certs/ca/ca.key ]; then \
+		openssl genrsa -out certs/ca/ca.key 4096; \
+	else \
+		echo "CA private key already exists, skipping..."; \
+	fi
+	# Генерируем самоподписанный CA сертификат, если не существует
+	@if [ ! -f certs/ca/ca.crt ]; then \
+		openssl req -x509 -new -nodes -key certs/ca/ca.key -sha256 -days 3650 -out certs/ca/ca.crt -subj "/C=RU/ST=Local/L=Local/O=Local CA/CN=Local CA"; \
+	else \
+		echo "CA certificate already exists, skipping..."; \
+	fi
+	# Генерируем приватный ключ для MinIO, если не существует
+	@if [ ! -f certs/minio/private.key ]; then \
+		openssl genrsa -out certs/minio/private.key 4096; \
+	else \
+		echo "MinIO private key already exists, skipping..."; \
+	fi
 	# Все команды выполняем в одном блоке shell
 	@( \
 		DOCKER_HOST_IP=127.0.0.1; \
 		echo "Using DOCKER_HOST_IP=$$DOCKER_HOST_IP"; \
 		cat certs/minio/openssl.cnf.template | sed "s/{{DOCKER_HOST_IP}}/$$DOCKER_HOST_IP/g" > certs/minio/openssl.cnf; \
-		openssl req -new -key certs/minio/private.key -out certs/minio/minio.csr -subj "/C=RU/ST=Local/L=Local/O=MinIO/CN=minio" -config certs/minio/openssl.cnf; \
-		openssl x509 -req -in certs/minio/minio.csr -CA certs/ca/ca.crt -CAkey certs/ca/ca.key -CAcreateserial -out certs/minio/public.crt -days 3650 -sha256 -extensions v3_req -extfile certs/minio/openssl.cnf; \
+		if [ ! -f certs/minio/minio.csr ]; then \
+			openssl req -new -key certs/minio/private.key -out certs/minio/minio.csr -subj "/C=RU/ST=Local/L=Local/O=MinIO/CN=minio" -config certs/minio/openssl.cnf; \
+		else \
+			echo "MinIO CSR already exists, skipping..."; \
+		fi; \
+		if [ ! -f certs/minio/public.crt ]; then \
+			openssl x509 -req -in certs/minio/minio.csr -CA certs/ca/ca.crt -CAkey certs/ca/ca.key -CAcreateserial -out certs/minio/public.crt -days 3650 -sha256 -extensions v3_req -extfile certs/minio/openssl.cnf; \
+		else \
+			echo "MinIO certificate already exists, skipping..."; \
+		fi; \
 	)
-	@echo "✅ \033[1;32mГотово! CA и серверные сертификаты лежат в certs/ca и certs/minio\033[0m"
+	# Генерируем DER-файлы для Android, если не существуют
+	@if [ ! -f certs/android/ca.der ]; then \
+		openssl x509 -in certs/ca/ca.crt -out certs/android/ca.der -outform DER; \
+	else \
+		echo "Android CA DER already exists, skipping..."; \
+	fi
+	@echo "✅ \033[1;32mГотово! CA, серверные и Android DER сертификаты лежат в certs/ca, certs/minio и certs/android\033[0m"
+
+
+# --- Установка сертификатор в Android эмулятор ---
+install-ca-android:
+	@echo "🔧 \033[1;34mУстанавливаем CA сертификат в Android эмулятор...\033[0m"
+	adb root
+	adb remount
+	# Получаем hash и переименовываем файл локально
+	@HASH=$$(openssl x509 -inform DER -subject_hash_old -in certs/android/ca.der | head -1); \
+	cp certs/android/ca.der certs/android/$$HASH.0; \
+	adb push certs/android/$$HASH.0 /system/etc/security/cacerts/$$HASH.0
+	adb shell 'chmod 644 /system/etc/security/cacerts/*.0'
+	adb reboot
+	@echo "✅ \033[1;32mГотово! CA сертификат установлен в Android эмулятор\033[0m"
 
 # --- Запуск Github Actions локально через act ---
 run-gh-actions:

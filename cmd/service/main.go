@@ -105,17 +105,17 @@ func main() {
 	_ = godotenv.Load()
 	// Загрузка конфигурации из переменных окружения
 	dbConfig := &database.Config{
-		Host:     getEnv("DB_HOST", ""),
+		Host:     getEnv("DB_HOST", nil),
 		Port:     getEnvAsInt("DB_PORT", 5432),
-		User:     getEnv("DB_USER", ""),
-		Password: getEnv("DB_PASSWORD", ""),
-		DBName:   getEnv("DB_NAME", ""),
-		SSLMode:  getEnv("DB_SSL_MODE", "disable"),
+		User:     getEnv("DB_USER", nil),
+		Password: getEnv("DB_PASSWORD", nil),
+		DBName:   getEnv("DB_NAME", nil),
+		SSLMode:  getEnv("DB_SSL_MODE", ptr("disable")),
 	}
 
-	jwtSecret := getEnv("JWT_SECRET", "")
-	serverPort := getEnv("SERVER_PORT", "8080")
-	appVersion := getEnv("APP_VERSION", "dev")
+	jwtSecret := getEnv("JWT_SECRET", nil)
+	serverPort := getEnv("SERVER_PORT", ptr("8080"))
+	appVersion := getEnv("APP_VERSION", ptr("dev"))
 
 	// Подключение к базе данных
 	db, err := database.NewConnection(dbConfig)
@@ -126,12 +126,13 @@ func main() {
 
 	// Инициализация S3-совместимого хранилища для Backblaze B2
 	s3Storage, err := mediastorage.NewS3StorageProvider(
-		getEnv("B2_ACCESS_KEY_ID", ""),
-		getEnv("B2_SECRET_ACCESS_KEY", ""),
-		getEnv("B2_ENDPOINT", ""), // Выберите нужный регион
-		getEnv("B2_BUCKET_NAME", ""),
-		getEnv("CLOUDFLARE_CDN_DOMAIN", ""),
+		getEnv("B2_ACCESS_KEY_ID", nil),
+		getEnv("B2_SECRET_ACCESS_KEY", nil),
+		getEnv("B2_ENDPOINT", nil), // Выберите нужный регион
+		getEnv("B2_BUCKET_NAME", nil),
+		getEnv("CLOUDFLARE_CDN_DOMAIN", nil),
 		"media", // Путь для загрузки в бакете
+		getEnv("B2_PUBLIC_ENDPOINT", ptr("")),
 	)
 	if err != nil {
 		log.Fatalf("Failed to initialize S3 storage: %v", err)
@@ -185,7 +186,7 @@ func main() {
 			"status":      "healthy",
 			"version":     appVersion,
 			"timestamp":   time.Now().Format(time.RFC3339),
-			"environment": getEnv("APP_ENV", "development"),
+			"environment": getEnv("APP_ENV", ptr("development")),
 			"services": map[string]interface{}{
 				"database": map[string]interface{}{
 					"status": "connected",
@@ -297,14 +298,14 @@ func main() {
 }
 
 // Вспомогательные функции для работы с переменными окружения
-func getEnv(key, fallback string) string {
+func getEnv(key string, fallback *string) string {
 	if value, exists := os.LookupEnv(key); exists {
 		return value
 	}
-	if fallback == "" {
+	if fallback == nil {
 		panic(fmt.Sprintf("Environment variable %s is not set and no fallback provided", key))
 	}
-	return fallback
+	return *fallback
 }
 
 func getEnvAsInt(key string, fallback int) int {
@@ -315,4 +316,8 @@ func getEnvAsInt(key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+func ptr[T any](val T) *T {
+	return &val
 }

@@ -16,3 +16,4 @@ subjectAltName = @alt_names
 [ alt_names ]
 DNS.1 = minio
 IP.1 = {{DOCKER_HOST_IP}}
+IP.2 = 10.0.2.2

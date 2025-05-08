@@ -21,16 +21,17 @@ type MinioClient interface {
 
 // S3StorageProvider представляет провайдер хранилища для S3-совместимых сервисов (включая Backblaze B2)
 type S3StorageProvider struct {
-	client      MinioClient // Заменили *minio.Client на интерфейс
-	bucketName  string
-	cdnDomain   string // Домен Cloudflare CDN
-	endpoint    string // S3-совместимый эндпоинт
-	uploadPath  string // Путь для загрузки в бакете
-	contentType map[string]string
+	client         MinioClient // Заменили *minio.Client на интерфейс
+	bucketName     string
+	cdnDomain      string // Домен Cloudflare CDN
+	endpoint       string // S3-совместимый эндпоинт
+	uploadPath     string // Путь для загрузки в бакете
+	contentType    map[string]string
+	publicEndpoint string // Публичный эндпоинт для Android-эмуляторов
 }
 
 // NewS3StorageProvider создает новый экземпляр S3StorageProvider для работы с Backblaze B2
-func NewS3StorageProvider(accessKeyID, secretAccessKey, endpoint, bucketName, cdnDomain, uploadPath string) (*S3StorageProvider, error) {
+func NewS3StorageProvider(accessKeyID, secretAccessKey, endpoint, bucketName, cdnDomain, uploadPath string, publicEndpoint string) (*S3StorageProvider, error) {
 	// Инициализируем клиент MinIO для работы с S3-совместимым API
 	// Для Backblaze B2 используем endpoint: s3.us-west-004.backblazeb2.com (или другой регион)
 	client, err := minio.New(endpoint, &minio.Options{
@@ -63,12 +64,13 @@ func NewS3StorageProvider(accessKeyID, secretAccessKey, endpoint, bucketName, cd
 	}
 
 	return &S3StorageProvider{
-		client:      client,
-		bucketName:  bucketName,
-		cdnDomain:   cdnDomain,
-		endpoint:    endpoint,
-		uploadPath:  uploadPath,
-		contentType: contentTypes,
+		client:         client,
+		bucketName:     bucketName,
+		cdnDomain:      cdnDomain,
+		endpoint:       endpoint,
+		uploadPath:     uploadPath,
+		contentType:    contentTypes,
+		publicEndpoint: publicEndpoint,
 	}, nil
 }
 
@@ -122,6 +124,11 @@ func (s *S3StorageProvider) GetFileURL(fileName string) string {
 	// Если указан CDN домен, используем его
 	if s.cdnDomain != "" {
 		return fmt.Sprintf("https://%s/%s", s.cdnDomain, fileName)
+	}
+
+	// Если указан публичный эндпоинт (для Android-эмуляторов), используем его
+	if s.publicEndpoint != "" {
+		return fmt.Sprintf("https://%s/%s/%s", s.publicEndpoint, s.bucketName, fileName)
 	}
 
 	// Иначе используем прямую ссылку на S3-совместимое хранилище
