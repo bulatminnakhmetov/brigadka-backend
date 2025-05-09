@@ -565,6 +565,52 @@
                 }
             }
         },
+        "/profiles/search": {
+            "post": {
+                "description": "Search for profiles with various filters",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "profile"
+                ],
+                "summary": "Search Profiles",
+                "parameters": [
+                    {
+                        "description": "Search filters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/profile.SearchRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/profile.SearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Server error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/profiles/{userID}": {
             "get": {
                 "description": "Retrieves a user profile by ID",
@@ -588,7 +634,7 @@
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/profile.Profile"
+                            "$ref": "#/definitions/profile.ProfileResponse"
                         }
                     },
                     "400": {
@@ -869,6 +915,114 @@
                     "items": {
                         "$ref": "#/definitions/profile.Media"
                     }
+                }
+            }
+        },
+        "profile.ProfileResponse": {
+            "type": "object",
+            "properties": {
+                "avatar": {
+                    "$ref": "#/definitions/profile.Media"
+                },
+                "bio": {
+                    "type": "string"
+                },
+                "birthday": {
+                    "$ref": "#/definitions/profile.Date"
+                },
+                "city_id": {
+                    "type": "integer"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "improv_styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "looking_for_team": {
+                    "type": "boolean"
+                },
+                "videos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/profile.Media"
+                    }
+                }
+            }
+        },
+        "profile.SearchRequest": {
+            "type": "object",
+            "properties": {
+                "age_max": {
+                    "type": "integer"
+                },
+                "age_min": {
+                    "type": "integer"
+                },
+                "city_id": {
+                    "type": "integer"
+                },
+                "created_after": {
+                    "type": "string"
+                },
+                "full_name": {
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "goal": {
+                    "type": "string"
+                },
+                "has_avatar": {
+                    "type": "boolean"
+                },
+                "has_video": {
+                    "type": "boolean"
+                },
+                "improv_styles": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "looking_for_team": {
+                    "type": "boolean"
+                },
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                }
+            }
+        },
+        "profile.SearchResponse": {
+            "type": "object",
+            "properties": {
+                "page": {
+                    "type": "integer"
+                },
+                "page_size": {
+                    "type": "integer"
+                },
+                "profiles": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/profile.ProfileResponse"
+                    }
+                },
+                "total_count": {
+                    "type": "integer"
                 }
             }
         }

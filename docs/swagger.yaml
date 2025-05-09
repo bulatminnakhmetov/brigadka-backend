@@ -170,6 +170,77 @@ definitions:
           $ref: '#/definitions/profile.Media'
         type: array
     type: object
+  profile.ProfileResponse:
+    properties:
+      avatar:
+        $ref: '#/definitions/profile.Media'
+      bio:
+        type: string
+      birthday:
+        $ref: '#/definitions/profile.Date'
+      city_id:
+        type: integer
+      full_name:
+        type: string
+      gender:
+        type: string
+      goal:
+        type: string
+      improv_styles:
+        items:
+          type: string
+        type: array
+      looking_for_team:
+        type: boolean
+      videos:
+        items:
+          $ref: '#/definitions/profile.Media'
+        type: array
+    type: object
+  profile.SearchRequest:
+    properties:
+      age_max:
+        type: integer
+      age_min:
+        type: integer
+      city_id:
+        type: integer
+      created_after:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      goal:
+        type: string
+      has_avatar:
+        type: boolean
+      has_video:
+        type: boolean
+      improv_styles:
+        items:
+          type: string
+        type: array
+      looking_for_team:
+        type: boolean
+      page:
+        type: integer
+      page_size:
+        type: integer
+    type: object
+  profile.SearchResponse:
+    properties:
+      page:
+        type: integer
+      page_size:
+        type: integer
+      profiles:
+        items:
+          $ref: '#/definitions/profile.ProfileResponse'
+        type: array
+      total_count:
+        type: integer
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -461,7 +532,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/profile.Profile'
+            $ref: '#/definitions/profile.ProfileResponse'
         "400":
           description: Invalid user ID
           schema:
@@ -568,6 +639,36 @@ paths:
       summary: Get Improv Styles
       tags:
       - catalog
+  /profiles/search:
+    post:
+      consumes:
+      - application/json
+      description: Search for profiles with various filters
+      parameters:
+      - description: Search filters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/profile.SearchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.SearchResponse'
+        "400":
+          description: Invalid request
+          schema:
+            type: string
+        "500":
+          description: Server error
+          schema:
+            type: string
+      summary: Search Profiles
+      tags:
+      - profile
 securityDefinitions:
   BearerAuth:
     description: Type "Bearer" followed by a space and JWT token.
