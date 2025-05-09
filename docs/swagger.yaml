@@ -180,6 +180,8 @@ definitions:
         $ref: '#/definitions/profile.Date'
       city_id:
         type: integer
+      created_at:
+        type: string
       full_name:
         type: string
       gender:
@@ -209,10 +211,14 @@ definitions:
         type: string
       full_name:
         type: string
-      gender:
-        type: string
-      goal:
-        type: string
+      genders:
+        items:
+          type: string
+        type: array
+      goals:
+        items:
+          type: string
+        type: array
       has_avatar:
         type: boolean
       has_video:

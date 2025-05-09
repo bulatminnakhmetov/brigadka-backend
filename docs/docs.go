@@ -939,6 +939,9 @@ const docTemplate = `{
                 "city_id": {
                     "type": "integer"
                 },
+                "created_at": {
+                    "type": "string"
+                },
                 "full_name": {
                     "type": "string"
                 },
@@ -983,11 +986,17 @@ const docTemplate = `{
                 "full_name": {
                     "type": "string"
                 },
-                "gender": {
-                    "type": "string"
+                "genders": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
-                "goal": {
-                    "type": "string"
+                "goals": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "has_avatar": {
                     "type": "boolean"
