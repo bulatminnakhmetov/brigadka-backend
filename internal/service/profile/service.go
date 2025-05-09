@@ -125,18 +125,18 @@ type ProfileRepository interface {
 	SearchProfiles(
 		fullName *string,
 		lookingForTeam *bool,
-		goal *string,
+		goals []string,
 		improvStyles []string,
 		birthDateMin *time.Time,
 		birthDateMax *time.Time,
-		gender *string,
+		genders []string,
 		cityID *int,
 		hasAvatar *bool,
 		hasVideo *bool,
 		createdAfter *time.Time,
 		page int,
 		pageSize int,
-	) ([]*profile.ProfileModel, int, error)
+	) ([]*profilerepo.ProfileModel, int, error)
 }
 
 // ProfileServiceImpl реализует интерфейс ProfileService

@@ -37,6 +37,7 @@ type TestProfile struct {
 	LookingForTeam bool
 	HasAvatar      bool
 	HasVideo       bool
+	CreatedAt      time.Time
 }
 
 // ProfileTemplate defines a template for creating test profiles
@@ -226,10 +227,6 @@ func (s *ProfileSearchTestSuite) getStandardProfileTemplates() []ProfileTemplate
 
 // Create test profiles based on templates
 func (s *ProfileSearchTestSuite) createTestProfiles(t *testing.T, templates []ProfileTemplate) ([]TestProfile, time.Time) {
-	// Record creation time for filtering
-	createdAfter := time.Now().UTC()
-	time.Sleep(10 * time.Millisecond) // Ensure timestamp separation
-
 	testProfiles := make([]TestProfile, len(templates))
 
 	for i, p := range templates {
@@ -273,8 +270,13 @@ func (s *ProfileSearchTestSuite) createTestProfiles(t *testing.T, templates []Pr
 		client := &http.Client{}
 		resp, err := client.Do(req)
 		assert.NoError(t, err)
-		resp.Body.Close()
+		defer resp.Body.Close()
+
 		assert.Equal(t, http.StatusCreated, resp.StatusCode)
+
+		var profileResp profile.ProfileResponse
+		err = json.NewDecoder(resp.Body).Decode(&profileResp)
+		assert.NoError(t, err)
 
 		// Store test profile data
 		testProfiles[i] = TestProfile{
@@ -291,10 +293,16 @@ func (s *ProfileSearchTestSuite) createTestProfiles(t *testing.T, templates []Pr
 			LookingForTeam: p.LookingForTeam,
 			HasAvatar:      p.HasAvatar,
 			HasVideo:       p.HasVideo,
+			CreatedAt:      profileResp.CreatedAt,
 		}
 	}
 
-	return testProfiles, createdAfter
+	if len(testProfiles) > 0 {
+		// Use the earliest created profile's creation time for filtering
+		return testProfiles, testProfiles[0].CreatedAt
+	}
+
+	return nil, time.Time{}
 }
 
 // Helper function to execute a search request
@@ -430,70 +438,6 @@ func (s *ProfileSearchTestSuite) TestSearchByLookingForTeam() {
 	assert.Equal(t, 2, len(result.Profiles))
 }
 
-// TestSearchByGoal tests searching profiles by goal
-func (s *ProfileSearchTestSuite) TestSearchByGoal() {
-	t := s.T()
-
-	// Create test profiles just for this test
-	_, createdAfter := s.createTestProfiles(t, s.getStandardProfileTemplates())
-
-	// Find profiles with hobby goal
-	filter := map[string]interface{}{
-		"goal":          "hobby",
-		"created_after": createdAfter,
-		"page":          1,
-		"page_size":     10,
-	}
-
-	result, err := s.executeSearch(filter)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, len(result.Profiles))
-
-	// Find profiles with career goal
-	filter["goal"] = "career"
-	result, err = s.executeSearch(filter)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, len(result.Profiles))
-
-	// Find profiles with experiment goal
-	filter["goal"] = "experiment"
-	result, err = s.executeSearch(filter)
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(result.Profiles))
-}
-
-// TestSearchByImprovStyles tests searching profiles by improv styles
-func (s *ProfileSearchTestSuite) TestSearchByImprovStyles() {
-	t := s.T()
-
-	// Create test profiles just for this test
-	_, createdAfter := s.createTestProfiles(t, s.getStandardProfileTemplates())
-
-	// Find profiles with shortform style
-	filter := map[string]interface{}{
-		"improv_styles": []string{"shortform"},
-		"created_after": createdAfter,
-		"page":          1,
-		"page_size":     10,
-	}
-
-	result, err := s.executeSearch(filter)
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(result.Profiles), 3)
-
-	// Find profiles with longform style
-	filter["improv_styles"] = []string{"longform"}
-	result, err = s.executeSearch(filter)
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(result.Profiles), 3)
-
-	// Find profiles with both styles
-	filter["improv_styles"] = []string{"shortform", "longform"}
-	result, err = s.executeSearch(filter)
-	assert.NoError(t, err)
-	assert.GreaterOrEqual(t, len(result.Profiles), 1)
-}
-
 // TestSearchByAge tests searching profiles by age range
 func (s *ProfileSearchTestSuite) TestSearchByAge() {
 	t := s.T()
@@ -537,40 +481,6 @@ func (s *ProfileSearchTestSuite) TestSearchByAge() {
 	for _, profile := range result.Profiles {
 		age := time.Now().Year() - profile.Birthday.Year()
 		assert.GreaterOrEqual(t, age, 30)
-	}
-}
-
-// TestSearchByGender tests searching profiles by gender
-func (s *ProfileSearchTestSuite) TestSearchByGender() {
-	t := s.T()
-
-	// Create test profiles just for this test
-	_, createdAfter := s.createTestProfiles(t, s.getStandardProfileTemplates())
-
-	// Find profiles with male gender
-	filter := map[string]interface{}{
-		"gender":        "male",
-		"created_after": createdAfter,
-		"page":          1,
-		"page_size":     10,
-	}
-
-	result, err := s.executeSearch(filter)
-	assert.NoError(t, err)
-	assert.Equal(t, 2, len(result.Profiles))
-
-	for _, profile := range result.Profiles {
-		assert.Equal(t, "male", profile.Gender)
-	}
-
-	// Find profiles with female gender
-	filter["gender"] = "female"
-	result, err = s.executeSearch(filter)
-	assert.NoError(t, err)
-	assert.Equal(t, 3, len(result.Profiles))
-
-	for _, profile := range result.Profiles {
-		assert.Equal(t, "female", profile.Gender)
 	}
 }
 
@@ -690,7 +600,7 @@ func (s *ProfileSearchTestSuite) TestCombinedFilters() {
 	// Find female profiles in Moscow with avatar who are looking for a team
 	lookingTrue := true
 	filter := map[string]interface{}{
-		"gender":           "female",
+		"genders":          []string{"female"},
 		"city_id":          1,
 		"has_avatar":       true,
 		"looking_for_team": lookingTrue,
@@ -706,7 +616,7 @@ func (s *ProfileSearchTestSuite) TestCombinedFilters() {
 
 	// Find male profiles with career goal and video
 	filter = map[string]interface{}{
-		"gender":        "male",
+		"genders":       []string{"male"},
 		"goal":          "career",
 		"has_video":     true,
 		"created_after": createdAfter,
@@ -794,61 +704,29 @@ func (s *ProfileSearchTestSuite) TestPagination() {
 func (s *ProfileSearchTestSuite) TestSearchByCreatedAfter() {
 	t := s.T()
 
-	// Create standard profiles first
-	_, initialCreationTime := s.createTestProfiles(t, s.getStandardProfileTemplates())
+	_, firstCreationTime := s.createTestProfiles(t, s.getStandardProfileTemplates())
 
-	// Record timestamp before creating a new profile
-	beforeCreation := time.Now().UTC()
-	time.Sleep(1 * time.Second) // Ensure timestamps are clearly different
+	time.Sleep(1 * time.Second)
 
-	// Create a new standalone profile for this test
-	authToken, userID := s.registerTestUser(t)
-	birthday := time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC)
-
-	profileData := map[string]interface{}{
-		"user_id":          userID,
-		"full_name":        "Recent User",
-		"birthday":         birthday.Format("2006-01-02"),
-		"gender":           "female",
-		"city_id":          1,
-		"bio":              "Recently created profile",
-		"goal":             "hobby",
-		"improv_styles":    []string{"shortform"},
-		"looking_for_team": true,
-	}
-
-	reqBody, _ := json.Marshal(profileData)
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/profiles", s.appUrl), bytes.NewBuffer(reqBody))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+authToken)
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	resp.Body.Close()
-	assert.Equal(t, http.StatusCreated, resp.StatusCode)
-
-	// Sleep briefly to ensure creation timestamp is fully registered
-	time.Sleep(10 * time.Millisecond)
+	_, secondCreationTime := s.createTestProfiles(t, s.getStandardProfileTemplates())
 
 	// Test 1: Should find only the new profile when filtering by creation time
 	filter := map[string]interface{}{
-		"created_after": beforeCreation,
+		"created_after": secondCreationTime,
 		"page":          1,
 		"page_size":     10,
 	}
 
 	result, err := s.executeSearch(filter)
 	assert.NoError(t, err)
-	assert.Equal(t, 1, len(result.Profiles))
-	assert.Equal(t, "Recent User", result.Profiles[0].FullName)
+	assert.Equal(t, 5, len(result.Profiles))
 
 	// Test 2: Should find original profiles when using initial creation time
-	filter["created_after"] = initialCreationTime
+	filter["created_after"] = firstCreationTime
 
 	result, err = s.executeSearch(filter)
 	assert.NoError(t, err)
-	assert.Equal(t, 6, len(result.Profiles)) // 5 standard + 1 new profile
+	assert.Equal(t, 10, len(result.Profiles)) // 5 before + 5 after
 
 	// Test 3: Should find no profiles when using a future timestamp
 	futureTime := time.Now().Add(1 * time.Hour)
@@ -857,6 +735,186 @@ func (s *ProfileSearchTestSuite) TestSearchByCreatedAfter() {
 	result, err = s.executeSearch(filter)
 	assert.NoError(t, err)
 	assert.Equal(t, 0, len(result.Profiles))
+}
+
+// Add these new test methods after the existing tests:
+
+// TestSearchByMultipleGenders tests searching profiles with multiple gender options (OR logic)
+func (s *ProfileSearchTestSuite) TestSearchByMultipleGenders() {
+	t := s.T()
+
+	// Create test profiles just for this test
+	_, createdAfter := s.createTestProfiles(t, s.getStandardProfileTemplates())
+
+	// Find profiles with male OR female gender - should match all profiles
+	filter := map[string]interface{}{
+		"genders":       []string{"male", "female"},
+		"created_after": createdAfter,
+		"page":          1,
+		"page_size":     10,
+	}
+
+	result, err := s.executeSearch(filter)
+	assert.NoError(t, err)
+	assert.Equal(t, 5, len(result.Profiles)) // Should find all 5 test profiles
+
+	// Verify that each profile has one of the requested genders
+	for _, profile := range result.Profiles {
+		assert.Contains(t, []string{"male", "female"}, profile.Gender)
+	}
+
+	// Find profiles with just male gender
+	filter["genders"] = []string{"male"}
+	result, err = s.executeSearch(filter)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(result.Profiles))
+
+	for _, profile := range result.Profiles {
+		assert.Equal(t, "male", profile.Gender)
+	}
+}
+
+// TestSearchByMultipleGoals tests searching profiles with multiple goal options (OR logic)
+func (s *ProfileSearchTestSuite) TestSearchByMultipleGoals() {
+	t := s.T()
+
+	// Create test profiles just for this test
+	_, createdAfter := s.createTestProfiles(t, s.getStandardProfileTemplates())
+
+	// Find profiles with either hobby OR career goals
+	filter := map[string]interface{}{
+		"goals":         []string{"hobby", "career"},
+		"created_after": createdAfter,
+		"page":          1,
+		"page_size":     10,
+	}
+
+	result, err := s.executeSearch(filter)
+	assert.NoError(t, err)
+	assert.Equal(t, 4, len(result.Profiles)) // Should find 4 profiles with hobby or career goals
+
+	// Verify that each returned profile has one of the requested goals
+	for _, profile := range result.Profiles {
+		assert.Contains(t, []string{"hobby", "career"}, profile.Goal)
+	}
+
+	// Find profiles with hobby, career, OR experiment goals (should include all 5 profiles)
+	filter["goals"] = []string{"hobby", "career", "experiment"}
+	result, err = s.executeSearch(filter)
+	assert.NoError(t, err)
+	assert.Equal(t, 5, len(result.Profiles)) // Should find all 5 profiles
+}
+
+// TestSearchByMultipleImprovStyles tests searching profiles with multiple improv style options (AND logic)
+func (s *ProfileSearchTestSuite) TestSearchByMultipleImprovStyles() {
+	t := s.T()
+
+	// Create test profiles just for this test
+	_, createdAfter := s.createTestProfiles(t, s.getStandardProfileTemplates())
+
+	// Find profiles with BOTH shortform AND longform styles
+	filter := map[string]interface{}{
+		"improv_styles": []string{"shortform", "longform"},
+		"created_after": createdAfter,
+		"page":          1,
+		"page_size":     10,
+	}
+
+	result, err := s.executeSearch(filter)
+	assert.NoError(t, err)
+
+	// Should find only Alice who has both styles
+	assert.Equal(t, 1, len(result.Profiles))
+	assert.Equal(t, "Alice Johnson", result.Profiles[0].FullName)
+
+	// Verify Alice has both requested styles
+	var hasShortform, hasLongform bool
+	for _, style := range result.Profiles[0].ImprovStyles {
+		if style == "shortform" {
+			hasShortform = true
+		}
+		if style == "longform" {
+			hasLongform = true
+		}
+	}
+	assert.True(t, hasShortform, "Profile should have shortform style")
+	assert.True(t, hasLongform, "Profile should have longform style")
+
+	// Test with just one style - should return all profiles with that style
+	filter["improv_styles"] = []string{"shortform"}
+	result, err = s.executeSearch(filter)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, len(result.Profiles))
+
+	for _, profile := range result.Profiles {
+		hasStyle := false
+		for _, style := range profile.ImprovStyles {
+			if style == "shortform" {
+				hasStyle = true
+				break
+			}
+		}
+		assert.True(t, hasStyle, "Profile should have shortform style")
+	}
+}
+
+// TestComplexCombinedFilters tests searching with a complex combination of multiple filters
+func (s *ProfileSearchTestSuite) TestComplexCombinedFilters() {
+	t := s.T()
+
+	// Create test profiles just for this test
+	_, createdAfter := s.createTestProfiles(t, s.getStandardProfileTemplates())
+
+	// Complex search for:
+	// - Profiles looking for a team
+	// - With either hobby or career goals
+	// - With shortform style
+	// - Either male or female gender
+	// - In Moscow (city_id = 1)
+	lookingTrue := true
+	filter := map[string]interface{}{
+		"looking_for_team": lookingTrue,
+		"goals":            []string{"hobby", "career"},
+		"improv_styles":    []string{"shortform"},
+		"genders":          []string{"male", "female"},
+		"city_id":          1,
+		"created_after":    createdAfter,
+		"page":             1,
+		"page_size":        10,
+	}
+
+	result, err := s.executeSearch(filter)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(result.Profiles))
+
+	// Should return profiles that match ALL these criteria
+	for _, profile := range result.Profiles {
+		assert.Equal(t, 1, profile.CityID)
+		assert.True(t, profile.LookingForTeam)
+		assert.Contains(t, []string{"hobby", "career"}, profile.Goal)
+		assert.Contains(t, []string{"male", "female"}, profile.Gender)
+
+		hasShortform := false
+		for _, style := range profile.ImprovStyles {
+			if style == "shortform" {
+				hasShortform = true
+				break
+			}
+		}
+		assert.True(t, hasShortform)
+	}
+
+	// Even more specific search: add an age constraint
+	filter["age_min"] = 25
+	filter["age_max"] = 30
+	result, err = s.executeSearch(filter)
+	assert.NoError(t, err)
+
+	for _, profile := range result.Profiles {
+		age := time.Now().Year() - profile.Birthday.Year()
+		assert.GreaterOrEqual(t, age, 25)
+		assert.LessOrEqual(t, age, 30)
+	}
 }
 
 // TestProfileSearch runs the profile search test suite

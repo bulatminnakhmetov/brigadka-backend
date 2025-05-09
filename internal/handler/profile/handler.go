@@ -59,6 +59,7 @@ type ProfileResponse struct {
 	ImprovStyles   []string        `json:"improv_styles,omitempty"`
 	Avatar         *profile.Media  `json:"avatar,omitempty"`
 	Videos         []profile.Media `json:"videos,omitempty"`
+	CreatedAt      time.Time       `json:"created_at,omitempty"`
 }
 
 // ProfileCreateRequest represents data needed to create a profile
@@ -94,11 +95,11 @@ type ProfileUpdateRequest struct {
 type SearchRequest struct {
 	FullName       *string    `json:"full_name,omitempty"`
 	LookingForTeam *bool      `json:"looking_for_team,omitempty"`
-	Goal           *string    `json:"goal,omitempty"`
+	Goals          []string   `json:"goals,omitempty"`
 	ImprovStyles   []string   `json:"improv_styles,omitempty"`
 	AgeMin         *int       `json:"age_min,omitempty"`
 	AgeMax         *int       `json:"age_max,omitempty"`
-	Gender         *string    `json:"gender,omitempty"`
+	Genders        []string   `json:"genders,omitempty"`
 	CityID         *int       `json:"city_id,omitempty"`
 	HasAvatar      *bool      `json:"has_avatar,omitempty"`
 	HasVideo       *bool      `json:"has_video,omitempty"`
@@ -189,6 +190,7 @@ func convertToProfileResponse(profile *profile.Profile) ProfileResponse {
 		LookingForTeam: profile.LookingForTeam,
 		Avatar:         profile.Avatar,
 		Videos:         profile.Videos,
+		CreatedAt:      profile.CreatedAt,
 	}
 }
 
@@ -483,11 +485,11 @@ func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) 
 	filter := profile.SearchFilter{
 		FullName:       req.FullName,
 		LookingForTeam: req.LookingForTeam,
-		Goal:           req.Goal,
+		Goals:          req.Goals,
 		ImprovStyles:   req.ImprovStyles,
 		AgeMin:         req.AgeMin,
 		AgeMax:         req.AgeMax,
-		Gender:         req.Gender,
+		Genders:        req.Genders,
 		CityID:         req.CityID,
 		HasAvatar:      req.HasAvatar,
 		HasVideo:       req.HasVideo,

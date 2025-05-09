@@ -278,7 +278,7 @@ func (s *ProfileIntegrationTestSuite) TestCreateProfile() {
 	assert.Equal(t, 1, profileResp.CityID)
 	assert.Equal(t, "Test bio", profileResp.Bio)
 	assert.Equal(t, "hobby", profileResp.Goal)
-	assert.Equal(t, []string{"shortform", "longform"}, profileResp.ImprovStyles)
+	assert.ElementsMatch(t, []string{"shortform", "longform"}, profileResp.ImprovStyles)
 	assert.True(t, profileResp.LookingForTeam)
 	assert.Equal(t, avatarID, profileResp.Avatar.ID)
 	assert.Equal(t, len(mediaIDs), len(profileResp.Videos))

@@ -101,7 +101,7 @@ func (r *PostgresRepository) CreateProfile(tx *sql.Tx, profile *ProfileModel) (t
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
         RETURNING created_at
     `, profile.UserID, profile.FullName, profile.Birthday, profile.Gender,
-		profile.CityID, profile.Bio, profile.Goal, profile.LookingForTeam).Scan(&createdAt)
+		profile.CityID, profile.Bio, profile.Goal, profile.LookingForTeam).Scan(&profile.CreatedAt)
 
 	return createdAt, err
 }
@@ -516,11 +516,11 @@ func (r *PostgresRepository) GetCities() ([]struct {
 func (r *PostgresRepository) SearchProfiles(
 	fullName *string,
 	lookingForTeam *bool,
-	goal *string,
+	goals []string,
 	improvStyles []string,
 	birthDateMin *time.Time,
 	birthDateMax *time.Time,
-	gender *string,
+	genders []string,
 	cityID *int,
 	hasAvatar *bool,
 	hasVideo *bool,
@@ -540,9 +540,13 @@ func (r *PostgresRepository) SearchProfiles(
 	// Add joins if needed
 	joins := []string{}
 
-	// For improv styles filter
+	// For improv styles filter - we need a more complex join for the ALL condition
 	if len(improvStyles) > 0 {
-		joins = append(joins, "JOIN improv_profile_styles ips ON p.user_id = ips.user_id")
+		// Join once for each style to ensure ALL styles are present (AND logic)
+		for i := range improvStyles {
+			alias := fmt.Sprintf("ips%d", i)
+			joins = append(joins, fmt.Sprintf("JOIN improv_profile_styles %s ON p.user_id = %s.user_id", alias, alias))
+		}
 	}
 
 	// For has_avatar filter
@@ -588,22 +592,26 @@ func (r *PostgresRepository) SearchProfiles(
 		argIndex++
 	}
 
-	// Goal filter
-	if goal != nil && *goal != "" {
-		conditions = append(conditions, fmt.Sprintf("p.goal = $%d", argIndex))
-		args = append(args, *goal)
-		argIndex++
-	}
-
-	// Improv styles filter
-	if len(improvStyles) > 0 {
-		placeholders := make([]string, len(improvStyles))
-		for i, _ := range improvStyles {
+	// Goals filter - ANY of the specified values (OR logic)
+	if len(goals) > 0 {
+		placeholders := make([]string, len(goals))
+		for i := range goals {
 			placeholders[i] = fmt.Sprintf("$%d", argIndex)
-			args = append(args, improvStyles[i])
+			args = append(args, goals[i])
 			argIndex++
 		}
-		conditions = append(conditions, fmt.Sprintf("ips.style IN (%s)", strings.Join(placeholders, ", ")))
+		conditions = append(conditions, fmt.Sprintf("p.goal IN (%s)", strings.Join(placeholders, ", ")))
+	}
+
+	// Improv styles filter - ALL of the specified values (AND logic)
+	// We already joined the table multiple times, now add the WHERE conditions
+	if len(improvStyles) > 0 {
+		for i, style := range improvStyles {
+			alias := fmt.Sprintf("ips%d", i)
+			conditions = append(conditions, fmt.Sprintf("%s.style = $%d", alias, argIndex))
+			args = append(args, style)
+			argIndex++
+		}
 	}
 
 	// Age range filter (converted to birthday range)
@@ -618,11 +626,15 @@ func (r *PostgresRepository) SearchProfiles(
 		argIndex++
 	}
 
-	// Gender filter
-	if gender != nil && *gender != "" {
-		conditions = append(conditions, fmt.Sprintf("p.gender = $%d", argIndex))
-		args = append(args, *gender)
-		argIndex++
+	// Genders filter - ANY of the specified values (OR logic)
+	if len(genders) > 0 {
+		placeholders := make([]string, len(genders))
+		for i := range genders {
+			placeholders[i] = fmt.Sprintf("$%d", argIndex)
+			args = append(args, genders[i])
+			argIndex++
+		}
+		conditions = append(conditions, fmt.Sprintf("p.gender IN (%s)", strings.Join(placeholders, ", ")))
 	}
 
 	// City filter

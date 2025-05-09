@@ -9,11 +9,11 @@ import (
 type SearchFilter struct {
 	FullName       *string    `json:"full_name,omitempty"`
 	LookingForTeam *bool      `json:"looking_for_team,omitempty"`
-	Goal           *string    `json:"goal,omitempty"`
+	Goals          []string   `json:"goals,omitempty"`
 	ImprovStyles   []string   `json:"improv_styles,omitempty"`
 	AgeMin         *int       `json:"age_min,omitempty"`
 	AgeMax         *int       `json:"age_max,omitempty"`
-	Gender         *string    `json:"gender,omitempty"`
+	Genders        []string   `json:"genders,omitempty"`
 	CityID         *int       `json:"city_id,omitempty"`
 	HasAvatar      *bool      `json:"has_avatar,omitempty"`
 	HasVideo       *bool      `json:"has_video,omitempty"`
@@ -55,8 +55,8 @@ func (s *ProfileServiceImpl) Search(filter SearchFilter) (*SearchResult, error) 
 
 	// Call repository to get results
 	results, totalCount, err := s.profileRepo.SearchProfiles(filter.FullName, filter.LookingForTeam,
-		filter.Goal, filter.ImprovStyles, birthDateMin, birthDateMax,
-		filter.Gender, filter.CityID, filter.HasAvatar, filter.HasVideo,
+		filter.Goals, filter.ImprovStyles, birthDateMin, birthDateMax,
+		filter.Genders, filter.CityID, filter.HasAvatar, filter.HasVideo,
 		filter.CreatedAfter,
 		filter.Page, filter.PageSize)
 	if err != nil {
