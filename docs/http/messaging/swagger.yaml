@@ -1,0 +1,483 @@
+basePath: /api
+definitions:
+  github_com_bulatminnakhmetov_brigadka-backend_internal_handler_messaging.ChatMessage:
+    properties:
+      chat_id:
+        type: string
+      content:
+        type: string
+      message_id:
+        type: string
+      sender_id:
+        type: integer
+      sent_at:
+        type: string
+    type: object
+  github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.ChatMessage:
+    properties:
+      chat_id:
+        type: string
+      content:
+        type: string
+      message_id:
+        type: string
+      sender_id:
+        type: integer
+      sent_at:
+        type: string
+    type: object
+  messaging.AddParticipantRequest:
+    properties:
+      user_id:
+        type: integer
+    type: object
+  messaging.AddReactionRequest:
+    properties:
+      reaction_code:
+        type: string
+      reaction_id:
+        type: string
+    type: object
+  messaging.Chat:
+    properties:
+      chat_id:
+        type: string
+      chat_name:
+        type: string
+      created_at:
+        type: string
+      is_group:
+        type: boolean
+      participants:
+        items:
+          type: integer
+        type: array
+    type: object
+  messaging.CreateChatRequest:
+    properties:
+      chat_id:
+        type: string
+      chat_name:
+        type: string
+      participants:
+        items:
+          type: integer
+        type: array
+    type: object
+  messaging.SendMessageRequest:
+    properties:
+      content:
+        type: string
+      message_id:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@brigadka.com
+    name: API Support
+  description: API для сервиса Brigadka
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Brigadka API
+  version: "1.0"
+paths:
+  /chats:
+    get:
+      description: Возвращает все чаты, в которых участвует пользователь
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Список чатов пользователя
+          schema:
+            items:
+              $ref: '#/definitions/messaging.Chat'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить чаты пользователя
+      tags:
+      - messaging
+    post:
+      consumes:
+      - application/json
+      description: Создает новый чат с указанными участниками
+      parameters:
+      - description: Данные для создания чата
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/messaging.CreateChatRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Чат успешно создан
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "409":
+          description: Чат с таким ID уже существует
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Создать новый чат
+      tags:
+      - messaging
+  /chats/{chatID}:
+    get:
+      description: Возвращает информацию о чате и его участниках
+      parameters:
+      - description: ID чата
+        in: path
+        name: chatID
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Детали чата
+          schema:
+            $ref: '#/definitions/messaging.Chat'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Чат не найден
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить детали чата
+      tags:
+      - messaging
+  /chats/{chatID}/messages:
+    get:
+      description: Возвращает сообщения чата с поддержкой пагинации
+      parameters:
+      - description: ID чата
+        in: path
+        name: chatID
+        required: true
+        type: string
+      - description: Максимальное количество сообщений (по умолчанию 50)
+        in: query
+        name: limit
+        type: integer
+      - description: Смещение (по умолчанию 0)
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Сообщения чата
+          schema:
+            items:
+              $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.ChatMessage'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Чат не найден
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить сообщения чата
+      tags:
+      - messaging
+    post:
+      consumes:
+      - application/json
+      description: Отправляет новое сообщение в чат
+      parameters:
+      - description: ID чата
+        in: path
+        name: chatID
+        required: true
+        type: string
+      - description: Данные сообщения
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/messaging.SendMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Сообщение успешно отправлено
+          schema:
+            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_handler_messaging.ChatMessage'
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Чат не найден
+          schema:
+            type: string
+        "409":
+          description: Сообщение с таким ID уже существует
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Отправить сообщение
+      tags:
+      - messaging
+  /chats/{chatID}/participants:
+    post:
+      consumes:
+      - application/json
+      description: Добавляет нового участника в существующий чат
+      parameters:
+      - description: ID чата
+        in: path
+        name: chatID
+        required: true
+        type: string
+      - description: Данные пользователя для добавления
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/messaging.AddParticipantRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Участник успешно добавлен
+          schema:
+            type: string
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Чат не найден
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Добавить участника в чат
+      tags:
+      - messaging
+  /chats/{chatID}/participants/{userID}:
+    delete:
+      description: Удаляет участника из чата (пользователь может удалить только себя)
+      parameters:
+      - description: ID чата
+        in: path
+        name: chatID
+        required: true
+        type: string
+      - description: ID пользователя для удаления
+        in: path
+        name: userID
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Участник успешно удален
+          schema:
+            type: string
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "403":
+          description: Нет прав на удаление этого пользователя
+          schema:
+            type: string
+        "404":
+          description: Чат не найден
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить участника из чата
+      tags:
+      - messaging
+  /messages/{messageID}/reactions:
+    post:
+      consumes:
+      - application/json
+      description: Добавляет эмоциональную реакцию к сообщению
+      parameters:
+      - description: ID сообщения
+        in: path
+        name: messageID
+        required: true
+        type: string
+      - description: Данные реакции
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/messaging.AddReactionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Реакция успешно добавлена
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Некорректный запрос
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "404":
+          description: Сообщение не найдено или нет прав для реакции
+          schema:
+            type: string
+        "409":
+          description: Реакция с таким ID уже существует
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Добавить реакцию к сообщению
+      tags:
+      - messaging
+  /messages/{messageID}/reactions/{reactionCode}:
+    delete:
+      description: Удаляет эмоциональную реакцию с сообщения
+      parameters:
+      - description: ID сообщения
+        in: path
+        name: messageID
+        required: true
+        type: string
+      - description: Код реакции для удаления
+        in: path
+        name: reactionCode
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Реакция успешно удалена
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Удалить реакцию с сообщения
+      tags:
+      - messaging
+  /ws/chat:
+    get:
+      consumes:
+      - application/json
+      description: Устанавливает WebSocket соединение для обмена сообщениями в реальном
+        времени
+      produces:
+      - application/json
+      responses:
+        "101":
+          description: WebSocket connection established
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Веб-сокет для чата
+      tags:
+      - messaging
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

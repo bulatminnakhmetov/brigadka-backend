@@ -85,7 +85,13 @@ connect-db:
 # --- Swagger ---
 generate-swagger:
 	# Генерация swagger-документации
-	swag init -g cmd/service/main.go
+	@echo "Generating Swagger for all packages..."; \
+	swag init -q -g cmd/service/main.go -pd -o ./docs/http/all --outputTypes yaml \
+
+	@for package in auth profile messaging media; do \
+		echo "Generating Swagger for $$package..."; \
+		swag init -q -pd -o ./docs/http/$$package --outputTypes yaml --dir ./internal/handler/$$package -g ../../../cmd/service/main.go; \
+	done
 
 # --- Подготовка окружения для отладки ---
 prepare-debug-env: generate-local-ca

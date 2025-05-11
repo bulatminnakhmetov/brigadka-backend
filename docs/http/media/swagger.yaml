@@ -1,0 +1,75 @@
+basePath: /api
+definitions:
+  media.MediaResponse:
+    properties:
+      id:
+        type: integer
+      thumbnail_url:
+        type: string
+      url:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@brigadka.com
+    name: API Support
+  description: API для сервиса Brigadka
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Brigadka API
+  version: "1.0"
+paths:
+  /api/media:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Upload media file (image or video) with optional thumbnail
+      parameters:
+      - description: File to upload
+        in: formData
+        name: file
+        required: true
+        type: file
+      - description: Thumbnail file
+        in: formData
+        name: thumbnail
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/media.MediaResponse'
+        "400":
+          description: Invalid file
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "413":
+          description: File too large
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Upload media
+      tags:
+      - media
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

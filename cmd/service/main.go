@@ -28,9 +28,9 @@ import (
 	profilerepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/profile"
 	userrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/user"
 
+	messagingrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/messaging"
 	authservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/auth"
 	mediaservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/media"
-	messagingservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/messaging"
 	profileservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/profile"
 
 	mediastorage "github.com/bulatminnakhmetov/brigadka-backend/internal/storage/media"
@@ -157,7 +157,7 @@ func main() {
 	mediaHandler := media.NewMediaHandler(mediaService)
 
 	// Инициализация сервиса и хендлера сообщений
-	messagingService := messagingservice.NewService(db)
+	messagingService := messagingrepo.NewService(db)
 	messagingHandler := messaging.NewHandler(messagingService)
 
 	// Создание роутера
@@ -255,7 +255,7 @@ func main() {
 			// Маршруты для работы с сообщениями (требуют аутентификации)
 			r.Post("/chats", messagingHandler.CreateChat)
 			r.Get("/chats", messagingHandler.GetUserChats)
-			r.Get("/chats/{chatID}", messagingHandler.GetChatDetails)
+			r.Get("/chats/{chatID}", messagingHandler.GetChat)
 			r.Get("/chats/{chatID}/messages", messagingHandler.GetChatMessages)
 			r.Post("/chats/{chatID}/messages", messagingHandler.SendMessage)
 			r.Post("/chats/{chatID}/participants", messagingHandler.AddParticipant)

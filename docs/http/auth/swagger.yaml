@@ -1,0 +1,173 @@
+basePath: /api
+definitions:
+  auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  auth.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  auth.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  github_com_bulatminnakhmetov_brigadka-backend_internal_handler_auth.AuthResponse:
+    properties:
+      refresh_token:
+        type: string
+      token:
+        type: string
+      user_id:
+        type: integer
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@brigadka.com
+    name: API Support
+  description: API для сервиса Brigadka
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Brigadka API
+  version: "1.0"
+paths:
+  /api/auth/verify:
+    get:
+      consumes:
+      - application/json
+      description: Verify JWT token validity
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token is valid
+          schema:
+            type: string
+        "401":
+          description: Invalid token
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Token verification
+      tags:
+      - auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate user by email and password
+      parameters:
+      - description: Login data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_handler_auth.AuthResponse'
+        "400":
+          description: Invalid data
+          schema:
+            type: string
+        "401":
+          description: Invalid credentials
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: User login
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Get a new token using a refresh token
+      parameters:
+      - description: Token refresh data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RefreshRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_handler_auth.AuthResponse'
+        "400":
+          description: Invalid data
+          schema:
+            type: string
+        "401":
+          description: Invalid refresh token
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Token refresh
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: Create a new user
+      parameters:
+      - description: Registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_handler_auth.AuthResponse'
+        "400":
+          description: Invalid data
+          schema:
+            type: string
+        "409":
+          description: Email already registered
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: User registration
+      tags:
+      - auth
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
