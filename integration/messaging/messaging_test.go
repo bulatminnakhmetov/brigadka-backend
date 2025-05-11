@@ -762,6 +762,72 @@ func (s *MessagingIntegrationTestSuite) TestWebSocketMessaging() {
 	}
 }
 
+// TestGetOrCreateDirectChat tests creating or finding a direct chat between two users
+func (s *MessagingIntegrationTestSuite) TestGetOrCreateDirectChat() {
+	t := s.T()
+
+	// Create two test users
+	user1ID, user1Token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create first test user")
+	user2ID, user2Token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create second test user")
+
+	// Prepare request body
+	reqBody := map[string]int{"user_id": user2ID}
+	reqJSON, _ := json.Marshal(reqBody)
+
+	// User1 requests to create/get direct chat with User2
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/chats/direct", bytes.NewBuffer(reqJSON))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+user1Token)
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Should return status 200 OK")
+
+	var response map[string]string
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	assert.NoError(t, err)
+	chatID, ok := response["chat_id"]
+	assert.True(t, ok, "Response should contain chat_id")
+	assert.NotEmpty(t, chatID, "chat_id should not be empty")
+
+	// User2 requests to get/create direct chat with User1 (should return the same chat)
+	req2Body := map[string]int{"user_id": user1ID}
+	req2JSON, _ := json.Marshal(req2Body)
+	req2, _ := http.NewRequest("POST", s.appUrl+"/api/chats/direct", bytes.NewBuffer(req2JSON))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Authorization", "Bearer "+user2Token)
+
+	resp2, err := client.Do(req2)
+	assert.NoError(t, err)
+	defer resp2.Body.Close()
+
+	assert.Equal(t, http.StatusOK, resp2.StatusCode, "Should return status 200 OK")
+
+	var response2 map[string]string
+	err = json.NewDecoder(resp2.Body).Decode(&response2)
+	assert.NoError(t, err)
+	chatID2, ok := response2["chat_id"]
+	assert.True(t, ok, "Response should contain chat_id")
+	assert.Equal(t, chatID, chatID2, "Both users should get the same direct chat ID")
+
+	// Negative test: user tries to create direct chat with themselves
+	selfReqBody := map[string]int{"user_id": user1ID}
+	selfReqJSON, _ := json.Marshal(selfReqBody)
+	selfReq, _ := http.NewRequest("POST", s.appUrl+"/api/chats/direct", bytes.NewBuffer(selfReqJSON))
+	selfReq.Header.Set("Content-Type", "application/json")
+	selfReq.Header.Set("Authorization", "Bearer "+user1Token)
+
+	selfResp, err := client.Do(selfReq)
+	assert.NoError(t, err)
+	defer selfResp.Body.Close()
+	assert.Equal(t, http.StatusBadRequest, selfResp.StatusCode, "Should not allow creating direct chat with self")
+}
+
 // TestMessagingIntegration runs the messaging integration test suite
 func TestMessagingIntegration(t *testing.T) {
 	// Skip tests if SKIP_INTEGRATION_TESTS environment variable is set

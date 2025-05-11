@@ -254,6 +254,7 @@ func main() {
 			// Маршруты для работы с сообщениями (требуют аутентификации)
 			r.Post("/chats", messagingHandler.CreateChat)
 			r.Get("/chats", messagingHandler.GetUserChats)
+			r.Post("/chats/direct", messagingHandler.GetOrCreateDirectChat)
 			r.Get("/chats/{chatID}", messagingHandler.GetChat)
 			r.Get("/chats/{chatID}/messages", messagingHandler.GetChatMessages)
 			r.Post("/chats/{chatID}/messages", messagingHandler.SendMessage)

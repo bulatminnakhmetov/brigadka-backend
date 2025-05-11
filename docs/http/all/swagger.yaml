@@ -201,6 +201,11 @@ definitions:
       reaction_id:
         type: string
     type: object
+  internal_handler_messaging.AddReactionResponse:
+    properties:
+      reaction_id:
+        type: string
+    type: object
   internal_handler_messaging.ChatMessage:
     properties:
       chat_id:
@@ -213,6 +218,8 @@ definitions:
         type: integer
       sent_at:
         type: string
+      type:
+        type: string
     type: object
   internal_handler_messaging.CreateChatRequest:
     properties:
@@ -224,6 +231,16 @@ definitions:
         items:
           type: integer
         type: array
+    type: object
+  internal_handler_messaging.CreateDirectChatRequest:
+    properties:
+      user_id:
+        type: integer
+    type: object
+  internal_handler_messaging.CreatedChatResponse:
+    properties:
+      chat_id:
+        type: string
     type: object
   internal_handler_messaging.SendMessageRequest:
     properties:
@@ -538,9 +555,7 @@ paths:
         "201":
           description: Чат успешно создан
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/internal_handler_messaging.CreatedChatResponse'
         "400":
           description: Некорректный запрос
           schema:
@@ -777,6 +792,43 @@ paths:
       summary: Удалить участника из чата
       tags:
       - messaging
+  /chats/direct:
+    post:
+      consumes:
+      - application/json
+      description: Находит существующий личный чат между двумя пользователями или
+        создает новый
+      parameters:
+      - description: ID второго пользователя
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_messaging.CreateDirectChatRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: ID чата
+          schema:
+            $ref: '#/definitions/internal_handler_messaging.CreatedChatResponse'
+        "400":
+          description: Некорректный запрос или попытка создать чат с самим собой
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Получить или создать личный чат
+      tags:
+      - messaging
   /health:
     get:
       description: Возвращает статус сервиса
@@ -817,9 +869,7 @@ paths:
         "200":
           description: Реакция успешно добавлена
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            $ref: '#/definitions/internal_handler_messaging.AddReactionResponse'
         "400":
           description: Некорректный запрос
           schema:

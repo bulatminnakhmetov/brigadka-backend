@@ -45,6 +45,18 @@ type SendMessageRequest struct {
 	Content   string `json:"content"`
 }
 
+type CreateDirectChatRequest struct {
+	UserID int `json:"user_id"`
+}
+
+type CreatedChatResponse struct {
+	ChatID string `json:"chat_id"`
+}
+
+type AddReactionResponse struct {
+	ReactionID string `json:"reaction_id"`
+}
+
 // WSConn is an interface for websocket.Conn to allow mocking in tests.
 type WSConn interface {
 	ReadMessage() (messageType int, p []byte, err error)
@@ -115,7 +127,7 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        request body CreateChatRequest true "Данные для создания чата"
 // @Security     BearerAuth
-// @Success      201 {object} map[string]string "Чат успешно создан"
+// @Success      201 {object} CreatedChatResponse "Чат успешно создан"
 // @Failure      400 {string} string "Некорректный запрос"
 // @Failure      401 {string} string "Unauthorized"
 // @Failure      409 {string} string "Чат с таким ID уже существует"
@@ -155,10 +167,65 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	response := CreatedChatResponse{
+		ChatID: req.ChatID,
+	}
+
 	// Return created chat
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"chat_id": req.ChatID})
+	json.NewEncoder(w).Encode(response)
+}
+
+// @Summary      Получить или создать личный чат
+// @Description  Находит существующий личный чат между двумя пользователями или создает новый
+// @Tags         messaging
+// @Accept       json
+// @Produce      json
+// @Param        request body CreateDirectChatRequest true "ID второго пользователя"
+// @Security     BearerAuth
+// @Success      200 {object} CreatedChatResponse "ID чата"
+// @Failure      400 {string} string "Некорректный запрос или попытка создать чат с самим собой"
+// @Failure      401 {string} string "Unauthorized"
+// @Failure      500 {string} string "Ошибка сервера"
+// @Router       /chats/direct [post]
+// GetOrCreateDirectChat finds an existing direct chat or creates a new one
+func (h *Handler) GetOrCreateDirectChat(w http.ResponseWriter, r *http.Request) {
+	// Get user ID from context (current user)
+	currentUserID, ok := r.Context().Value("user_id").(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse request to get the other user's ID
+	var req CreateDirectChatRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
+
+	// Make sure we're not trying to create a chat with ourselves
+	if currentUserID == req.UserID {
+		http.Error(w, "Cannot create direct chat with yourself", http.StatusBadRequest)
+		return
+	}
+
+	// Get or create the direct chat
+	chatID, err := h.repo.GetOrCreateDirectChat(r.Context(), currentUserID, req.UserID)
+	if err != nil {
+		http.Error(w, "Server error", http.StatusInternalServerError)
+		log.Printf("Error getting/creating direct chat: %v", err)
+		return
+	}
+
+	response := CreatedChatResponse{
+		ChatID: chatID,
+	}
+
+	// Return the chat ID
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 // @Summary      Получить чаты пользователя
@@ -416,7 +483,7 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 // @Param        messageID path string true "ID сообщения"
 // @Param        request body AddReactionRequest true "Данные реакции"
 // @Security     BearerAuth
-// @Success      200 {object} map[string]string "Реакция успешно добавлена"
+// @Success      200 {object} AddReactionResponse "Реакция успешно добавлена"
 // @Failure      400 {string} string "Некорректный запрос"
 // @Failure      401 {string} string "Unauthorized"
 // @Failure      404 {string} string "Сообщение не найдено или нет прав для реакции"
@@ -487,9 +554,7 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 
 	// Return success
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"reaction_id": req.ReactionID,
-	})
+	json.NewEncoder(w).Encode(AddReactionResponse{ReactionID: req.ReactionID})
 }
 
 // @Summary      Удалить реакцию с сообщения
