@@ -1,297 +1,263 @@
-asyncapi: '2.6.0'
+asyncapi: '2.5.0'
 info:
   title: Brigadka Chat WebSocket API
   version: '1.0.0'
-  description: WebSocket API for real-time messaging in Brigadka application
+  description: |
+    WebSocket API for real-time chat messaging in the Brigadka application.
+    This API enables real-time communication between clients, including sending/receiving
+    messages, notifications about user activity, and message reactions.
 
 servers:
   production:
-    url: wss://api.brigadka.com/ws
+    url: wss://api.brigadka.com/api/ws/chat
     protocol: wss
     description: Production WebSocket server
+  
   development:
-    url: ws://localhost:8080/ws
+    url: ws://localhost:8080/api/ws/chat
     protocol: ws
     description: Development WebSocket server
 
 channels:
-  /:
+  ws/chat:
+    description: Main WebSocket endpoint for chat communication
     publish:
-      summary: Client publishes messages to server
+      summary: Messages sent by clients to the server
       operationId: sendMessage
       message:
         oneOf:
           - $ref: '#/components/messages/ChatMessage'
-          - $ref: '#/components/messages/JoinMessage'
-          - $ref: '#/components/messages/LeaveMessage'
+          - $ref: '#/components/messages/JoinChatMessage'
+          - $ref: '#/components/messages/LeaveChatMessage'
           - $ref: '#/components/messages/ReactionMessage'
           - $ref: '#/components/messages/TypingMessage'
           - $ref: '#/components/messages/ReadReceiptMessage'
     subscribe:
-      summary: Client receives messages from server
+      summary: Messages received by clients from the server
       operationId: receiveMessage
       message:
         oneOf:
           - $ref: '#/components/messages/ChatMessage'
-          - $ref: '#/components/messages/JoinNotification'
-          - $ref: '#/components/messages/LeaveNotification'
-          - $ref: '#/components/messages/ReactionNotification'
-          - $ref: '#/components/messages/TypingNotification'
-          - $ref: '#/components/messages/ReadReceiptNotification'
+          - $ref: '#/components/messages/JoinChatMessage'
+          - $ref: '#/components/messages/LeaveChatMessage'
+          - $ref: '#/components/messages/ReactionMessage'
+          - $ref: '#/components/messages/ReactionRemovedMessage'
+          - $ref: '#/components/messages/TypingMessage'
+          - $ref: '#/components/messages/ReadReceiptMessage'
 
 components:
-  messages:
-    ChatMessage:
-      name: ChatMessage
-      title: Chat Message
-      summary: Message sent in a chat
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    JoinMessage:
-      name: JoinMessage
-      title: Join Chat Request
-      summary: Request to join a chat room
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    LeaveMessage:
-      name: LeaveMessage
-      title: Leave Chat Request
-      summary: Request to leave a chat room
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    ReactionMessage:
-      name: ReactionMessage
-      title: Add Reaction Request
-      summary: Request to add a reaction to a message
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    TypingMessage:
-      name: TypingMessage
-      title: Typing Indicator
-      summary: Indicates user is typing
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    ReadReceiptMessage:
-      name: ReadReceiptMessage
-      title: Read Receipt
-      summary: Indicates a message has been read
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    JoinNotification:
-      name: JoinNotification
-      title: User Joined Chat
-      summary: Notification that a user has joined the chat
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    LeaveNotification:
-      name: LeaveNotification
-      title: User Left Chat
-      summary: Notification that a user has left the chat
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    ReactionNotification:
-      name: ReactionNotification
-      title: Message Reaction
-      summary: Notification of a reaction to a message
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    TypingNotification:
-      name: TypingNotification
-      title: User Typing
-      summary: Notification that a user is typing
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
-        
-    ReadReceiptNotification:
-      name: ReadReceiptNotification
-      title: Message Read
-      summary: Notification that a message has been read
-      contentType: application/json
-      payload:
-        $ref: '#/components/schemas/WSMessage'
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT token obtained from the authorization endpoint
 
   schemas:
-    WSMessage:
+    BaseMessage:
       type: object
       required:
         - type
-        - chat_id
-        - payload
       properties:
         type:
           type: string
-          enum:
+          description: The type of message
+          enum: 
             - chat
             - join
             - leave
             - reaction
+            - reaction_removed
             - typing
             - read_receipt
-          description: Type of the message
         chat_id:
           type: string
-          description: ID of the chat room
-        payload:
-          type: object
-          description: Message payload (varies by message type)
+          description: The ID of the chat this message belongs to
           
-    ChatMessagePayload:
-      type: object
-      required:
-        - message_id
-        - content
-      properties:
-        message_id:
-          type: string
-          format: uuid
-          description: Unique ID for the message
-        chat_id:
-          type: string
-          description: ID of the chat room
-        sender_id:
-          type: integer
-          description: ID of the message sender
-        content:
-          type: string
-          description: Message content
-        sent_at:
-          type: string
-          format: date-time
-          description: Timestamp when message was sent
-          
-    JoinNotificationPayload:
-      type: object
-      required:
-        - user_id
-        - chat_id
-        - joined_at
-      properties:
-        user_id:
-          type: integer
-          description: ID of the user who joined
-        chat_id:
-          type: string
-          description: ID of the chat room
-        joined_at:
-          type: string
-          format: date-time
-          description: Timestamp when user joined
-          
-    LeaveNotificationPayload:
-      type: object
-      required:
-        - user_id
-        - chat_id
-        - left_at
-      properties:
-        user_id:
-          type: integer
-          description: ID of the user who left
-        chat_id:
-          type: string
-          description: ID of the chat room
-        left_at:
-          type: string
-          format: date-time
-          description: Timestamp when user left
-          
-    ReactionPayload:
-      type: object
-      required:
-        - reaction_id
-        - message_id
-        - user_id
-        - reaction_code
-      properties:
-        reaction_id:
-          type: string
-          format: uuid
-          description: Unique ID for the reaction
-        message_id:
-          type: string
-          format: uuid
-          description: ID of the message being reacted to
-        user_id:
-          type: integer
-          description: ID of the user who reacted
-        reaction_code:
-          type: string
-          description: Emoji code for the reaction
-        reacted_at:
-          type: string
-          format: date-time
-          description: Timestamp of the reaction
-          
-    TypingNotificationPayload:
-      type: object
-      required:
-        - user_id
-        - chat_id
-        - is_typing
-        - timestamp
-      properties:
-        user_id:
-          type: integer
-          description: ID of the user who is typing
-        chat_id:
-          type: string
-          description: ID of the chat room
-        is_typing:
-          type: boolean
-          description: Whether user is currently typing
-        timestamp:
-          type: string
-          format: date-time
-          description: Timestamp of typing event
-          
-    ReadReceiptPayload:
-      type: object
-      required:
-        - message_id
-      properties:
-        message_id:
-          type: string
-          format: uuid
-          description: ID of the message that was read
-          
-    ReadReceiptNotificationPayload:
-      type: object
-      required:
-        - user_id
-        - chat_id
-        - message_id
-        - read_at
-      properties:
-        user_id:
-          type: integer
-          description: ID of the user who read the message
-        chat_id:
-          type: string
-          description: ID of the chat room
-        message_id:
-          type: string
-          format: uuid
-          description: ID of the message that was read
-        read_at:
-          type: string
-          format: date-time
-          description: Timestamp when message was read
+    ChatMessage:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          required:
+            - message_id
+            - content
+          properties:
+            message_id:
+              type: string
+              description: Unique identifier for the message
+            sender_id:
+              type: integer
+              description: User ID of the message sender
+            content:
+              type: string
+              description: The content of the message
+            sent_at:
+              type: string
+              format: date-time
+              description: Timestamp when the message was sent
+              
+    JoinChatMessage:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          required:
+            - user_id
+          properties:
+            user_id:
+              type: integer
+              description: User ID of the user joining the chat
+            joined_at:
+              type: string
+              format: date-time
+              description: Timestamp when the user joined
+              
+    LeaveChatMessage:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          required:
+            - user_id
+          properties:
+            user_id:
+              type: integer
+              description: User ID of the user leaving the chat
+            left_at:
+              type: string
+              format: date-time
+              description: Timestamp when the user left
+              
+    ReactionMessage:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          required:
+            - reaction_id
+            - message_id
+            - reaction_code
+          properties:
+            reaction_id:
+              type: string
+              description: Unique identifier for the reaction
+            message_id:
+              type: string
+              description: ID of the message being reacted to
+            user_id:
+              type: integer
+              description: User ID of the user who reacted
+            reaction_code:
+              type: string
+              description: Code representing the reaction type
+            reacted_at:
+              type: string
+              format: date-time
+              description: Timestamp when the reaction was added
+              
+    ReactionRemovedMessage:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          required:
+            - reaction_id
+            - message_id
+            - reaction_code
+          properties:
+            reaction_id:
+              type: string
+              description: Unique identifier for the reaction
+            message_id:
+              type: string
+              description: ID of the message the reaction was removed from
+            user_id:
+              type: integer
+              description: User ID of the user who removed the reaction
+            reaction_code:
+              type: string
+              description: Code representing the reaction type that was removed
+            removed_at:
+              type: string
+              format: date-time
+              description: Timestamp when the reaction was removed
+              
+    TypingMessage:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          required:
+            - user_id
+            - is_typing
+          properties:
+            user_id:
+              type: integer
+              description: User ID of the user who is typing
+            is_typing:
+              type: boolean
+              description: Whether the user is currently typing
+            timestamp:
+              type: string
+              format: date-time
+              description: Timestamp of the typing indicator
+              
+    ReadReceiptMessage:
+      allOf:
+        - $ref: '#/components/schemas/BaseMessage'
+        - type: object
+          required:
+            - user_id
+            - message_id
+          properties:
+            user_id:
+              type: integer
+              description: User ID of the user who read the message
+            message_id:
+              type: string
+              description: ID of the last read message
+            read_at:
+              type: string
+              format: date-time
+              description: Timestamp when the message was read
+  
+  messages:
+    ChatMessage:
+      summary: A chat message sent in a conversation
+      description: Represents a text message sent by a user in a chat
+      payload:
+        $ref: '#/components/schemas/ChatMessage'
+      
+    JoinChatMessage:
+      summary: Notification that a user has joined a chat
+      description: Sent when a user joins a chat, either as a request or notification
+      payload:
+        $ref: '#/components/schemas/JoinChatMessage'
+      
+    LeaveChatMessage:
+      summary: Notification that a user has left a chat
+      description: Sent when a user leaves a chat, either as a request or notification
+      payload:
+        $ref: '#/components/schemas/LeaveChatMessage'
+      
+    ReactionMessage:
+      summary: A reaction to a message
+      description: Represents a user adding a reaction to a specific message
+      payload:
+        $ref: '#/components/schemas/ReactionMessage'
+        
+    ReactionRemovedMessage:
+      summary: A reaction removed from a message
+      description: Notification that a user has removed their reaction from a message
+      payload:
+        $ref: '#/components/schemas/ReactionRemovedMessage'
+      
+    TypingMessage:
+      summary: Typing indicator
+      description: Indicates that a user is typing in a chat
+      payload:
+        $ref: '#/components/schemas/TypingMessage'
+      
+    ReadReceiptMessage:
+      summary: Read receipt
+      description: Indicates that a user has read messages up to a certain point
+      payload:
+        $ref: '#/components/schemas/ReadReceiptMessage'
+        
+security:
+  - bearerAuth: []

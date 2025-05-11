@@ -17,7 +17,6 @@ import (
 	"github.com/joho/godotenv"
 	httpSwagger "github.com/swaggo/http-swagger"
 
-	_ "github.com/bulatminnakhmetov/brigadka-backend/docs"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/database"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/media"

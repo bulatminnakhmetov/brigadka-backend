@@ -14,9 +14,6 @@ import (
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/repository/messaging"
 )
 
-// ChatMessage представляет сообщение в чате
-type ChatMessage = messaging.ChatMessage
-
 type Handler struct {
 	repo         messaging.MessagingRepository
 	upgrader     websocket.Upgrader
@@ -74,16 +71,6 @@ func NewHandler(service messaging.MessagingRepository) *Handler {
 		clients: make(map[int]*Client),
 	}
 }
-
-// Message types for WebSocket communication
-const (
-	MsgTypeChat        = "chat_message"
-	MsgTypeJoin        = "join_chat"
-	MsgTypeLeave       = "leave_chat"
-	MsgTypeReaction    = "reaction"
-	MsgTypeTyping      = "typing"
-	MsgTypeReadReceipt = "read_receipt"
-)
 
 // Reaction structure
 type Reaction struct {
@@ -483,19 +470,16 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 		// Continue to return success even if we can't broadcast
 	} else {
 		// Broadcast reaction to chat participants
-		reaction := Reaction{
+		msgData, _ := json.Marshal(ReactionMessage{
+			BaseMessage: BaseMessage{
+				Type:   MsgTypeReaction,
+				ChatID: chatID,
+			},
 			ReactionID:   req.ReactionID,
 			MessageID:    messageID,
 			UserID:       userID,
 			ReactionCode: req.ReactionCode,
 			ReactedAt:    time.Now(),
-		}
-
-		reactionData, _ := json.Marshal(reaction)
-		msgData, _ := json.Marshal(WSMessage{
-			Type:    MsgTypeReaction,
-			ChatID:  chatID,
-			Payload: reactionData,
 		})
 
 		h.broadcastToChat(chatID, msgData)
@@ -548,25 +532,15 @@ func (h *Handler) RemoveReaction(w http.ResponseWriter, r *http.Request) {
 
 	// Broadcast reaction removal if we have a chat ID
 	if chatID != "" {
-		type ReactionRemoval struct {
-			MessageID    string    `json:"message_id"`
-			UserID       int       `json:"user_id"`
-			ReactionCode string    `json:"reaction_code"`
-			RemovedAt    time.Time `json:"removed_at"`
-		}
-
-		removal := ReactionRemoval{
+		msgData, _ := json.Marshal(ReactionRemovedMessage{
+			BaseMessage: BaseMessage{
+				Type:   MsgTypeReactionRemoved,
+				ChatID: chatID,
+			},
 			MessageID:    messageID,
 			UserID:       userID,
 			ReactionCode: reactionCode,
 			RemovedAt:    time.Now(),
-		}
-
-		removalBytes, _ := json.Marshal(removal)
-		msgData, _ := json.Marshal(WSMessage{
-			Type:    "reaction_removed",
-			ChatID:  chatID,
-			Payload: removalBytes,
 		})
 
 		h.broadcastToChat(chatID, msgData)
@@ -636,21 +610,16 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create chat message
-	chatMsg := ChatMessage{
+	// Marshal message for broadcasting
+	wsMsg := ChatMessage{
+		BaseMessage: BaseMessage{
+			Type:   MsgTypeChat,
+			ChatID: chatID,
+		},
 		MessageID: req.MessageID,
-		ChatID:    chatID,
 		SenderID:  userID,
 		Content:   req.Content,
 		SentAt:    sentAt,
-	}
-
-	// Marshal message for broadcasting
-	msgBytes, _ := json.Marshal(chatMsg)
-	wsMsg := WSMessage{
-		Type:    MsgTypeChat,
-		ChatID:  chatID,
-		Payload: msgBytes,
 	}
 
 	msgData, _ := json.Marshal(wsMsg)
@@ -660,7 +629,6 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	// Return success with message details
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(chatMsg)
 }
 
 // Helper function to parse int from string

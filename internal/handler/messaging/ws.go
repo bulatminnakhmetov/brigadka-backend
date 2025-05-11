@@ -8,336 +8,81 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type ReadReceiptNotification struct {
-	UserID    int       `json:"user_id"`
-	ChatID    string    `json:"chat_id"`
-	MessageID string    `json:"message_id"`
-	ReadAt    time.Time `json:"read_at"`
+// BaseMessage defines the common fields for all WebSocket messages
+type BaseMessage struct {
+	Type   string `json:"type"`
+	ChatID string `json:"chat_id,omitempty"`
 }
 
-type JoinNotification struct {
+// ChatMessage represents a message sent in a chat
+type ChatMessage struct {
+	BaseMessage
+	MessageID string    `json:"message_id"`
+	SenderID  int       `json:"sender_id"`
+	Content   string    `json:"content"`
+	SentAt    time.Time `json:"sent_at,omitempty"`
+}
+
+// JoinMessage represents a user joining a chat
+type JoinMessage struct {
+	BaseMessage
 	UserID   int       `json:"user_id"`
-	ChatID   string    `json:"chat_id"`
 	JoinedAt time.Time `json:"joined_at"`
 }
 
-type LeaveNotification struct {
+// LeaveMessage represents a user leaving a chat
+type LeaveMessage struct {
+	BaseMessage
 	UserID int       `json:"user_id"`
-	ChatID string    `json:"chat_id"`
 	LeftAt time.Time `json:"left_at"`
 }
 
-type TypingNotification struct {
+// ReactionMessage represents a reaction to a message
+type ReactionMessage struct {
+	BaseMessage
+	ReactionID   string    `json:"reaction_id"`
+	MessageID    string    `json:"message_id"`
+	UserID       int       `json:"user_id"`
+	ReactionCode string    `json:"reaction_code"`
+	ReactedAt    time.Time `json:"reacted_at,omitempty"`
+}
+
+// ReactionMessage represents a reaction to a message
+type ReactionRemovedMessage struct {
+	BaseMessage
+	ReactionID   string    `json:"reaction_id"`
+	MessageID    string    `json:"message_id"`
+	UserID       int       `json:"user_id"`
+	ReactionCode string    `json:"reaction_code"`
+	RemovedAt    time.Time `json:"reacted_at,omitempty"`
+}
+
+// TypingMessage represents a typing indicator
+type TypingMessage struct {
+	BaseMessage
 	UserID    int       `json:"user_id"`
-	ChatID    string    `json:"chat_id"`
 	IsTyping  bool      `json:"is_typing"`
 	Timestamp time.Time `json:"timestamp"`
 }
 
-type ReadReceiptPayload struct {
-	MessageID string `json:"message_id"`
+// ReadReceiptMessage represents a read receipt notification
+type ReadReceiptMessage struct {
+	BaseMessage
+	UserID    int       `json:"user_id"`
+	MessageID string    `json:"message_id"`
+	ReadAt    time.Time `json:"read_at"`
 }
 
-// handleJoinChat handles a client joining a chat
-func (h *Handler) handleJoinChat(client *Client, msg WSMessage) {
-	// Check if user is already in the chat
-	if _, ok := client.chatRooms[msg.ChatID]; ok {
-		log.Printf("User %d already in chat %s", client.userID, msg.ChatID)
-		return
-	}
-
-	// Check if user is authorized to join this chat
-	inChat, err := h.repo.IsUserInChat(client.userID, msg.ChatID)
-	if err != nil {
-		log.Printf("Error checking if user is in chat: %v", err)
-		return
-	}
-
-	if !inChat {
-		log.Printf("User %d not authorized to join chat %s", client.userID, msg.ChatID)
-		return
-	}
-
-	// Add chat to client's list of active chat rooms
-	client.chatRooms[msg.ChatID] = struct{}{}
-
-	// Prepare join notification
-
-	notification := JoinNotification{
-		UserID:   client.userID,
-		ChatID:   msg.ChatID,
-		JoinedAt: time.Now(),
-	}
-
-	// Marshal notification
-	notificationBytes, err := json.Marshal(notification)
-	if err != nil {
-		log.Printf("Error marshaling join notification: %v", err)
-		return
-	}
-
-	// Create WebSocket message
-	wsMsg := WSMessage{
-		Type:    MsgTypeJoin,
-		ChatID:  msg.ChatID,
-		Payload: notificationBytes,
-	}
-
-	// Marshal WebSocket message
-	msgData, err := json.Marshal(wsMsg)
-	if err != nil {
-		log.Printf("Error marshaling WebSocket message: %v", err)
-		return
-	}
-
-	// Broadcast to other participants that this user has joined
-	h.broadcastToChat(msg.ChatID, msgData)
-
-	// Send confirmation to the client
-	if err := client.conn.WriteMessage(websocket.TextMessage, msgData); err != nil {
-		log.Printf("Error sending join confirmation to user %d: %v", client.userID, err)
-	}
-}
-
-// handleLeaveChat handles a client leaving a chat
-func (h *Handler) handleLeaveChat(client *Client, msg WSMessage) {
-	// Check if user is in the chat
-	if _, ok := client.chatRooms[msg.ChatID]; !ok {
-		log.Printf("User %d not in chat %s", client.userID, msg.ChatID)
-		return
-	}
-
-	// Remove chat from client's list of active chat rooms
-	delete(client.chatRooms, msg.ChatID)
-
-	// Prepare leave notification
-
-	notification := LeaveNotification{
-		UserID: client.userID,
-		ChatID: msg.ChatID,
-		LeftAt: time.Now(),
-	}
-
-	// Marshal notification
-	notificationBytes, err := json.Marshal(notification)
-	if err != nil {
-		log.Printf("Error marshaling leave notification: %v", err)
-		return
-	}
-
-	// Create WebSocket message
-	wsMsg := WSMessage{
-		Type:    MsgTypeLeave,
-		ChatID:  msg.ChatID,
-		Payload: notificationBytes,
-	}
-
-	// Marshal WebSocket message
-	msgData, err := json.Marshal(wsMsg)
-	if err != nil {
-		log.Printf("Error marshaling WebSocket message: %v", err)
-		return
-	}
-
-	// Broadcast to other participants that this user has left
-	h.broadcastToChat(msg.ChatID, msgData)
-}
-
-// handleReaction handles client adding a reaction via WebSocket
-func (h *Handler) handleReaction(client *Client, msg WSMessage) {
-	// Parse payload to get reaction details
-	var req Reaction
-	if err := json.Unmarshal(msg.Payload, &req); err != nil {
-		log.Printf("Error parsing reaction request: %v", err)
-		return
-	}
-
-	// Add reaction using service
-	err := h.repo.AddReaction(req.ReactionID, req.MessageID, client.userID, req.ReactionCode)
-	if err != nil {
-		// Check if it's a duplicate reaction (UUID constraint violation)
-		if isPrimaryKeyViolation(err) {
-			log.Printf("Duplicate reaction detected (ID: %s), ignoring", req.ReactionID)
-			return
-		}
-		log.Printf("Error adding reaction: %v", err)
-		return
-	}
-
-	// Get chat ID for the message
-	chatID, err := h.repo.GetChatIDForMessage(req.MessageID)
-	if err != nil {
-		log.Printf("Error getting chat ID for message: %v", err)
-		return
-	}
-
-	// Create reaction notification
-	reaction := Reaction{
-		ReactionID:   req.ReactionID,
-		MessageID:    req.MessageID,
-		UserID:       client.userID,
-		ReactionCode: req.ReactionCode,
-		ReactedAt:    time.Now(),
-	}
-
-	// Marshal reaction
-	reactionBytes, err := json.Marshal(reaction)
-	if err != nil {
-		log.Printf("Error marshaling reaction: %v", err)
-		return
-	}
-
-	// Create WebSocket message
-	wsMsg := WSMessage{
-		Type:    MsgTypeReaction,
-		ChatID:  chatID,
-		Payload: reactionBytes,
-	}
-
-	// Marshal WebSocket message
-	msgData, err := json.Marshal(wsMsg)
-	if err != nil {
-		log.Printf("Error marshaling WebSocket message: %v", err)
-		return
-	}
-
-	// Broadcast reaction to all participants in the chat
-	h.broadcastToChat(chatID, msgData)
-}
-
-// handleTypingIndicator handles typing indicators from clients
-func (h *Handler) handleTypingIndicator(client *Client, msg WSMessage) {
-	// Check if client is in the chat
-	if _, ok := client.chatRooms[msg.ChatID]; !ok {
-		log.Printf("User %d not in chat %s", client.userID, msg.ChatID)
-		return
-	}
-
-	// Store typing indicator (optional, could use a cache/Redis for this)
-	if err := h.repo.StoreTypingIndicator(client.userID, msg.ChatID); err != nil {
-		log.Printf("Error storing typing indicator: %v", err)
-		// Continue anyway as it's not critical
-	}
-
-	// Prepare typing notification
-
-	// Parse payload to get typing status
-	var isTyping bool
-	if err := json.Unmarshal(msg.Payload, &isTyping); err != nil {
-		// Default to true if payload parsing fails
-		isTyping = true
-	}
-
-	notification := TypingNotification{
-		UserID:    client.userID,
-		ChatID:    msg.ChatID,
-		IsTyping:  isTyping,
-		Timestamp: time.Now(),
-	}
-
-	// Marshal notification
-	notificationBytes, err := json.Marshal(notification)
-	if err != nil {
-		log.Printf("Error marshaling typing notification: %v", err)
-		return
-	}
-
-	// Create WebSocket message
-	wsMsg := WSMessage{
-		Type:    MsgTypeTyping,
-		ChatID:  msg.ChatID,
-		Payload: notificationBytes,
-	}
-
-	// Marshal WebSocket message
-	msgData, err := json.Marshal(wsMsg)
-	if err != nil {
-		log.Printf("Error marshaling WebSocket message: %v", err)
-		return
-	}
-
-	// Broadcast to other participants (excluding the sender)
-	h.broadcastToChatExcept(msg.ChatID, msgData, client.userID)
-}
-
-// broadcastToChatExcept sends a message to all clients in a chat except the specified user
-func (h *Handler) broadcastToChatExcept(chatID string, message []byte, exceptUserID int) {
-	participants, err := h.repo.GetChatParticipants(chatID)
-	if err != nil {
-		log.Printf("Error fetching chat participants: %v", err)
-		return
-	}
-
-	h.clientsMutex.RLock()
-	defer h.clientsMutex.RUnlock()
-
-	for _, userID := range participants {
-		if userID == exceptUserID {
-			continue // Skip the excluded user
-		}
-
-		if client, ok := h.clients[userID]; ok {
-			if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
-				log.Printf("Error sending message to user %d: %v", userID, err)
-			}
-		}
-	}
-}
-
-// handleReadReceipt handles read receipts from clients
-func (h *Handler) handleReadReceipt(client *Client, msg WSMessage) {
-	// Check if client is in the chat
-	if _, ok := client.chatRooms[msg.ChatID]; !ok {
-		log.Printf("User %d not in chat %s", client.userID, msg.ChatID)
-		return
-	}
-
-	// Parse read receipt details
-	var req ReadReceiptPayload
-	if err := json.Unmarshal(msg.Payload, &req); err != nil {
-		log.Printf("Error parsing read receipt request: %v", err)
-		return
-	}
-
-	// Store read receipt
-	if err := h.repo.StoreReadReceipt(client.userID, msg.ChatID, req.MessageID); err != nil {
-		log.Printf("Error storing read receipt: %v", err)
-		return
-	}
-
-	// Prepare read receipt notification
-
-	notification := ReadReceiptNotification{
-		UserID:    client.userID,
-		ChatID:    msg.ChatID,
-		MessageID: req.MessageID,
-		ReadAt:    time.Now(),
-	}
-
-	// Marshal notification
-	notificationBytes, err := json.Marshal(notification)
-	if err != nil {
-		log.Printf("Error marshaling read receipt notification: %v", err)
-		return
-	}
-
-	// Create WebSocket message
-	wsMsg := WSMessage{
-		Type:    MsgTypeReadReceipt,
-		ChatID:  msg.ChatID,
-		Payload: notificationBytes,
-	}
-
-	// Marshal WebSocket message
-	msgData, err := json.Marshal(wsMsg)
-	if err != nil {
-		log.Printf("Error marshaling WebSocket message: %v", err)
-		return
-	}
-
-	// Broadcast read receipt to other participants
-	h.broadcastToChatExcept(msg.ChatID, msgData, client.userID)
-}
+// Message type constants
+const (
+	MsgTypeChat            = "chat"
+	MsgTypeJoin            = "join"
+	MsgTypeLeave           = "leave"
+	MsgTypeReaction        = "reaction"
+	MsgTypeReactionRemoved = "reaction_removed"
+	MsgTypeTyping          = "typing"
+	MsgTypeReadReceipt     = "read_receipt"
+)
 
 func (h *Handler) handleWSConnection(conn WSConn, userID int) {
 	// Create new client
@@ -383,42 +128,65 @@ func (h *Handler) handleClient(client *Client) {
 			break
 		}
 
-		// Parse message
-		var msg WSMessage
-		if err := json.Unmarshal(data, &msg); err != nil {
+		// Parse message to get the type
+		var baseMsg BaseMessage
+		if err := json.Unmarshal(data, &baseMsg); err != nil {
 			log.Printf("Error parsing message: %v", err)
 			continue
 		}
 
 		// Handle message based on type
-		switch msg.Type {
+		switch baseMsg.Type {
 		case MsgTypeChat:
-			h.handleChatMessage(client, msg)
+			var chatMsg ChatMessage
+			if err := json.Unmarshal(data, &chatMsg); err != nil {
+				log.Printf("Error parsing chat message: %v", err)
+				continue
+			}
+			h.handleChatMessage(client, chatMsg)
 		case MsgTypeJoin:
-			h.handleJoinChat(client, msg)
+			var joinMsg JoinMessage
+			if err := json.Unmarshal(data, &joinMsg); err != nil {
+				log.Printf("Error parsing join message: %v", err)
+				continue
+			}
+			h.handleJoinChat(client, joinMsg)
 		case MsgTypeLeave:
-			h.handleLeaveChat(client, msg)
+			var leaveMsg LeaveMessage
+			if err := json.Unmarshal(data, &leaveMsg); err != nil {
+				log.Printf("Error parsing leave message: %v", err)
+				continue
+			}
+			h.handleLeaveChat(client, leaveMsg)
 		case MsgTypeReaction:
-			h.handleReaction(client, msg)
+			var reactionMsg ReactionMessage
+			if err := json.Unmarshal(data, &reactionMsg); err != nil {
+				log.Printf("Error parsing reaction message: %v", err)
+				continue
+			}
+			h.handleReaction(client, reactionMsg)
 		case MsgTypeTyping:
-			h.handleTypingIndicator(client, msg)
+			var typingMsg TypingMessage
+			if err := json.Unmarshal(data, &typingMsg); err != nil {
+				log.Printf("Error parsing typing message: %v", err)
+				continue
+			}
+			h.handleTypingIndicator(client, typingMsg)
 		case MsgTypeReadReceipt:
-			h.handleReadReceipt(client, msg)
+			var readReceiptMsg ReadReceiptMessage
+			if err := json.Unmarshal(data, &readReceiptMsg); err != nil {
+				log.Printf("Error parsing read receipt message: %v", err)
+				continue
+			}
+			h.handleReadReceipt(client, readReceiptMsg)
 		default:
-			log.Printf("Unknown message type: %s", msg.Type)
+			log.Printf("Unknown message type: %s", baseMsg.Type)
 		}
 	}
 }
 
 // handleChatMessage handles a chat message from a client
-func (h *Handler) handleChatMessage(client *Client, msg WSMessage) {
-	// Parse payload to get message details
-	var chatMsg ChatMessage
-	if err := json.Unmarshal(msg.Payload, &chatMsg); err != nil {
-		log.Printf("Error parsing chat message: %v", err)
-		return
-	}
-
+func (h *Handler) handleChatMessage(client *Client, msg ChatMessage) {
 	// Check if client is in the chat
 	if _, ok := client.chatRooms[msg.ChatID]; !ok {
 		log.Printf("User %d not in chat %s", client.userID, msg.ChatID)
@@ -426,45 +194,206 @@ func (h *Handler) handleChatMessage(client *Client, msg WSMessage) {
 	}
 
 	// Store message using the service
-	sentAt, err := h.repo.AddMessage(chatMsg.MessageID, msg.ChatID, client.userID, chatMsg.Content)
+	sentAt, err := h.repo.AddMessage(msg.MessageID, msg.ChatID, client.userID, msg.Content)
 	if err != nil {
 		// Check if it's a duplicate message (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
-			log.Printf("Duplicate message detected (ID: %s), ignoring", chatMsg.MessageID)
+			log.Printf("Duplicate message detected (ID: %s), ignoring", msg.MessageID)
 			return
 		}
 		log.Printf("Error storing message: %v", err)
 		return
 	}
 
-	// Update the sent time in the message
-	chatMsg.SentAt = sentAt
-	chatMsg.SenderID = client.userID
-	chatMsg.ChatID = msg.ChatID
+	// Update the sent time and sender ID in the message
+	msg.SentAt = sentAt
+	msg.SenderID = client.userID
 
 	// Marshal message to JSON
-	msgBytes, err := json.Marshal(chatMsg)
+	msgData, err := json.Marshal(msg)
 	if err != nil {
 		log.Printf("Error marshaling chat message: %v", err)
 		return
 	}
 
-	// Create WebSocket message
-	wsMsg := WSMessage{
-		Type:    MsgTypeChat,
-		ChatID:  msg.ChatID,
-		Payload: msgBytes,
-	}
+	// Broadcast message to all participants in the chat
+	h.broadcastToChat(msg.ChatID, msgData)
+}
 
-	// Marshal WebSocket message
-	msgData, err := json.Marshal(wsMsg)
-	if err != nil {
-		log.Printf("Error marshaling WebSocket message: %v", err)
+// handleJoinChat handles a client joining a chat
+func (h *Handler) handleJoinChat(client *Client, msg JoinMessage) {
+	// Check if user is already in the chat
+	if _, ok := client.chatRooms[msg.ChatID]; ok {
+		log.Printf("User %d already in chat %s", client.userID, msg.ChatID)
 		return
 	}
 
-	// Broadcast message to all participants in the chat
+	// Check if user is authorized to join this chat
+	inChat, err := h.repo.IsUserInChat(client.userID, msg.ChatID)
+	if err != nil {
+		log.Printf("Error checking if user is in chat: %v", err)
+		return
+	}
+
+	if !inChat {
+		log.Printf("User %d not authorized to join chat %s", client.userID, msg.ChatID)
+		return
+	}
+
+	// Add chat to client's list of active chat rooms
+	client.chatRooms[msg.ChatID] = struct{}{}
+
+	// Prepare join notification
+	notification := JoinMessage{
+		BaseMessage: BaseMessage{
+			Type:   MsgTypeJoin,
+			ChatID: msg.ChatID,
+		},
+		UserID:   client.userID,
+		JoinedAt: time.Now(),
+	}
+
+	// Marshal notification
+	msgData, err := json.Marshal(notification)
+	if err != nil {
+		log.Printf("Error marshaling join notification: %v", err)
+		return
+	}
+
+	// Broadcast to other participants that this user has joined
 	h.broadcastToChat(msg.ChatID, msgData)
+
+	// Send confirmation to the client
+	if err := client.conn.WriteMessage(websocket.TextMessage, msgData); err != nil {
+		log.Printf("Error sending join confirmation to user %d: %v", client.userID, err)
+	}
+}
+
+// handleLeaveChat handles a client leaving a chat
+func (h *Handler) handleLeaveChat(client *Client, msg LeaveMessage) {
+	// Check if user is in the chat
+	if _, ok := client.chatRooms[msg.ChatID]; !ok {
+		log.Printf("User %d not in chat %s", client.userID, msg.ChatID)
+		return
+	}
+
+	// Remove chat from client's list of active chat rooms
+	delete(client.chatRooms, msg.ChatID)
+
+	// Prepare leave notification
+	notification := LeaveMessage{
+		BaseMessage: BaseMessage{
+			Type:   MsgTypeLeave,
+			ChatID: msg.ChatID,
+		},
+		UserID: client.userID,
+		LeftAt: time.Now(),
+	}
+
+	// Marshal notification
+	msgData, err := json.Marshal(notification)
+	if err != nil {
+		log.Printf("Error marshaling leave notification: %v", err)
+		return
+	}
+
+	// Broadcast to other participants that this user has left
+	h.broadcastToChat(msg.ChatID, msgData)
+}
+
+// handleReaction handles client adding a reaction via WebSocket
+func (h *Handler) handleReaction(client *Client, msg ReactionMessage) {
+	// Add reaction using service
+	err := h.repo.AddReaction(msg.ReactionID, msg.MessageID, client.userID, msg.ReactionCode)
+	if err != nil {
+		// Check if it's a duplicate reaction (UUID constraint violation)
+		if isPrimaryKeyViolation(err) {
+			log.Printf("Duplicate reaction detected (ID: %s), ignoring", msg.ReactionID)
+			return
+		}
+		log.Printf("Error adding reaction: %v", err)
+		return
+	}
+
+	// Get chat ID for the message
+	chatID, err := h.repo.GetChatIDForMessage(msg.MessageID)
+	if err != nil {
+		log.Printf("Error getting chat ID for message: %v", err)
+		return
+	}
+
+	// Update reaction with user ID and current time
+	msg.UserID = client.userID
+	msg.ReactedAt = time.Now()
+	msg.ChatID = chatID
+
+	// Marshal message
+	msgData, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Error marshaling reaction: %v", err)
+		return
+	}
+
+	// Broadcast reaction to all participants in the chat
+	h.broadcastToChat(chatID, msgData)
+}
+
+// handleTypingIndicator handles typing indicators from clients
+func (h *Handler) handleTypingIndicator(client *Client, msg TypingMessage) {
+	// Check if client is in the chat
+	if _, ok := client.chatRooms[msg.ChatID]; !ok {
+		log.Printf("User %d not in chat %s", client.userID, msg.ChatID)
+		return
+	}
+
+	// Store typing indicator (optional, could use a cache/Redis for this)
+	if err := h.repo.StoreTypingIndicator(client.userID, msg.ChatID); err != nil {
+		log.Printf("Error storing typing indicator: %v", err)
+		// Continue anyway as it's not critical
+	}
+
+	// Update with user ID and current time
+	msg.UserID = client.userID
+	msg.Timestamp = time.Now()
+
+	// Marshal message
+	msgData, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Error marshaling typing notification: %v", err)
+		return
+	}
+
+	// Broadcast to other participants (excluding the sender)
+	h.broadcastToChatExcept(msg.ChatID, msgData, client.userID)
+}
+
+// handleReadReceipt handles read receipts from clients
+func (h *Handler) handleReadReceipt(client *Client, msg ReadReceiptMessage) {
+	// Check if client is in the chat
+	if _, ok := client.chatRooms[msg.ChatID]; !ok {
+		log.Printf("User %d not in chat %s", client.userID, msg.ChatID)
+		return
+	}
+
+	// Store read receipt
+	if err := h.repo.StoreReadReceipt(client.userID, msg.ChatID, msg.MessageID); err != nil {
+		log.Printf("Error storing read receipt: %v", err)
+		return
+	}
+
+	// Update with user ID and current time
+	msg.UserID = client.userID
+	msg.ReadAt = time.Now()
+
+	// Marshal message
+	msgData, err := json.Marshal(msg)
+	if err != nil {
+		log.Printf("Error marshaling read receipt notification: %v", err)
+		return
+	}
+
+	// Broadcast read receipt to other participants
+	h.broadcastToChatExcept(msg.ChatID, msgData, client.userID)
 }
 
 // broadcastToChat sends a message to all clients in a chat
@@ -481,6 +410,30 @@ func (h *Handler) broadcastToChat(chatID string, message []byte) {
 	defer h.clientsMutex.RUnlock()
 
 	for _, userID := range participants {
+		if client, ok := h.clients[userID]; ok {
+			if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
+				log.Printf("Error sending message to user %d: %v", userID, err)
+			}
+		}
+	}
+}
+
+// broadcastToChatExcept sends a message to all clients in a chat except the specified user
+func (h *Handler) broadcastToChatExcept(chatID string, message []byte, exceptUserID int) {
+	participants, err := h.repo.GetChatParticipants(chatID)
+	if err != nil {
+		log.Printf("Error fetching chat participants: %v", err)
+		return
+	}
+
+	h.clientsMutex.RLock()
+	defer h.clientsMutex.RUnlock()
+
+	for _, userID := range participants {
+		if userID == exceptUserID {
+			continue // Skip the excluded user
+		}
+
 		if client, ok := h.clients[userID]; ok {
 			if err := client.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				log.Printf("Error sending message to user %d: %v", userID, err)
