@@ -75,13 +75,13 @@ type ReadReceiptMessage struct {
 
 // Message type constants
 const (
-	MsgTypeChat            = "chat"
-	MsgTypeJoin            = "join"
-	MsgTypeLeave           = "leave"
-	MsgTypeReaction        = "reaction"
-	MsgTypeReactionRemoved = "reaction_removed"
-	MsgTypeTyping          = "typing"
-	MsgTypeReadReceipt     = "read_receipt"
+	MsgTypeChatMessage    = "chat_message"
+	MsgTypeJoinChat       = "join_chat"
+	MsgTypeLeaveChat      = "leave_chat"
+	MsgTypeReaction       = "reaction"
+	MsgTypeRemoveReaction = "remove_reaction"
+	MsgTypeTyping         = "typing"
+	MsgTypeReadReceipt    = "read_receipt"
 )
 
 func (h *Handler) handleWSConnection(conn WSConn, userID int) {
@@ -98,7 +98,7 @@ func (h *Handler) handleWSConnection(conn WSConn, userID int) {
 	h.clientsMutex.Unlock()
 
 	// Get user's chats and add them to chatRooms
-	chatRooms, err := h.repo.GetUserChatRooms(userID)
+	chatRooms, err := h.service.GetUserChatRooms(userID)
 	if err != nil {
 		log.Printf("Error fetching user chats: %v", err)
 	} else {
@@ -137,21 +137,21 @@ func (h *Handler) handleClient(client *Client) {
 
 		// Handle message based on type
 		switch baseMsg.Type {
-		case MsgTypeChat:
+		case MsgTypeChatMessage:
 			var chatMsg ChatMessage
 			if err := json.Unmarshal(data, &chatMsg); err != nil {
 				log.Printf("Error parsing chat message: %v", err)
 				continue
 			}
 			h.handleChatMessage(client, chatMsg)
-		case MsgTypeJoin:
+		case MsgTypeJoinChat:
 			var joinMsg JoinMessage
 			if err := json.Unmarshal(data, &joinMsg); err != nil {
 				log.Printf("Error parsing join message: %v", err)
 				continue
 			}
 			h.handleJoinChat(client, joinMsg)
-		case MsgTypeLeave:
+		case MsgTypeLeaveChat:
 			var leaveMsg LeaveMessage
 			if err := json.Unmarshal(data, &leaveMsg); err != nil {
 				log.Printf("Error parsing leave message: %v", err)
@@ -194,7 +194,7 @@ func (h *Handler) handleChatMessage(client *Client, msg ChatMessage) {
 	}
 
 	// Store message using the service
-	sentAt, err := h.repo.AddMessage(msg.MessageID, msg.ChatID, client.userID, msg.Content)
+	sentAt, err := h.service.AddMessage(msg.MessageID, msg.ChatID, client.userID, msg.Content)
 	if err != nil {
 		// Check if it's a duplicate message (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
@@ -229,7 +229,7 @@ func (h *Handler) handleJoinChat(client *Client, msg JoinMessage) {
 	}
 
 	// Check if user is authorized to join this chat
-	inChat, err := h.repo.IsUserInChat(client.userID, msg.ChatID)
+	inChat, err := h.service.IsUserInChat(client.userID, msg.ChatID)
 	if err != nil {
 		log.Printf("Error checking if user is in chat: %v", err)
 		return
@@ -246,7 +246,7 @@ func (h *Handler) handleJoinChat(client *Client, msg JoinMessage) {
 	// Prepare join notification
 	notification := JoinMessage{
 		BaseMessage: BaseMessage{
-			Type:   MsgTypeJoin,
+			Type:   MsgTypeJoinChat,
 			ChatID: msg.ChatID,
 		},
 		UserID:   client.userID,
@@ -283,7 +283,7 @@ func (h *Handler) handleLeaveChat(client *Client, msg LeaveMessage) {
 	// Prepare leave notification
 	notification := LeaveMessage{
 		BaseMessage: BaseMessage{
-			Type:   MsgTypeLeave,
+			Type:   MsgTypeLeaveChat,
 			ChatID: msg.ChatID,
 		},
 		UserID: client.userID,
@@ -304,7 +304,7 @@ func (h *Handler) handleLeaveChat(client *Client, msg LeaveMessage) {
 // handleReaction handles client adding a reaction via WebSocket
 func (h *Handler) handleReaction(client *Client, msg ReactionMessage) {
 	// Add reaction using service
-	err := h.repo.AddReaction(msg.ReactionID, msg.MessageID, client.userID, msg.ReactionCode)
+	err := h.service.AddReaction(msg.ReactionID, msg.MessageID, client.userID, msg.ReactionCode)
 	if err != nil {
 		// Check if it's a duplicate reaction (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
@@ -316,7 +316,7 @@ func (h *Handler) handleReaction(client *Client, msg ReactionMessage) {
 	}
 
 	// Get chat ID for the message
-	chatID, err := h.repo.GetChatIDForMessage(msg.MessageID)
+	chatID, err := h.service.GetChatIDForMessage(msg.MessageID)
 	if err != nil {
 		log.Printf("Error getting chat ID for message: %v", err)
 		return
@@ -347,7 +347,7 @@ func (h *Handler) handleTypingIndicator(client *Client, msg TypingMessage) {
 	}
 
 	// Store typing indicator (optional, could use a cache/Redis for this)
-	if err := h.repo.StoreTypingIndicator(client.userID, msg.ChatID); err != nil {
+	if err := h.service.StoreTypingIndicator(client.userID, msg.ChatID); err != nil {
 		log.Printf("Error storing typing indicator: %v", err)
 		// Continue anyway as it's not critical
 	}
@@ -376,7 +376,7 @@ func (h *Handler) handleReadReceipt(client *Client, msg ReadReceiptMessage) {
 	}
 
 	// Store read receipt
-	if err := h.repo.StoreReadReceipt(client.userID, msg.ChatID, msg.MessageID); err != nil {
+	if err := h.service.StoreReadReceipt(client.userID, msg.ChatID, msg.MessageID); err != nil {
 		log.Printf("Error storing read receipt: %v", err)
 		return
 	}
@@ -399,7 +399,7 @@ func (h *Handler) handleReadReceipt(client *Client, msg ReadReceiptMessage) {
 // broadcastToChat sends a message to all clients in a chat
 func (h *Handler) broadcastToChat(chatID string, message []byte) {
 	// Get all participants in the chat
-	participants, err := h.repo.GetChatParticipantsForBroadcast(chatID)
+	participants, err := h.service.GetChatParticipantsForBroadcast(chatID)
 	if err != nil {
 		log.Printf("Error fetching chat participants: %v", err)
 		return
@@ -420,7 +420,7 @@ func (h *Handler) broadcastToChat(chatID string, message []byte) {
 
 // broadcastToChatExcept sends a message to all clients in a chat except the specified user
 func (h *Handler) broadcastToChatExcept(chatID string, message []byte, exceptUserID int) {
-	participants, err := h.repo.GetChatParticipants(chatID)
+	participants, err := h.service.GetChatParticipants(chatID)
 	if err != nil {
 		log.Printf("Error fetching chat participants: %v", err)
 		return

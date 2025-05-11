@@ -6,6 +6,7 @@ import (
 	"errors"
 	"time"
 
+	apierrors "github.com/bulatminnakhmetov/brigadka-backend/internal/errors"
 	"github.com/google/uuid"
 )
 
@@ -21,7 +22,7 @@ type ChatMessage struct {
 // Chat structure
 type Chat struct {
 	ChatID       string    `json:"chat_id"`
-	ChatName     string    `json:"chat_name"`
+	ChatName     *string   `json:"chat_name"`
 	CreatedAt    time.Time `json:"created_at"`
 	IsGroup      bool      `json:"is_group"`
 	Participants []int     `json:"participants"`
@@ -52,16 +53,16 @@ type MessagingRepositoryImpl struct {
 	db *sql.DB
 }
 
-// NewService creates a new messaging service
-func NewService(db *sql.DB) *MessagingRepositoryImpl {
+// NewRepository creates a new messaging repository
+func NewRepository(db *sql.DB) *MessagingRepositoryImpl {
 	return &MessagingRepositoryImpl{
 		db: db,
 	}
 }
 
 // GetUserChats retrieves all chats for a user
-func (s *MessagingRepositoryImpl) GetUserChats(userID int) ([]Chat, error) {
-	rows, err := s.db.Query(`
+func (r *MessagingRepositoryImpl) GetUserChats(userID int) ([]Chat, error) {
+	rows, err := r.db.Query(`
         SELECT c.id, c.chat_name, c.created_at, c.is_group
         FROM chats c
         JOIN chat_participants cp ON c.id = cp.chat_id
@@ -75,6 +76,7 @@ func (s *MessagingRepositoryImpl) GetUserChats(userID int) ([]Chat, error) {
 	defer rows.Close()
 
 	var chats []Chat
+
 	for rows.Next() {
 		var chat Chat
 		if err := rows.Scan(&chat.ChatID, &chat.ChatName, &chat.CreatedAt, &chat.IsGroup); err != nil {
@@ -82,24 +84,57 @@ func (s *MessagingRepositoryImpl) GetUserChats(userID int) ([]Chat, error) {
 		}
 		chats = append(chats, chat)
 	}
+
+	// If no chats found, return empty array
+	if len(chats) == 0 {
+		return chats, nil
+	}
+
+	// TODO: use batch query for participants retrieval
+
+	// For each chat, get its participants
+	for i, chat := range chats {
+		if chat.IsGroup {
+			continue
+		}
+
+		participantRows, err := r.db.Query("SELECT user_id FROM chat_participants WHERE chat_id = $1", chat.ChatID)
+		if err != nil {
+			return nil, err
+		}
+
+		participants := make([]int, 0)
+		for participantRows.Next() {
+			var participantID int
+			if err := participantRows.Scan(&participantID); err != nil {
+				participantRows.Close()
+				return nil, err
+			}
+			participants = append(participants, participantID)
+		}
+		participantRows.Close()
+
+		chats[i].Participants = participants
+	}
+
 	return chats, nil
 }
 
 // GetChat retrieves details for a specific chat
-func (s *MessagingRepositoryImpl) GetChat(chatID string, userID int) (*Chat, error) {
+func (r *MessagingRepositoryImpl) GetChat(chatID string, userID int) (*Chat, error) {
 	// Check if user is a participant in the chat
 	var count int
-	err := s.db.QueryRow("SELECT COUNT(*) FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID).Scan(&count)
+	err := r.db.QueryRow("SELECT COUNT(*) FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID).Scan(&count)
 	if err != nil {
 		return nil, err
 	}
 	if count == 0 {
-		return nil, errors.New("user not in chat")
+		return nil, errors.New(apierrors.ErrorUserNotInChat)
 	}
 
 	// Get chat details
 	var chat Chat
-	err = s.db.QueryRow(`
+	err = r.db.QueryRow(`
         SELECT c.id, c.chat_name, c.created_at, c.is_group
         FROM chats c WHERE c.id = $1
     `, chatID).Scan(&chat.ChatID, &chat.ChatName, &chat.CreatedAt, &chat.IsGroup)
@@ -108,7 +143,7 @@ func (s *MessagingRepositoryImpl) GetChat(chatID string, userID int) (*Chat, err
 	}
 
 	// Get chat participants
-	rows, err := s.db.Query("SELECT user_id FROM chat_participants WHERE chat_id = $1", chatID)
+	rows, err := r.db.Query("SELECT user_id FROM chat_participants WHERE chat_id = $1", chatID)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +161,8 @@ func (s *MessagingRepositoryImpl) GetChat(chatID string, userID int) (*Chat, err
 }
 
 // CreateChat creates a new chat with the specified participants
-func (s *MessagingRepositoryImpl) CreateChat(ctx context.Context, chatID string, creatorID int, chatName string, participants []int) error {
-	tx, err := s.db.BeginTx(ctx, nil)
+func (r *MessagingRepositoryImpl) CreateChat(ctx context.Context, chatID string, creatorID int, chatName string, participants []int) error {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
@@ -164,10 +199,10 @@ func (s *MessagingRepositoryImpl) CreateChat(ctx context.Context, chatID string,
 }
 
 // GetOrCreateDirectChat finds an existing direct chat between two users or creates a new one
-func (s *MessagingRepositoryImpl) GetOrCreateDirectChat(ctx context.Context, userID1 int, userID2 int) (string, error) {
+func (r *MessagingRepositoryImpl) GetOrCreateDirectChat(ctx context.Context, userID1 int, userID2 int) (string, error) {
 	// First try to find an existing direct chat
 	var chatID string
-	err := s.db.QueryRow(`
+	err := r.db.QueryRow(`
         SELECT c.id FROM chats c
         JOIN chat_participants cp1 ON c.id = cp1.chat_id
         JOIN chat_participants cp2 ON c.id = cp2.chat_id
@@ -186,7 +221,7 @@ func (s *MessagingRepositoryImpl) GetOrCreateDirectChat(ctx context.Context, use
 	}
 
 	// Otherwise create a new direct chat
-	tx, err := s.db.BeginTx(ctx, nil)
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return "", err
 	}
@@ -220,9 +255,9 @@ func (s *MessagingRepositoryImpl) GetOrCreateDirectChat(ctx context.Context, use
 }
 
 // AddMessage adds a message to the database and returns the sent time
-func (s *MessagingRepositoryImpl) AddMessage(messageID string, chatID string, senderID int, content string) (time.Time, error) {
+func (r *MessagingRepositoryImpl) AddMessage(messageID string, chatID string, senderID int, content string) (time.Time, error) {
 	var sentAt time.Time
-	err := s.db.QueryRow(
+	err := r.db.QueryRow(
 		"INSERT INTO messages (id, chat_id, sender_id, content) VALUES ($1, $2, $3, $4) RETURNING sent_at",
 		messageID, chatID, senderID, content,
 	).Scan(&sentAt)
@@ -233,8 +268,8 @@ func (s *MessagingRepositoryImpl) AddMessage(messageID string, chatID string, se
 }
 
 // GetChatParticipants retrieves all participants in a chat
-func (s *MessagingRepositoryImpl) GetChatParticipants(chatID string) ([]int, error) {
-	rows, err := s.db.Query("SELECT user_id FROM chat_participants WHERE chat_id = $1", chatID)
+func (r *MessagingRepositoryImpl) GetChatParticipants(chatID string) ([]int, error) {
+	rows, err := r.db.Query("SELECT user_id FROM chat_participants WHERE chat_id = $1", chatID)
 	if err != nil {
 		return nil, err
 	}
@@ -252,9 +287,9 @@ func (s *MessagingRepositoryImpl) GetChatParticipants(chatID string) ([]int, err
 }
 
 // IsUserInChat checks if a user is a participant in a chat
-func (s *MessagingRepositoryImpl) IsUserInChat(userID int, chatID string) (bool, error) {
+func (r *MessagingRepositoryImpl) IsUserInChat(userID int, chatID string) (bool, error) {
 	var count int
-	err := s.db.QueryRow("SELECT COUNT(*) FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID).Scan(&count)
+	err := r.db.QueryRow("SELECT COUNT(*) FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID).Scan(&count)
 	if err != nil {
 		return false, err
 	}
@@ -262,44 +297,31 @@ func (s *MessagingRepositoryImpl) IsUserInChat(userID int, chatID string) (bool,
 }
 
 // AddParticipant adds a user to a chat
-func (s *MessagingRepositoryImpl) AddParticipant(chatID string, userID int) error {
-	_, err := s.db.Exec("INSERT INTO chat_participants (chat_id, user_id) VALUES ($1, $2)", chatID, userID)
+func (r *MessagingRepositoryImpl) AddParticipant(chatID string, userID int) error {
+	_, err := r.db.Exec("INSERT INTO chat_participants (chat_id, user_id) VALUES ($1, $2)", chatID, userID)
 	return err
 }
 
 // RemoveParticipant removes a user from a chat
-func (s *MessagingRepositoryImpl) RemoveParticipant(chatID string, userID int) error {
-	_, err := s.db.Exec("DELETE FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID)
+func (r *MessagingRepositoryImpl) RemoveParticipant(chatID string, userID int) error {
+	_, err := r.db.Exec("DELETE FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID)
 	return err
 }
 
 // AddReaction adds a reaction to a message
-func (s *MessagingRepositoryImpl) AddReaction(reactionID string, messageID string, userID int, reactionCode string) error {
+func (r *MessagingRepositoryImpl) AddReaction(reactionID string, messageID string, userID int, reactionCode string) error {
 	// Check if reaction code exists
 	var count int
-	err := s.db.QueryRow("SELECT COUNT(*) FROM reaction_catalog WHERE reaction_code = $1", reactionCode).Scan(&count)
+	err := r.db.QueryRow("SELECT COUNT(*) FROM reaction_catalog WHERE reaction_code = $1", reactionCode).Scan(&count)
 	if err != nil {
 		return err
 	}
 	if count == 0 {
-		return errors.New("invalid reaction code")
-	}
-
-	// Check if user can react to the message (is participant in the chat)
-	err = s.db.QueryRow(`
-        SELECT COUNT(*) FROM chat_participants cp
-        JOIN messages m ON cp.chat_id = m.chat_id
-        WHERE m.id = $1 AND cp.user_id = $2
-    `, messageID, userID).Scan(&count)
-	if err != nil {
-		return err
-	}
-	if count == 0 {
-		return errors.New("user not authorized to react to this message")
+		return errors.New(apierrors.ErrorInvalidReactionCode)
 	}
 
 	// Add reaction - will fail with constraint error if duplicate
-	_, err = s.db.Exec(`
+	_, err = r.db.Exec(`
         INSERT INTO message_reactions (id, message_id, user_id, reaction_code)
         VALUES ($1, $2, $3, $4)
     `, reactionID, messageID, userID, reactionCode)
@@ -308,8 +330,8 @@ func (s *MessagingRepositoryImpl) AddReaction(reactionID string, messageID strin
 }
 
 // RemoveReaction removes a reaction from a message
-func (s *MessagingRepositoryImpl) RemoveReaction(messageID string, userID int, reactionCode string) error {
-	_, err := s.db.Exec(
+func (r *MessagingRepositoryImpl) RemoveReaction(messageID string, userID int, reactionCode string) error {
+	_, err := r.db.Exec(
 		"DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2 AND reaction_code = $3",
 		messageID, userID, reactionCode,
 	)
@@ -317,25 +339,16 @@ func (s *MessagingRepositoryImpl) RemoveReaction(messageID string, userID int, r
 }
 
 // GetChatIDForMessage retrieves the chat ID for a message
-func (s *MessagingRepositoryImpl) GetChatIDForMessage(messageID string) (string, error) {
+func (r *MessagingRepositoryImpl) GetChatIDForMessage(messageID string) (string, error) {
 	var chatID string
-	err := s.db.QueryRow("SELECT chat_id FROM messages WHERE id = $1", messageID).Scan(&chatID)
+	err := r.db.QueryRow("SELECT chat_id FROM messages WHERE id = $1", messageID).Scan(&chatID)
 	return chatID, err
 }
 
 // GetChatMessages retrieves messages for a chat with pagination
-func (s *MessagingRepositoryImpl) GetChatMessages(chatID string, userID int, limit, offset int) ([]ChatMessage, error) {
-	// Check if user is in chat
-	inChat, err := s.IsUserInChat(userID, chatID)
-	if err != nil {
-		return nil, err
-	}
-	if !inChat {
-		return nil, errors.New("user not in chat")
-	}
-
+func (r *MessagingRepositoryImpl) GetChatMessages(chatID string, userID int, limit, offset int) ([]ChatMessage, error) {
 	// Get messages
-	rows, err := s.db.Query(`
+	rows, err := r.db.Query(`
         SELECT id, chat_id, sender_id, content, sent_at
         FROM messages
         WHERE chat_id = $1
@@ -360,23 +373,23 @@ func (s *MessagingRepositoryImpl) GetChatMessages(chatID string, userID int, lim
 
 // StoreTypingIndicator records that a user is typing in a chat
 // This could use a cache/Redis instead of DB for better performance
-func (s *MessagingRepositoryImpl) StoreTypingIndicator(userID int, chatID string) error {
+func (r *MessagingRepositoryImpl) StoreTypingIndicator(userID int, chatID string) error {
 	// Implementation would depend on how you want to track typing indicators
 	// This is a simple example that could be replaced with Redis
 	return nil
 }
 
 // StoreReadReceipt records that a user has read messages up to a certain point
-func (s *MessagingRepositoryImpl) StoreReadReceipt(userID int, chatID string, messageID string) error {
+func (r *MessagingRepositoryImpl) StoreReadReceipt(userID int, chatID string, messageID string) error {
 	// First, get the sequence number for the message
 	var seq int64
-	err := s.db.QueryRow("SELECT seq FROM messages WHERE id = $1", messageID).Scan(&seq)
+	err := r.db.QueryRow("SELECT seq FROM messages WHERE id = $1", messageID).Scan(&seq)
 	if err != nil {
 		return err
 	}
 
 	// Now update the read receipt with the sequence number
-	_, err = s.db.Exec(`
+	_, err = r.db.Exec(`
         INSERT INTO message_read_receipts (user_id, chat_id, last_read_seq, read_at)
         VALUES ($1, $2, $3, NOW())
         ON CONFLICT (user_id, chat_id) DO UPDATE 
@@ -386,8 +399,8 @@ func (s *MessagingRepositoryImpl) StoreReadReceipt(userID int, chatID string, me
 }
 
 // GetUserChatRooms retrieves all chat IDs a user is part of
-func (s *MessagingRepositoryImpl) GetUserChatRooms(userID int) (map[string]struct{}, error) {
-	rows, err := s.db.Query("SELECT chat_id FROM chat_participants WHERE user_id = $1", userID)
+func (r *MessagingRepositoryImpl) GetUserChatRooms(userID int) (map[string]struct{}, error) {
+	rows, err := r.db.Query("SELECT chat_id FROM chat_participants WHERE user_id = $1", userID)
 	if err != nil {
 		return nil, err
 	}
@@ -406,6 +419,6 @@ func (s *MessagingRepositoryImpl) GetUserChatRooms(userID int) (map[string]struc
 }
 
 // GetChatParticipantsForBroadcast retrieves all participants of a chat for broadcasting
-func (s *MessagingRepositoryImpl) GetChatParticipantsForBroadcast(chatID string) ([]int, error) {
-	return s.GetChatParticipants(chatID)
+func (r *MessagingRepositoryImpl) GetChatParticipantsForBroadcast(chatID string) ([]int, error) {
+	return r.GetChatParticipants(chatID)
 }

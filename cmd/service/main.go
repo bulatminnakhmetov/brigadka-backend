@@ -24,12 +24,13 @@ import (
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/profile"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/logging"
 	mediarepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/media"
+	messagingrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/messaging"
 	profilerepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/profile"
 	userrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/user"
 
-	messagingrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/messaging"
 	authservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/auth"
 	mediaservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/media"
+	messagingservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/messaging"
 	profileservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/profile"
 
 	mediastorage "github.com/bulatminnakhmetov/brigadka-backend/internal/storage/media"
@@ -156,7 +157,8 @@ func main() {
 	mediaHandler := media.NewMediaHandler(mediaService)
 
 	// Инициализация сервиса и хендлера сообщений
-	messagingService := messagingrepo.NewService(db)
+	messagingRepo := messagingrepo.NewRepository(db)
+	messagingService := messagingservice.NewService(messagingRepo, profileRepo)
 	messagingHandler := messaging.NewHandler(messagingService)
 
 	// Создание роутера

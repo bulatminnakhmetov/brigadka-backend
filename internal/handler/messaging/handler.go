@@ -11,11 +11,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/gorilla/websocket"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/repository/messaging"
+	apierrors "github.com/bulatminnakhmetov/brigadka-backend/internal/errors"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/messaging"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/profile"
 )
 
 type Handler struct {
-	repo         messaging.MessagingRepository
+	profile      profile.ProfileRepository
+	service      messaging.Service
 	upgrader     websocket.Upgrader
 	clients      map[int]*Client // Map of userID to client connection
 	clientsMutex sync.RWMutex
@@ -45,11 +48,11 @@ type SendMessageRequest struct {
 	Content   string `json:"content"`
 }
 
-type CreateDirectChatRequest struct {
+type GetOrCreateDirectChatRequest struct {
 	UserID int `json:"user_id"`
 }
 
-type CreatedChatResponse struct {
+type ChatIDResponse struct {
 	ChatID string `json:"chat_id"`
 }
 
@@ -70,9 +73,9 @@ type Client struct {
 	chatRooms map[string]struct{} // Set of chatIDs the client is in
 }
 
-func NewHandler(service messaging.MessagingRepository) *Handler {
+func NewHandler(service messaging.Service) *Handler {
 	return &Handler{
-		repo: service,
+		service: service,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -127,7 +130,7 @@ func (h *Handler) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 // @Produce      json
 // @Param        request body CreateChatRequest true "Данные для создания чата"
 // @Security     BearerAuth
-// @Success      201 {object} CreatedChatResponse "Чат успешно создан"
+// @Success      201 {object} ChatIDResponse "Чат успешно создан"
 // @Failure      400 {string} string "Некорректный запрос"
 // @Failure      401 {string} string "Unauthorized"
 // @Failure      409 {string} string "Чат с таким ID уже существует"
@@ -155,11 +158,11 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create chat using the service
-	err := h.repo.CreateChat(r.Context(), req.ChatID, userID, req.ChatName, req.Participants)
+	err := h.service.CreateChat(r.Context(), req.ChatID, userID, req.ChatName, req.Participants)
 	if err != nil {
 		// Check if it's a duplicate chat (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
-			http.Error(w, "Chat already exists with this ID", http.StatusConflict)
+			http.Error(w, apierrors.ErrorChatAlreadyExistsWithThisID, http.StatusConflict)
 			return
 		}
 		http.Error(w, "Server error", http.StatusInternalServerError)
@@ -167,7 +170,7 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := CreatedChatResponse{
+	response := ChatIDResponse{
 		ChatID: req.ChatID,
 	}
 
@@ -182,9 +185,9 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 // @Tags         messaging
 // @Accept       json
 // @Produce      json
-// @Param        request body CreateDirectChatRequest true "ID второго пользователя"
+// @Param        request body GetOrCreateDirectChatRequest true "ID второго пользователя"
 // @Security     BearerAuth
-// @Success      200 {object} CreatedChatResponse "ID чата"
+// @Success      200 {object} ChatIDResponse "ID чата"
 // @Failure      400 {string} string "Некорректный запрос или попытка создать чат с самим собой"
 // @Failure      401 {string} string "Unauthorized"
 // @Failure      500 {string} string "Ошибка сервера"
@@ -199,27 +202,26 @@ func (h *Handler) GetOrCreateDirectChat(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Parse request to get the other user's ID
-	var req CreateDirectChatRequest
+	var req GetOrCreateDirectChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 
-	// Make sure we're not trying to create a chat with ourselves
-	if currentUserID == req.UserID {
-		http.Error(w, "Cannot create direct chat with yourself", http.StatusBadRequest)
-		return
-	}
-
 	// Get or create the direct chat
-	chatID, err := h.repo.GetOrCreateDirectChat(r.Context(), currentUserID, req.UserID)
+	chatID, err := h.service.GetOrCreateDirectChat(r.Context(), currentUserID, req.UserID)
 	if err != nil {
+		if err.Error() == apierrors.ErrorCannotCreateChatWithSelf {
+			http.Error(w, apierrors.ErrorCannotCreateChatWithSelf, http.StatusBadRequest)
+			return
+		}
+
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error getting/creating direct chat: %v", err)
 		return
 	}
 
-	response := CreatedChatResponse{
+	response := ChatIDResponse{
 		ChatID: chatID,
 	}
 
@@ -246,7 +248,7 @@ func (h *Handler) GetUserChats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user's chats using the service
-	chats, err := h.repo.GetUserChats(userID)
+	chats, err := h.service.GetUserChats(userID)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error fetching chats: %v", err)
@@ -281,9 +283,9 @@ func (h *Handler) GetChat(w http.ResponseWriter, r *http.Request) {
 	chatID := chi.URLParam(r, "chatID")
 
 	// Get chat details from the service
-	chat, err := h.repo.GetChat(chatID, userID)
+	chat, err := h.service.GetChat(chatID, userID)
 	if err != nil {
-		if err.Error() == "user not in chat" {
+		if err.Error() == apierrors.ErrorUserNotInChat {
 			http.Error(w, "Chat not found", http.StatusNotFound)
 		} else {
 			http.Error(w, "Server error", http.StatusInternalServerError)
@@ -342,9 +344,9 @@ func (h *Handler) GetChatMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get messages
-	messages, err := h.repo.GetChatMessages(chatID, userID, limit, offset)
+	messages, err := h.service.GetChatMessages(chatID, userID, limit, offset)
 	if err != nil {
-		if err.Error() == "user not in chat" {
+		if err.Error() == apierrors.ErrorUserNotInChat {
 			http.Error(w, "Chat not found", http.StatusNotFound)
 		} else {
 			http.Error(w, "Server error", http.StatusInternalServerError)
@@ -391,7 +393,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the current user is in the chat (only participants can add others)
-	inChat, err := h.repo.IsUserInChat(userID, chatID)
+	inChat, err := h.service.IsUserInChat(userID, chatID)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error checking chat participation: %v", err)
@@ -403,7 +405,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add new participant
-	if err := h.repo.AddParticipant(chatID, req.UserID); err != nil {
+	if err := h.service.AddParticipant(chatID, req.UserID); err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error adding participant: %v", err)
 		return
@@ -445,7 +447,7 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the current user is in the chat
-	inChat, err := h.repo.IsUserInChat(userID, chatID)
+	inChat, err := h.service.IsUserInChat(userID, chatID)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error checking chat participation: %v", err)
@@ -465,7 +467,7 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Remove participant
-	if err := h.repo.RemoveParticipant(chatID, targetUserID); err != nil {
+	if err := h.service.RemoveParticipant(chatID, targetUserID); err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error removing participant: %v", err)
 		return
@@ -502,7 +504,6 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 	messageID := chi.URLParam(r, "messageID")
 
 	// Parse request body
-
 	var req AddReactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
@@ -510,18 +511,18 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add reaction using service
-	err := h.repo.AddReaction(req.ReactionID, messageID, userID, req.ReactionCode)
+	err := h.service.AddReaction(req.ReactionID, messageID, userID, req.ReactionCode)
 	if err != nil {
 		// Check if it's a duplicate reaction (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
-			http.Error(w, "Reaction already exists with this ID", http.StatusConflict)
+			http.Error(w, apierrors.ErrorReactionAlreadyExists, http.StatusConflict)
 			return
 		}
 
 		// Other errors
-		if err.Error() == "invalid reaction code" {
-			http.Error(w, "Invalid reaction code", http.StatusBadRequest)
-		} else if err.Error() == "user not authorized to react to this message" {
+		if err.Error() == apierrors.ErrorInvalidReactionCode {
+			http.Error(w, apierrors.ErrorInvalidReactionCode, http.StatusBadRequest)
+		} else if err.Error() == apierrors.ErrorNotAuthorizedToReact {
 			http.Error(w, "Message not found or not authorized", http.StatusNotFound)
 		} else {
 			http.Error(w, "Server error", http.StatusInternalServerError)
@@ -531,7 +532,7 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get chat ID for the message for broadcasting
-	chatID, err := h.repo.GetChatIDForMessage(messageID)
+	chatID, err := h.service.GetChatIDForMessage(messageID)
 	if err != nil {
 		log.Printf("Error getting chat ID for message: %v", err)
 		// Continue to return success even if we can't broadcast
@@ -581,14 +582,14 @@ func (h *Handler) RemoveReaction(w http.ResponseWriter, r *http.Request) {
 	reactionCode := chi.URLParam(r, "reactionCode")
 
 	// Get chat ID for the message for broadcasting
-	chatID, err := h.repo.GetChatIDForMessage(messageID)
+	chatID, err := h.service.GetChatIDForMessage(messageID)
 	if err != nil {
 		log.Printf("Error getting chat ID for message: %v", err)
 		// We'll continue even if we can't broadcast
 	}
 
 	// Remove reaction
-	err = h.repo.RemoveReaction(messageID, userID, reactionCode)
+	err = h.service.RemoveReaction(messageID, userID, reactionCode)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error removing reaction: %v", err)
@@ -599,7 +600,7 @@ func (h *Handler) RemoveReaction(w http.ResponseWriter, r *http.Request) {
 	if chatID != "" {
 		msgData, _ := json.Marshal(ReactionRemovedMessage{
 			BaseMessage: BaseMessage{
-				Type:   MsgTypeReactionRemoved,
+				Type:   MsgTypeRemoveReaction,
 				ChatID: chatID,
 			},
 			MessageID:    messageID,
@@ -650,26 +651,21 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if user is a participant in the chat
-	inChat, err := h.repo.IsUserInChat(userID, chatID)
-	if err != nil {
-		http.Error(w, "Server error", http.StatusInternalServerError)
-		log.Printf("Error checking chat participation: %v", err)
-		return
-	}
-	if !inChat {
-		http.Error(w, "Chat not found", http.StatusNotFound)
-		return
-	}
-
 	// Store message
-	sentAt, err := h.repo.AddMessage(req.MessageID, chatID, userID, req.Content)
+	sentAt, err := h.service.AddMessage(req.MessageID, chatID, userID, req.Content)
 	if err != nil {
 		// Check if it's a duplicate message (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
-			http.Error(w, "Message with this ID already exists", http.StatusConflict)
+			http.Error(w, apierrors.ErrorMessageAlreadyExists, http.StatusConflict)
 			return
 		}
+
+		// Check for user not in chat
+		if err.Error() == apierrors.ErrorUserNotInChat {
+			http.Error(w, "Chat not found", http.StatusNotFound)
+			return
+		}
+
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error storing message: %v", err)
 		return
@@ -678,7 +674,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	// Marshal message for broadcasting
 	wsMsg := ChatMessage{
 		BaseMessage: BaseMessage{
-			Type:   MsgTypeChat,
+			Type:   MsgTypeChatMessage,
 			ChatID: chatID,
 		},
 		MessageID: req.MessageID,

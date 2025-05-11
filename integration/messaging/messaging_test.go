@@ -672,7 +672,7 @@ func (s *MessagingIntegrationTestSuite) TestWebSocketMessaging() {
 			// Create ChatMessage with embedded BaseMessage
 			chatMsg := messaging.ChatMessage{
 				BaseMessage: messaging.BaseMessage{
-					Type:   messaging.MsgTypeChat,
+					Type:   messaging.MsgTypeChatMessage,
 					ChatID: chatID,
 				},
 				MessageID: wsMessageID,
@@ -697,7 +697,7 @@ func (s *MessagingIntegrationTestSuite) TestWebSocketMessaging() {
 						continue
 					}
 
-					if response.Type == messaging.MsgTypeChat {
+					if response.Type == messaging.MsgTypeChatMessage {
 						var chatResponse messaging.ChatMessage
 						if err := json.Unmarshal(msg, &chatResponse); err == nil {
 							if chatResponse.MessageID == wsMessageID &&
@@ -726,7 +726,7 @@ func (s *MessagingIntegrationTestSuite) TestWebSocketMessaging() {
 						continue
 					}
 
-					if response.Type == messaging.MsgTypeChat {
+					if response.Type == messaging.MsgTypeChatMessage {
 						var chatResponse messaging.ChatMessage
 						if err := json.Unmarshal(msg, &chatResponse); err == nil {
 							if chatResponse.MessageID == wsMessageID &&
@@ -826,6 +826,145 @@ func (s *MessagingIntegrationTestSuite) TestGetOrCreateDirectChat() {
 	assert.NoError(t, err)
 	defer selfResp.Body.Close()
 	assert.Equal(t, http.StatusBadRequest, selfResp.StatusCode, "Should not allow creating direct chat with self")
+}
+
+// TestDirectChatNameDisplay tests that direct chat names display the name of the other participant
+func (s *MessagingIntegrationTestSuite) TestDirectChatNameDisplay() {
+	t := s.T()
+
+	// Create two test users and set up profiles for them
+	user1ID, user1Token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create first test user")
+
+	user2ID, user2Token, err := s.createTestUser()
+	assert.NoError(t, err, "Failed to create second test user")
+
+	// Create profiles for both users with different names
+	user1Name := "Alice Test"
+	user2Name := "Bob Test"
+
+	// Create profile for user1
+	user1Profile := map[string]interface{}{
+		"user_id":          user1ID,
+		"full_name":        user1Name,
+		"birthday":         "1990-01-01",
+		"gender":           "female",
+		"city_id":          1,
+		"bio":              "Test bio 1",
+		"goal":             "career",
+		"improv_styles":    []string{"longform"},
+		"looking_for_team": true,
+	}
+
+	profileJSON1, _ := json.Marshal(user1Profile)
+	req1, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(profileJSON1))
+	req1.Header.Set("Content-Type", "application/json")
+	req1.Header.Set("Authorization", "Bearer "+user1Token)
+
+	client := &http.Client{}
+	resp1, err := client.Do(req1)
+	assert.NoError(t, err)
+	if resp1.Body != nil {
+		defer resp1.Body.Close()
+	}
+
+	// Create profile for user2
+	user2Profile := map[string]interface{}{
+		"user_id":          user2ID,
+		"full_name":        user2Name,
+		"birthday":         "1992-02-02",
+		"gender":           "male",
+		"city_id":          1,
+		"bio":              "Test bio 2",
+		"goal":             "hobby",
+		"improv_styles":    []string{"shortform"},
+		"looking_for_team": false,
+	}
+
+	profileJSON2, _ := json.Marshal(user2Profile)
+	req2, _ := http.NewRequest("POST", s.appUrl+"/api/profiles", bytes.NewBuffer(profileJSON2))
+	req2.Header.Set("Content-Type", "application/json")
+	req2.Header.Set("Authorization", "Bearer "+user2Token)
+
+	resp2, err := client.Do(req2)
+	assert.NoError(t, err)
+	if resp2.Body != nil {
+		defer resp2.Body.Close()
+	}
+
+	// Create or get direct chat between user1 and user2
+	directChatReq := map[string]int{"user_id": user2ID}
+	directChatJSON, _ := json.Marshal(directChatReq)
+
+	req, _ := http.NewRequest("POST", s.appUrl+"/api/chats/direct", bytes.NewBuffer(directChatJSON))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+user1Token)
+
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+	assert.Equal(t, http.StatusOK, resp.StatusCode, "Should return status 200 OK")
+
+	var chatResponse map[string]string
+	err = json.NewDecoder(resp.Body).Decode(&chatResponse)
+	assert.NoError(t, err)
+	chatID := chatResponse["chat_id"]
+	assert.NotEmpty(t, chatID, "ChatID should not be empty")
+
+	// Test 1: User1 should see User2's name as the chat name
+	getChatReq1, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/chats/%s", s.appUrl, chatID), nil)
+	getChatReq1.Header.Set("Authorization", "Bearer "+user1Token)
+
+	getChatResp1, err := client.Do(getChatReq1)
+	assert.NoError(t, err)
+	defer getChatResp1.Body.Close()
+	assert.Equal(t, http.StatusOK, getChatResp1.StatusCode, "Should return status 200 OK")
+
+	var chat1 map[string]interface{}
+	err = json.NewDecoder(getChatResp1.Body).Decode(&chat1)
+	assert.NoError(t, err)
+	assert.Equal(t, user2Name, chat1["chat_name"], "User1 should see User2's name as the chat name")
+	assert.Equal(t, false, chat1["is_group"], "Direct chat should not be a group chat")
+
+	// Test 2: User2 should see User1's name as the chat name
+	getChatReq2, _ := http.NewRequest("GET", fmt.Sprintf("%s/api/chats/%s", s.appUrl, chatID), nil)
+	getChatReq2.Header.Set("Authorization", "Bearer "+user2Token)
+
+	getChatResp2, err := client.Do(getChatReq2)
+	assert.NoError(t, err)
+	defer getChatResp2.Body.Close()
+	assert.Equal(t, http.StatusOK, getChatResp2.StatusCode, "Should return status 200 OK")
+
+	var chat2 map[string]interface{}
+	err = json.NewDecoder(getChatResp2.Body).Decode(&chat2)
+	assert.NoError(t, err)
+	assert.Equal(t, user1Name, chat2["chat_name"], "User2 should see User1's name as the chat name")
+	assert.Equal(t, false, chat2["is_group"], "Direct chat should not be a group chat")
+
+	// Also test the chat list to verify consistent naming in the list view
+	getChatsReq1, _ := http.NewRequest("GET", s.appUrl+"/api/chats", nil)
+	getChatsReq1.Header.Set("Authorization", "Bearer "+user1Token)
+
+	getChatsResp1, err := client.Do(getChatsReq1)
+	assert.NoError(t, err)
+	defer getChatsResp1.Body.Close()
+	assert.Equal(t, http.StatusOK, getChatsResp1.StatusCode, "Should return status 200 OK")
+
+	var chatsList1 []map[string]interface{}
+	err = json.NewDecoder(getChatsResp1.Body).Decode(&chatsList1)
+	assert.NoError(t, err)
+
+	// Find our test chat in the list
+	foundChatInList := false
+	for _, c := range chatsList1 {
+		if c["chat_id"] == chatID {
+			foundChatInList = true
+			assert.Equal(t, user2Name, c["chat_name"], "User1's chat list should show User2's name")
+			assert.Equal(t, false, c["is_group"], "Direct chat in list should not be a group chat")
+			break
+		}
+	}
+	assert.True(t, foundChatInList, "Should find the direct chat in user1's chat list")
 }
 
 // TestMessagingIntegration runs the messaging integration test suite
