@@ -1,25 +1,6 @@
 basePath: /api
 definitions:
-  auth.LoginRequest:
-    properties:
-      email:
-        type: string
-      password:
-        type: string
-    type: object
-  auth.RefreshRequest:
-    properties:
-      refresh_token:
-        type: string
-    type: object
-  auth.RegisterRequest:
-    properties:
-      email:
-        type: string
-      password:
-        type: string
-    type: object
-  github_com_bulatminnakhmetov_brigadka-backend_internal_handler_auth.AuthResponse:
+  internal_handler_auth.AuthResponse:
     properties:
       refresh_token:
         type: string
@@ -27,6 +8,25 @@ definitions:
         type: string
       user_id:
         type: integer
+    type: object
+  internal_handler_auth.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  internal_handler_auth.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    type: object
+  internal_handler_auth.RegisterRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
     type: object
 host: localhost:8080
 info:
@@ -73,14 +73,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/auth.LoginRequest'
+          $ref: '#/definitions/internal_handler_auth.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_handler_auth.AuthResponse'
+            $ref: '#/definitions/internal_handler_auth.AuthResponse'
         "400":
           description: Invalid data
           schema:
@@ -107,14 +107,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/auth.RefreshRequest'
+          $ref: '#/definitions/internal_handler_auth.RefreshRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_handler_auth.AuthResponse'
+            $ref: '#/definitions/internal_handler_auth.AuthResponse'
         "400":
           description: Invalid data
           schema:
@@ -141,14 +141,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/auth.RegisterRequest'
+          $ref: '#/definitions/internal_handler_auth.RegisterRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_handler_auth.AuthResponse'
+            $ref: '#/definitions/internal_handler_auth.AuthResponse'
         "400":
           description: Invalid data
           schema:

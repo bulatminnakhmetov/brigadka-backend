@@ -1,11 +1,44 @@
 basePath: /api
 definitions:
-  github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.City:
+  github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.Media:
     properties:
       id:
         type: integer
-      name:
+      thumbnail_url:
         type: string
+      url:
+        type: string
+    type: object
+  github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.Profile:
+    properties:
+      avatar:
+        $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.Media'
+      bio:
+        type: string
+      birthday:
+        type: string
+      city_id:
+        type: integer
+      created_at:
+        type: string
+      full_name:
+        type: string
+      gender:
+        type: string
+      goal:
+        type: string
+      improv_styles:
+        items:
+          type: string
+        type: array
+      looking_for_team:
+        type: boolean
+      user_id:
+        type: integer
+      videos:
+        items:
+          $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.Media'
+        type: array
     type: object
   github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.ProfileCreateRequest:
     properties:
@@ -66,37 +99,19 @@ definitions:
           type: integer
         type: array
     type: object
-  github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.TranslatedItem:
-    properties:
-      code:
-        type: string
-      description:
-        type: string
-      label:
-        type: string
-    type: object
-  profile.Date:
+  internal_handler_profile.Date:
     properties:
       time.Time:
         type: string
     type: object
-  profile.Media:
-    properties:
-      id:
-        type: integer
-      thumbnail_url:
-        type: string
-      url:
-        type: string
-    type: object
-  profile.Profile:
+  internal_handler_profile.ProfileResponse:
     properties:
       avatar:
-        $ref: '#/definitions/profile.Media'
+        $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.Media'
       bio:
         type: string
       birthday:
-        type: string
+        $ref: '#/definitions/internal_handler_profile.Date'
       city_id:
         type: integer
       created_at:
@@ -117,41 +132,10 @@ definitions:
         type: integer
       videos:
         items:
-          $ref: '#/definitions/profile.Media'
+          $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.Media'
         type: array
     type: object
-  profile.ProfileResponse:
-    properties:
-      avatar:
-        $ref: '#/definitions/profile.Media'
-      bio:
-        type: string
-      birthday:
-        $ref: '#/definitions/profile.Date'
-      city_id:
-        type: integer
-      created_at:
-        type: string
-      full_name:
-        type: string
-      gender:
-        type: string
-      goal:
-        type: string
-      improv_styles:
-        items:
-          type: string
-        type: array
-      looking_for_team:
-        type: boolean
-      user_id:
-        type: integer
-      videos:
-        items:
-          $ref: '#/definitions/profile.Media'
-        type: array
-    type: object
-  profile.SearchRequest:
+  internal_handler_profile.SearchRequest:
     properties:
       age_max:
         type: integer
@@ -186,7 +170,7 @@ definitions:
       page_size:
         type: integer
     type: object
-  profile.SearchResponse:
+  internal_handler_profile.SearchResponse:
     properties:
       page:
         type: integer
@@ -194,7 +178,7 @@ definitions:
         type: integer
       profiles:
         items:
-          $ref: '#/definitions/profile.ProfileResponse'
+          $ref: '#/definitions/internal_handler_profile.ProfileResponse'
         type: array
       total_count:
         type: integer
@@ -230,7 +214,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/profile.Profile'
+            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.Profile'
         "400":
           description: Invalid request body
           schema:
@@ -269,7 +253,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/profile.Profile'
+            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.Profile'
         "400":
           description: Invalid request body
           schema:
@@ -306,7 +290,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/profile.ProfileResponse'
+            $ref: '#/definitions/internal_handler_profile.ProfileResponse'
         "400":
           description: Invalid user ID
           schema:
@@ -322,97 +306,6 @@ paths:
       summary: Get Profile
       tags:
       - profile
-  /profiles/catalog/cities:
-    get:
-      description: Retrieves a list of available cities
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.City'
-            type: array
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Get Cities
-      tags:
-      - catalog
-  /profiles/catalog/genders:
-    get:
-      description: Retrieves a catalog of genders with translations
-      parameters:
-      - description: 'Language code (default: en)'
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.TranslatedItem'
-            type: array
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Get Genders
-      tags:
-      - catalog
-  /profiles/catalog/improv-goals:
-    get:
-      description: Retrieves a catalog of improv goals with translations
-      parameters:
-      - description: 'Language code (default: en)'
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.TranslatedItem'
-            type: array
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Get Improv Goals
-      tags:
-      - catalog
-  /profiles/catalog/improv-styles:
-    get:
-      description: Retrieves a catalog of improv styles with translations
-      parameters:
-      - description: 'Language code (default: en)'
-        in: query
-        name: lang
-        type: string
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_profile.TranslatedItem'
-            type: array
-        "500":
-          description: Server error
-          schema:
-            type: string
-      summary: Get Improv Styles
-      tags:
-      - catalog
   /profiles/search:
     post:
       consumes:
@@ -424,14 +317,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/profile.SearchRequest'
+          $ref: '#/definitions/internal_handler_profile.SearchRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/profile.SearchResponse'
+            $ref: '#/definitions/internal_handler_profile.SearchResponse'
         "400":
           description: Invalid request
           schema:

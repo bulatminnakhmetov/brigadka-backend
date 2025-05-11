@@ -1,44 +1,6 @@
 basePath: /api
 definitions:
-  github_com_bulatminnakhmetov_brigadka-backend_internal_handler_messaging.ChatMessage:
-    properties:
-      chat_id:
-        type: string
-      content:
-        type: string
-      message_id:
-        type: string
-      sender_id:
-        type: integer
-      sent_at:
-        type: string
-    type: object
-  github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.ChatMessage:
-    properties:
-      chat_id:
-        type: string
-      content:
-        type: string
-      message_id:
-        type: string
-      sender_id:
-        type: integer
-      sent_at:
-        type: string
-    type: object
-  messaging.AddParticipantRequest:
-    properties:
-      user_id:
-        type: integer
-    type: object
-  messaging.AddReactionRequest:
-    properties:
-      reaction_code:
-        type: string
-      reaction_id:
-        type: string
-    type: object
-  messaging.Chat:
+  github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.Chat:
     properties:
       chat_id:
         type: string
@@ -53,7 +15,45 @@ definitions:
           type: integer
         type: array
     type: object
-  messaging.CreateChatRequest:
+  github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.ChatMessage:
+    properties:
+      chat_id:
+        type: string
+      content:
+        type: string
+      message_id:
+        type: string
+      sender_id:
+        type: integer
+      sent_at:
+        type: string
+    type: object
+  internal_handler_messaging.AddParticipantRequest:
+    properties:
+      user_id:
+        type: integer
+    type: object
+  internal_handler_messaging.AddReactionRequest:
+    properties:
+      reaction_code:
+        type: string
+      reaction_id:
+        type: string
+    type: object
+  internal_handler_messaging.ChatMessage:
+    properties:
+      chat_id:
+        type: string
+      content:
+        type: string
+      message_id:
+        type: string
+      sender_id:
+        type: integer
+      sent_at:
+        type: string
+    type: object
+  internal_handler_messaging.CreateChatRequest:
     properties:
       chat_id:
         type: string
@@ -64,7 +64,7 @@ definitions:
           type: integer
         type: array
     type: object
-  messaging.SendMessageRequest:
+  internal_handler_messaging.SendMessageRequest:
     properties:
       content:
         type: string
@@ -94,7 +94,7 @@ paths:
           description: Список чатов пользователя
           schema:
             items:
-              $ref: '#/definitions/messaging.Chat'
+              $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.Chat'
             type: array
         "401":
           description: Unauthorized
@@ -119,7 +119,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/messaging.CreateChatRequest'
+          $ref: '#/definitions/internal_handler_messaging.CreateChatRequest'
       produces:
       - application/json
       responses:
@@ -165,7 +165,7 @@ paths:
         "200":
           description: Детали чата
           schema:
-            $ref: '#/definitions/messaging.Chat'
+            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.Chat'
         "401":
           description: Unauthorized
           schema:
@@ -241,14 +241,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/messaging.SendMessageRequest'
+          $ref: '#/definitions/internal_handler_messaging.SendMessageRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Сообщение успешно отправлено
           schema:
-            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_handler_messaging.ChatMessage'
+            $ref: '#/definitions/internal_handler_messaging.ChatMessage'
         "400":
           description: Некорректный запрос
           schema:
@@ -290,7 +290,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/messaging.AddParticipantRequest'
+          $ref: '#/definitions/internal_handler_messaging.AddParticipantRequest'
       produces:
       - application/json
       responses:
@@ -381,7 +381,7 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/messaging.AddReactionRequest'
+          $ref: '#/definitions/internal_handler_messaging.AddReactionRequest'
       produces:
       - application/json
       responses:

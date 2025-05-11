@@ -1,6 +1,6 @@
 basePath: /api
 definitions:
-  media.MediaResponse:
+  internal_handler_media.MediaResponse:
     properties:
       id:
         type: integer
@@ -44,7 +44,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/media.MediaResponse'
+            $ref: '#/definitions/internal_handler_media.MediaResponse'
         "400":
           description: Invalid file
           schema:
