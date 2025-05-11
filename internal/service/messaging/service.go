@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Chat message structure
@@ -42,30 +44,31 @@ type MessagingService interface {
 	StoreReadReceipt(userID int, chatID string, messageID string) error
 	GetUserChatRooms(userID int) (map[string]struct{}, error)
 	GetChatParticipantsForBroadcast(chatID string) ([]int, error)
+	GetOrCreateDirectChat(ctx context.Context, userID1 int, userID2 int) (string, error)
 }
 
-// ServiceImpl encapsulates database operations for messaging
-type ServiceImpl struct {
+// MessagingServiceImpl encapsulates database operations for messaging
+type MessagingServiceImpl struct {
 	db *sql.DB
 }
 
 // NewService creates a new messaging service
-func NewService(db *sql.DB) *ServiceImpl {
-	return &ServiceImpl{
+func NewService(db *sql.DB) *MessagingServiceImpl {
+	return &MessagingServiceImpl{
 		db: db,
 	}
 }
 
 // GetUserChats retrieves all chats for a user
-func (s *ServiceImpl) GetUserChats(userID int) ([]Chat, error) {
+func (s *MessagingServiceImpl) GetUserChats(userID int) ([]Chat, error) {
 	rows, err := s.db.Query(`
-        SELECT c.id, c.chat_name, c.created_at,
-               (SELECT COUNT(*) > 2 FROM chat_participants WHERE chat_id = c.id) AS is_group
+        SELECT c.id, c.chat_name, c.created_at, c.is_group
         FROM chats c
         JOIN chat_participants cp ON c.id = cp.chat_id
         WHERE cp.user_id = $1
         ORDER BY c.created_at DESC
     `, userID)
+
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +86,7 @@ func (s *ServiceImpl) GetUserChats(userID int) ([]Chat, error) {
 }
 
 // GetChatDetails retrieves details for a specific chat
-func (s *ServiceImpl) GetChatDetails(chatID string, userID int) (*Chat, error) {
+func (s *MessagingServiceImpl) GetChatDetails(chatID string, userID int) (*Chat, error) {
 	// Check if user is a participant in the chat
 	var count int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID).Scan(&count)
@@ -97,8 +100,7 @@ func (s *ServiceImpl) GetChatDetails(chatID string, userID int) (*Chat, error) {
 	// Get chat details
 	var chat Chat
 	err = s.db.QueryRow(`
-        SELECT c.id, c.chat_name, c.created_at,
-               (SELECT COUNT(*) > 2 FROM chat_participants WHERE chat_id = c.id) AS is_group
+        SELECT c.id, c.chat_name, c.created_at, c.is_group
         FROM chats c WHERE c.id = $1
     `, chatID).Scan(&chat.ChatID, &chat.ChatName, &chat.CreatedAt, &chat.IsGroup)
 	if err != nil {
@@ -124,7 +126,7 @@ func (s *ServiceImpl) GetChatDetails(chatID string, userID int) (*Chat, error) {
 }
 
 // CreateChat creates a new chat with the specified participants
-func (s *ServiceImpl) CreateChat(ctx context.Context, chatID string, creatorID int, chatName string, participants []int) error {
+func (s *MessagingServiceImpl) CreateChat(ctx context.Context, chatID string, creatorID int, chatName string, participants []int) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -132,7 +134,7 @@ func (s *ServiceImpl) CreateChat(ctx context.Context, chatID string, creatorID i
 	defer tx.Rollback()
 
 	// Create chat
-	_, err = tx.Exec("INSERT INTO chats (id, chat_name) VALUES ($1, $2)", chatID, chatName)
+	_, err = tx.Exec("INSERT INTO chats (id, chat_name, is_group) VALUES ($1, $2, true)", chatID, chatName)
 	if err != nil {
 		return err
 	}
@@ -161,8 +163,64 @@ func (s *ServiceImpl) CreateChat(ctx context.Context, chatID string, creatorID i
 	return nil
 }
 
+// GetOrCreateDirectChat finds an existing direct chat between two users or creates a new one
+func (s *MessagingServiceImpl) GetOrCreateDirectChat(ctx context.Context, userID1 int, userID2 int) (string, error) {
+	// First try to find an existing direct chat
+	var chatID string
+	err := s.db.QueryRow(`
+        SELECT c.id FROM chats c
+        JOIN chat_participants cp1 ON c.id = cp1.chat_id
+        JOIN chat_participants cp2 ON c.id = cp2.chat_id
+        WHERE c.is_group = false
+        AND cp1.user_id = $1 AND cp2.user_id = $2
+    `, userID1, userID2).Scan(&chatID)
+
+	// If found, return it
+	if err == nil {
+		return chatID, nil
+	}
+
+	// If error is not "no rows", return the error
+	if err != sql.ErrNoRows {
+		return "", err
+	}
+
+	// Otherwise create a new direct chat
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return "", err
+	}
+	defer tx.Rollback()
+
+	// Generate a new UUID for the chat
+	chatID = uuid.New().String()
+
+	// Create chat
+	_, err = tx.Exec("INSERT INTO chats (id, is_group) VALUES ($1, false)", chatID)
+	if err != nil {
+		return "", err
+	}
+
+	// Add both users as participants
+	_, err = tx.Exec("INSERT INTO chat_participants (chat_id, user_id) VALUES ($1, $2)", chatID, userID1)
+	if err != nil {
+		return "", err
+	}
+
+	_, err = tx.Exec("INSERT INTO chat_participants (chat_id, user_id) VALUES ($1, $2)", chatID, userID2)
+	if err != nil {
+		return "", err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return "", err
+	}
+
+	return chatID, nil
+}
+
 // AddMessage adds a message to the database and returns the sent time
-func (s *ServiceImpl) AddMessage(messageID string, chatID string, senderID int, content string) (time.Time, error) {
+func (s *MessagingServiceImpl) AddMessage(messageID string, chatID string, senderID int, content string) (time.Time, error) {
 	var sentAt time.Time
 	err := s.db.QueryRow(
 		"INSERT INTO messages (id, chat_id, sender_id, content) VALUES ($1, $2, $3, $4) RETURNING sent_at",
@@ -175,7 +233,7 @@ func (s *ServiceImpl) AddMessage(messageID string, chatID string, senderID int, 
 }
 
 // GetChatParticipants retrieves all participants in a chat
-func (s *ServiceImpl) GetChatParticipants(chatID string) ([]int, error) {
+func (s *MessagingServiceImpl) GetChatParticipants(chatID string) ([]int, error) {
 	rows, err := s.db.Query("SELECT user_id FROM chat_participants WHERE chat_id = $1", chatID)
 	if err != nil {
 		return nil, err
@@ -194,7 +252,7 @@ func (s *ServiceImpl) GetChatParticipants(chatID string) ([]int, error) {
 }
 
 // IsUserInChat checks if a user is a participant in a chat
-func (s *ServiceImpl) IsUserInChat(userID int, chatID string) (bool, error) {
+func (s *MessagingServiceImpl) IsUserInChat(userID int, chatID string) (bool, error) {
 	var count int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID).Scan(&count)
 	if err != nil {
@@ -204,19 +262,19 @@ func (s *ServiceImpl) IsUserInChat(userID int, chatID string) (bool, error) {
 }
 
 // AddParticipant adds a user to a chat
-func (s *ServiceImpl) AddParticipant(chatID string, userID int) error {
+func (s *MessagingServiceImpl) AddParticipant(chatID string, userID int) error {
 	_, err := s.db.Exec("INSERT INTO chat_participants (chat_id, user_id) VALUES ($1, $2)", chatID, userID)
 	return err
 }
 
 // RemoveParticipant removes a user from a chat
-func (s *ServiceImpl) RemoveParticipant(chatID string, userID int) error {
+func (s *MessagingServiceImpl) RemoveParticipant(chatID string, userID int) error {
 	_, err := s.db.Exec("DELETE FROM chat_participants WHERE chat_id = $1 AND user_id = $2", chatID, userID)
 	return err
 }
 
 // AddReaction adds a reaction to a message
-func (s *ServiceImpl) AddReaction(reactionID string, messageID string, userID int, reactionCode string) error {
+func (s *MessagingServiceImpl) AddReaction(reactionID string, messageID string, userID int, reactionCode string) error {
 	// Check if reaction code exists
 	var count int
 	err := s.db.QueryRow("SELECT COUNT(*) FROM reaction_catalog WHERE reaction_code = $1", reactionCode).Scan(&count)
@@ -250,7 +308,7 @@ func (s *ServiceImpl) AddReaction(reactionID string, messageID string, userID in
 }
 
 // RemoveReaction removes a reaction from a message
-func (s *ServiceImpl) RemoveReaction(messageID string, userID int, reactionCode string) error {
+func (s *MessagingServiceImpl) RemoveReaction(messageID string, userID int, reactionCode string) error {
 	_, err := s.db.Exec(
 		"DELETE FROM message_reactions WHERE message_id = $1 AND user_id = $2 AND reaction_code = $3",
 		messageID, userID, reactionCode,
@@ -259,14 +317,14 @@ func (s *ServiceImpl) RemoveReaction(messageID string, userID int, reactionCode 
 }
 
 // GetChatIDForMessage retrieves the chat ID for a message
-func (s *ServiceImpl) GetChatIDForMessage(messageID string) (string, error) {
+func (s *MessagingServiceImpl) GetChatIDForMessage(messageID string) (string, error) {
 	var chatID string
 	err := s.db.QueryRow("SELECT chat_id FROM messages WHERE id = $1", messageID).Scan(&chatID)
 	return chatID, err
 }
 
 // GetChatMessages retrieves messages for a chat with pagination
-func (s *ServiceImpl) GetChatMessages(chatID string, userID int, limit, offset int) ([]ChatMessage, error) {
+func (s *MessagingServiceImpl) GetChatMessages(chatID string, userID int, limit, offset int) ([]ChatMessage, error) {
 	// Check if user is in chat
 	inChat, err := s.IsUserInChat(userID, chatID)
 	if err != nil {
@@ -302,14 +360,14 @@ func (s *ServiceImpl) GetChatMessages(chatID string, userID int, limit, offset i
 
 // StoreTypingIndicator records that a user is typing in a chat
 // This could use a cache/Redis instead of DB for better performance
-func (s *ServiceImpl) StoreTypingIndicator(userID int, chatID string) error {
+func (s *MessagingServiceImpl) StoreTypingIndicator(userID int, chatID string) error {
 	// Implementation would depend on how you want to track typing indicators
 	// This is a simple example that could be replaced with Redis
 	return nil
 }
 
 // StoreReadReceipt records that a user has read messages up to a certain point
-func (s *ServiceImpl) StoreReadReceipt(userID int, chatID string, messageID string) error {
+func (s *MessagingServiceImpl) StoreReadReceipt(userID int, chatID string, messageID string) error {
 	// First, get the sequence number for the message
 	var seq int64
 	err := s.db.QueryRow("SELECT seq FROM messages WHERE id = $1", messageID).Scan(&seq)
@@ -328,7 +386,7 @@ func (s *ServiceImpl) StoreReadReceipt(userID int, chatID string, messageID stri
 }
 
 // GetUserChatRooms retrieves all chat IDs a user is part of
-func (s *ServiceImpl) GetUserChatRooms(userID int) (map[string]struct{}, error) {
+func (s *MessagingServiceImpl) GetUserChatRooms(userID int) (map[string]struct{}, error) {
 	rows, err := s.db.Query("SELECT chat_id FROM chat_participants WHERE user_id = $1", userID)
 	if err != nil {
 		return nil, err
@@ -348,6 +406,6 @@ func (s *ServiceImpl) GetUserChatRooms(userID int) (map[string]struct{}, error) 
 }
 
 // GetChatParticipantsForBroadcast retrieves all participants of a chat for broadcasting
-func (s *ServiceImpl) GetChatParticipantsForBroadcast(chatID string) ([]int, error) {
+func (s *MessagingServiceImpl) GetChatParticipantsForBroadcast(chatID string) ([]int, error) {
 	return s.GetChatParticipants(chatID)
 }

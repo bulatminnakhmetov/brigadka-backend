@@ -43,6 +43,7 @@ type Media struct {
 
 // Profile represents profile data for response
 type Profile struct {
+	UserID         int       `json:"user_id"`
 	FullName       string    `json:"full_name"`
 	Birthday       time.Time `json:"birthday,omitempty"`
 	Gender         string    `json:"gender,omitempty"`
@@ -175,6 +176,7 @@ func convertMediaList(mediaList []mediarepo.Media) []Media {
 // convertToProfile преобразует данные из репозитория в структуру для ответа
 func convertToProfile(profile *profilerepo.ProfileModel, styles []string, avatar *mediarepo.Media, videos []mediarepo.Media) *Profile {
 	return &Profile{
+		UserID:         profile.UserID,
 		FullName:       profile.FullName,
 		Birthday:       profile.Birthday,
 		Gender:         profile.Gender,

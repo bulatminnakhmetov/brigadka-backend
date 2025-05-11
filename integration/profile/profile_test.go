@@ -272,6 +272,7 @@ func (s *ProfileIntegrationTestSuite) TestCreateProfile() {
 	err = json.NewDecoder(resp.Body).Decode(&profileResp)
 	assert.NoError(t, err)
 
+	assert.Equal(t, userID, profileResp.UserID)
 	assert.Equal(t, "Test User", profileResp.FullName)
 	assert.Equal(t, "1990-01-01", profileResp.Birthday.Format("2006-01-02"))
 	assert.Equal(t, "male", profileResp.Gender)

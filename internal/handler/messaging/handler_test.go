@@ -107,6 +107,11 @@ func (m *MockMessagingService) StoreReadReceipt(userID int, chatID string, messa
 	return args.Error(0)
 }
 
+func (m *MockMessagingService) GetOrCreateDirectChat(ctx context.Context, userID1 int, userID2 int) (string, error) {
+	args := m.Called(userID1, userID2)
+	return args.String(0), args.Error(1)
+}
+
 // Test CreateChat handler
 func TestHandler_CreateChat(t *testing.T) {
 	tests := []struct {

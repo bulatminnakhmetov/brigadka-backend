@@ -1,8 +1,10 @@
 CREATE TABLE chats (
-	id UUID PRIMARY KEY,
-	chat_name VARCHAR(255) CHECK (chat_name IS NULL OR LENGTH(TRIM(chat_name)) > 0),
-	created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    id UUID PRIMARY KEY,
+    chat_name VARCHAR(255) CHECK (chat_name IS NULL OR LENGTH(TRIM(chat_name)) > 0),
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+    is_group BOOLEAN NOT NULL DEFAULT FALSE
 );
+
 
 CREATE TABLE chat_participants (
 	chat_id UUID REFERENCES chats(id) ON DELETE CASCADE,

@@ -23,6 +23,16 @@ type Handler struct {
 	clientsMutex sync.RWMutex
 }
 
+type CreateChatRequest struct {
+	ChatID       string `json:"chat_id"`
+	ChatName     string `json:"chat_name"`
+	Participants []int  `json:"participants"`
+}
+
+type AddParticipantRequest struct {
+	UserID int `json:"user_id"`
+}
+
 // WSConn is an interface for websocket.Conn to allow mocking in tests.
 type WSConn interface {
 	ReadMessage() (messageType int, p []byte, err error)
@@ -175,7 +185,6 @@ func (h *Handler) handleChatMessage(client *Client, msg WSMessage) {
 		return
 	}
 
-	log.Printf("Received chat message from user %d: %s", client.userID, chatMsg.Content)
 	// Check if client is in the chat
 	if _, ok := client.chatRooms[msg.ChatID]; !ok {
 		log.Printf("User %d not in chat %s", client.userID, msg.ChatID)
@@ -248,12 +257,6 @@ func (h *Handler) broadcastToChat(chatID string, message []byte) {
 
 // Handler for creating a new chat (1:1 or group)
 func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
-	type createChatRequest struct {
-		ChatID       string `json:"chat_id"`
-		ChatName     string `json:"chat_name"`
-		Participants []int  `json:"participants"`
-	}
-
 	// Get user ID from context
 	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
@@ -262,7 +265,7 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse request body
-	var req createChatRequest
+	var req CreateChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
@@ -406,9 +409,8 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	chatID := chi.URLParam(r, "chatID")
 
 	// Parse request body
-	var req struct {
-		UserID int `json:"user_id"`
-	}
+
+	var req AddParticipantRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
@@ -497,10 +499,11 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 	messageID := chi.URLParam(r, "messageID")
 
 	// Parse request body
-	var req struct {
+	type AddReactionRequest struct {
 		ReactionID   string `json:"reaction_id"`
 		ReactionCode string `json:"reaction_code"`
 	}
+	var req AddReactionRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
@@ -959,10 +962,11 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	chatID := chi.URLParam(r, "chatID")
 
 	// Parse request body
-	var req struct {
+	type SendMessageRequest struct {
 		MessageID string `json:"message_id"`
 		Content   string `json:"content"`
 	}
+	var req SendMessageRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return

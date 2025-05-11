@@ -49,6 +49,7 @@ func (d Date) MarshalJSON() ([]byte, error) {
 
 // ProfileResponse represents profile data for response
 type ProfileResponse struct {
+	UserID         int             `json:"user_id"`
 	FullName       string          `json:"full_name"`
 	Birthday       Date            `json:"birthday,omitempty"`
 	Gender         string          `json:"gender,omitempty"`
@@ -180,6 +181,7 @@ func handleError(w http.ResponseWriter, err error) {
 
 func convertToProfileResponse(profile *profile.Profile) ProfileResponse {
 	return ProfileResponse{
+		UserID:         profile.UserID,
 		FullName:       profile.FullName,
 		Birthday:       Date{Time: profile.Birthday},
 		Gender:         profile.Gender,
