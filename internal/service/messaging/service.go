@@ -57,7 +57,7 @@ func (s *ServiceImpl) GetUserChats(userID int) ([]messaging.Chat, error) {
 		return nil, err
 	}
 
-	chats := make([]messaging.Chat, len(rawChats))
+	var chats []messaging.Chat
 
 	// TODO: use batch query for profile retrieval
 	for _, rawChat := range rawChats {

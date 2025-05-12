@@ -360,7 +360,7 @@ func (r *MessagingRepositoryImpl) GetChatMessages(chatID string, userID int, lim
 	}
 	defer rows.Close()
 
-	var messages []ChatMessage
+	messages := []ChatMessage{}
 	for rows.Next() {
 		var msg ChatMessage
 		if err := rows.Scan(&msg.MessageID, &msg.ChatID, &msg.SenderID, &msg.Content, &msg.SentAt); err != nil {

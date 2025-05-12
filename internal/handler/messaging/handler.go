@@ -68,9 +68,8 @@ type WSConn interface {
 }
 
 type Client struct {
-	conn      WSConn
-	userID    int
-	chatRooms map[string]struct{} // Set of chatIDs the client is in
+	conn   WSConn
+	userID int
 }
 
 func NewHandler(service messaging.Service) *Handler {
