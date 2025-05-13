@@ -212,11 +212,6 @@ func (h *Handler) handleChatMessage(client *Client, msg ChatMessage) {
 	// Send message to all online participants
 	h.clientsMutex.RLock()
 	for _, userID := range participants {
-		// Skip the sender
-		if userID == client.userID {
-			continue
-		}
-
 		if client, ok := h.clients[userID]; ok {
 			// Participant is online, send via WebSocket
 			if err := client.conn.WriteMessage(websocket.TextMessage, msgData); err != nil {

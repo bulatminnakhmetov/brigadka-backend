@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -204,6 +205,8 @@ func (s *pushService) sendToFCM(ctx context.Context, userID int, tokens []string
 		_, err := s.firebaseClient.Send(ctx, message)
 		if err != nil {
 			failedTokens = append(failedTokens, token)
+
+			log.Printf("Failed to send FCM message to user %d: %v", userID, err)
 
 			// Check if error is due to an invalid token
 			if messaging.IsUnregistered(err) || messaging.IsInvalidArgument(err) {
