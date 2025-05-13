@@ -11,6 +11,8 @@ import (
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/repository/profile"
 )
 
+type Chat = messaging.Chat
+
 // Service interface defines the messaging service operations
 type Service interface {
 	GetUserChats(userID int) ([]messaging.Chat, error)

@@ -1,0 +1,111 @@
+basePath: /api
+definitions:
+  internal_handler_push.TokenRequest:
+    properties:
+      device_id:
+        type: string
+      platform:
+        type: string
+      token:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@brigadka.com
+    name: API Support
+  description: API для сервиса Brigadka
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Brigadka API
+  version: "1.0"
+paths:
+  /api/push/register:
+    post:
+      consumes:
+      - application/json
+      description: Register a device push notification token for the current user
+      parameters:
+      - description: Push Token Information
+        in: body
+        name: token
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_push.TokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Register a push notification token
+      tags:
+      - push
+  /api/push/unregister:
+    delete:
+      consumes:
+      - application/json
+      description: Unregister a device push notification token
+      parameters:
+      - description: Push Token Information
+        in: body
+        name: token
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_push.TokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Unregister a push notification token
+      tags:
+      - push
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

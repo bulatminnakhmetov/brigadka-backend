@@ -1,6 +1,6 @@
 basePath: /api
 definitions:
-  github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.Chat:
+  github_com_bulatminnakhmetov_brigadka-backend_internal_service_messaging.Chat:
     properties:
       chat_id:
         type: string
@@ -14,19 +14,6 @@ definitions:
         items:
           type: integer
         type: array
-    type: object
-  github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.ChatMessage:
-    properties:
-      chat_id:
-        type: string
-      content:
-        type: string
-      message_id:
-        type: string
-      sender_id:
-        type: integer
-      sent_at:
-        type: string
     type: object
   internal_handler_messaging.AddParticipantRequest:
     properties:
@@ -43,6 +30,11 @@ definitions:
   internal_handler_messaging.AddReactionResponse:
     properties:
       reaction_id:
+        type: string
+    type: object
+  internal_handler_messaging.ChatIDResponse:
+    properties:
+      chat_id:
         type: string
     type: object
   internal_handler_messaging.ChatMessage:
@@ -71,15 +63,10 @@ definitions:
           type: integer
         type: array
     type: object
-  internal_handler_messaging.CreateDirectChatRequest:
+  internal_handler_messaging.GetOrCreateDirectChatRequest:
     properties:
       user_id:
         type: integer
-    type: object
-  internal_handler_messaging.CreatedChatResponse:
-    properties:
-      chat_id:
-        type: string
     type: object
   internal_handler_messaging.SendMessageRequest:
     properties:
@@ -111,7 +98,7 @@ paths:
           description: Список чатов пользователя
           schema:
             items:
-              $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.Chat'
+              $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_messaging.Chat'
             type: array
         "401":
           description: Unauthorized
@@ -143,7 +130,7 @@ paths:
         "201":
           description: Чат успешно создан
           schema:
-            $ref: '#/definitions/internal_handler_messaging.CreatedChatResponse'
+            $ref: '#/definitions/internal_handler_messaging.ChatIDResponse'
         "400":
           description: Некорректный запрос
           schema:
@@ -180,7 +167,7 @@ paths:
         "200":
           description: Детали чата
           schema:
-            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.Chat'
+            $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_service_messaging.Chat'
         "401":
           description: Unauthorized
           schema:
@@ -222,7 +209,7 @@ paths:
           description: Сообщения чата
           schema:
             items:
-              $ref: '#/definitions/github_com_bulatminnakhmetov_brigadka-backend_internal_repository_messaging.ChatMessage'
+              $ref: '#/definitions/internal_handler_messaging.ChatMessage'
             type: array
         "401":
           description: Unauthorized
@@ -392,14 +379,14 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_messaging.CreateDirectChatRequest'
+          $ref: '#/definitions/internal_handler_messaging.GetOrCreateDirectChatRequest'
       produces:
       - application/json
       responses:
         "200":
           description: ID чата
           schema:
-            $ref: '#/definitions/internal_handler_messaging.CreatedChatResponse'
+            $ref: '#/definitions/internal_handler_messaging.ChatIDResponse'
         "400":
           description: Некорректный запрос или попытка создать чат с самим собой
           schema:
