@@ -88,7 +88,7 @@ generate-swagger:
 	@echo "Generating Swagger for all packages..."; \
 	swag init -q -g cmd/service/main.go -pd -o ./docs/http/all --outputTypes yaml \
 
-	@for tag in auth profile messaging media catalog; do \
+	@for tag in auth profile messaging media catalog push; do \
 		echo "Generating Swagger for $$tag..."; \
 		swag init -q -pd -o ./docs/http/$$tag --outputTypes yaml --tags $$tag -g cmd/service/main.go; \
 	done

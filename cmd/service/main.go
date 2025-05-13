@@ -3,12 +3,14 @@ package main
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -34,6 +36,10 @@ import (
 	profileservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/profile"
 
 	mediastorage "github.com/bulatminnakhmetov/brigadka-backend/internal/storage/media"
+
+	pushhandler "github.com/bulatminnakhmetov/brigadka-backend/internal/handler/push"
+	pushrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/push"
+	pushservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/push"
 )
 
 // @title           Brigadka API
@@ -161,6 +167,30 @@ func main() {
 	messagingService := messagingservice.NewService(messagingRepo, profileRepo)
 	messagingHandler := messaging.NewHandler(messagingService)
 
+	// Load APNS private key
+	apnsPrivateKey := []byte{}
+	apnsPrivateKeySource := getEnv("APNS_PRIVATE_KEY", ptr(""))
+	if apnsPrivateKeySource != "" {
+		var err error
+		apnsPrivateKey, err = LoadAPNSPrivateKey(apnsPrivateKeySource)
+		if err != nil {
+			log.Printf("Warning: Failed to load APNS private key: %v", err)
+		}
+	}
+
+	pushRepo := pushrepo.NewPostgresRepository(db)
+	pushConfig := pushservice.Config{
+		FCMServerKey: getEnv("FCM_SERVER_KEY", ptr("")),
+		APNSKeyID:    getEnv("APNS_KEY_ID", ptr("")),
+		APNSTeamID:   getEnv("APNS_TEAM_ID", ptr("")),
+		// In a real implementation, load private key from file or environment
+		APNSPrivateKey:  apnsPrivateKey,
+		APNSBundleID:    getEnv("APNS_BUNDLE_ID", ptr("")),
+		APNSDevelopment: getEnv("APP_ENV", ptr("development")) != "production",
+	}
+	pushService := pushservice.NewPushService(pushRepo, pushConfig)
+	pushHandler := pushhandler.NewHandler(pushService)
+
 	// Создание роутера
 	r := chi.NewRouter()
 
@@ -265,6 +295,9 @@ func main() {
 			r.Post("/messages/{messageID}/reactions", messagingHandler.AddReaction)
 			r.Delete("/messages/{messageID}/reactions/{reactionCode}", messagingHandler.RemoveReaction)
 			r.HandleFunc("/ws/chat", messagingHandler.HandleWebSocket)
+
+			r.Post("/push/register", pushHandler.RegisterToken)
+			r.Delete("/push/unregister", pushHandler.UnregisterToken)
 		})
 	})
 
@@ -320,6 +353,29 @@ func getEnvAsInt(key string, fallback int) int {
 		}
 	}
 	return fallback
+}
+
+// LoadAPNSPrivateKey loads an APNS private key from a file path or from base64-encoded environment variable
+func LoadAPNSPrivateKey(source string) ([]byte, error) {
+	// Check if the source is a file path
+	if strings.HasPrefix(source, "file://") {
+		filePath := strings.TrimPrefix(source, "file://")
+		return os.ReadFile(filePath)
+	}
+
+	// Check if the source is a base64-encoded string
+	if strings.HasPrefix(source, "base64://") {
+		encodedKey := strings.TrimPrefix(source, "base64://")
+		return base64.StdEncoding.DecodeString(encodedKey)
+	}
+
+	// If the source is empty, return empty key
+	if source == "" {
+		return []byte{}, nil
+	}
+
+	// Otherwise assume it's the actual key content
+	return []byte(source), nil
 }
 
 func ptr[T any](val T) *T {
