@@ -7,11 +7,16 @@ import (
 	pushservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/push"
 )
 
-// TokenRequest represents a push token registration request
-type TokenRequest struct {
+// RegisterTokenRequest represents a push token registration request
+type RegisterTokenRequest struct {
 	Token    string `json:"token"`
 	Platform string `json:"platform"`
 	DeviceID string `json:"device_id,omitempty"`
+}
+
+// RegisterTokenRequest represents a push token registration request
+type UnregisterTokenRequest struct {
+	Token string `json:"token"`
 }
 
 // Handler handles push notification endpoints
@@ -32,7 +37,7 @@ func NewHandler(service pushservice.PushService) *Handler {
 // @Tags push
 // @Accept json
 // @Produce json
-// @Param token body TokenRequest true "Push Token Information"
+// @Param token body RegisterTokenRequest true "Push Token Information"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 401 {object} map[string]string
@@ -47,7 +52,7 @@ func (h *Handler) RegisterToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var req TokenRequest
+	var req RegisterTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -77,13 +82,20 @@ func (h *Handler) RegisterToken(w http.ResponseWriter, r *http.Request) {
 // @Tags push
 // @Accept json
 // @Produce json
-// @Param token body TokenRequest true "Push Token Information"
+// @Param token body UnregisterTokenRequest true "Push Token Information"
 // @Success 200 {object} map[string]string
 // @Failure 400 {object} map[string]string
 // @Failure 500 {object} map[string]string
 // @Router /api/push/unregister [delete]
 func (h *Handler) UnregisterToken(w http.ResponseWriter, r *http.Request) {
-	var req TokenRequest
+	// Extract user ID from context (set by auth middleware)
+	userID, ok := r.Context().Value("user_id").(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	var req UnregisterTokenRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
@@ -94,7 +106,12 @@ func (h *Handler) UnregisterToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.service.DeleteToken(r.Context(), req.Token); err != nil {
+	if err := h.service.DeleteToken(r.Context(), userID, req.Token); err != nil {
+		if err == pushservice.ErrTokenNotFound {
+			http.Error(w, "Token does not exist", http.StatusBadRequest)
+			return
+		}
+
 		http.Error(w, "Failed to delete token: "+err.Error(), http.StatusInternalServerError)
 		return
 	}

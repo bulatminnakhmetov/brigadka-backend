@@ -1,10 +1,13 @@
 package messaging
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"time"
 
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/push"
 	"github.com/gorilla/websocket"
 )
 
@@ -124,7 +127,7 @@ func (h *Handler) handleClient(client *Client) {
 			continue
 		}
 
-		isUserInChat, err := h.service.IsUserInChat(client.userID, baseMsg.ChatID)
+		isUserInChat, err := h.messagineService.IsUserInChat(client.userID, baseMsg.ChatID)
 		if err != nil {
 			log.Printf("Error checking if user is in chat: %v", err)
 			continue
@@ -174,7 +177,7 @@ func (h *Handler) handleClient(client *Client) {
 // handleChatMessage handles a chat message from a client
 func (h *Handler) handleChatMessage(client *Client, msg ChatMessage) {
 	// Store message using the service
-	sentAt, err := h.service.AddMessage(msg.MessageID, msg.ChatID, client.userID, msg.Content)
+	sentAt, err := h.messagineService.AddMessage(msg.MessageID, msg.ChatID, client.userID, msg.Content)
 	if err != nil {
 		// Check if it's a duplicate message (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
@@ -196,14 +199,94 @@ func (h *Handler) handleChatMessage(client *Client, msg ChatMessage) {
 		return
 	}
 
-	// Broadcast message to all participants in the chat
-	h.broadcastToChat(msg.ChatID, msgData)
+	// Get all participants in the chat
+	participants, err := h.messagineService.GetChatParticipantsForBroadcast(msg.ChatID)
+	if err != nil {
+		log.Printf("Error fetching chat participants: %v", err)
+		return
+	}
+
+	// Track which participants are offline to send push notifications
+	offlineParticipants := make([]int, 0)
+
+	// Send message to all online participants
+	h.clientsMutex.RLock()
+	for _, userID := range participants {
+		// Skip the sender
+		if userID == client.userID {
+			continue
+		}
+
+		if client, ok := h.clients[userID]; ok {
+			// Participant is online, send via WebSocket
+			if err := client.conn.WriteMessage(websocket.TextMessage, msgData); err != nil {
+				log.Printf("Error sending message to user %d: %v", userID, err)
+			}
+		} else {
+			// Participant is offline, add to list for push notification
+			offlineParticipants = append(offlineParticipants, userID)
+		}
+	}
+	h.clientsMutex.RUnlock()
+
+	// Send push notifications to offline participants
+	if len(offlineParticipants) > 0 {
+		h.sendChatPushNotifications(client.userID, msg, offlineParticipants)
+	}
+}
+
+// sendChatPushNotifications sends push notifications to offline participants
+func (h *Handler) sendChatPushNotifications(senderID int, msg ChatMessage, recipients []int) {
+	// Get sender profile to include name in notification
+	senderProfile, err := h.profileService.GetProfile(senderID)
+	if err != nil {
+		log.Printf("Error fetching sender profile for push notification: %v", err)
+		return
+	}
+
+	// Get chat details to include chat name
+	chatDetails, err := h.messagineService.GetChat(msg.ChatID, senderID)
+	if err != nil {
+		log.Printf("Error fetching chat details for push notification: %v", err)
+		return
+	}
+
+	// Create notification title based on chat type
+	title := senderProfile.FullName
+	if chatDetails.IsGroup && chatDetails.ChatName != nil {
+		title = fmt.Sprintf("%s in %s", senderProfile.FullName, *chatDetails.ChatName)
+	}
+
+	// Create notification payload
+	payload := push.NotificationPayload{
+		Title: title,
+		Body:  msg.Content,
+		Sound: "default",
+		Badge: 1,
+	}
+
+	// If sender has avatar, include it
+	if senderProfile.Avatar != nil {
+		payload.ImageURL = senderProfile.Avatar.URL
+	}
+
+	// Send notifications to each offline recipient
+	for _, recipientID := range recipients {
+		go func(userID int) {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			if err := h.pushService.SendNotification(ctx, userID, payload); err != nil {
+				log.Printf("Error sending push notification to user %d: %v", userID, err)
+			}
+		}(recipientID)
+	}
 }
 
 // handleReaction handles client adding a reaction via WebSocket
 func (h *Handler) handleReaction(client *Client, msg ReactionMessage) {
 	// Add reaction using service
-	err := h.service.AddReaction(msg.ReactionID, msg.MessageID, client.userID, msg.ReactionCode)
+	err := h.messagineService.AddReaction(msg.ReactionID, msg.MessageID, client.userID, msg.ReactionCode)
 	if err != nil {
 		// Check if it's a duplicate reaction (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
@@ -215,7 +298,7 @@ func (h *Handler) handleReaction(client *Client, msg ReactionMessage) {
 	}
 
 	// Get chat ID for the message
-	chatID, err := h.service.GetChatIDForMessage(msg.MessageID)
+	chatID, err := h.messagineService.GetChatIDForMessage(msg.MessageID)
 	if err != nil {
 		log.Printf("Error getting chat ID for message: %v", err)
 		return
@@ -240,7 +323,7 @@ func (h *Handler) handleReaction(client *Client, msg ReactionMessage) {
 // handleTypingIndicator handles typing indicators from clients
 func (h *Handler) handleTypingIndicator(client *Client, msg TypingMessage) {
 	// Store typing indicator (optional, could use a cache/Redis for this)
-	if err := h.service.StoreTypingIndicator(client.userID, msg.ChatID); err != nil {
+	if err := h.messagineService.StoreTypingIndicator(client.userID, msg.ChatID); err != nil {
 		log.Printf("Error storing typing indicator: %v", err)
 		// Continue anyway as it's not critical
 	}
@@ -263,7 +346,7 @@ func (h *Handler) handleTypingIndicator(client *Client, msg TypingMessage) {
 // handleReadReceipt handles read receipts from clients
 func (h *Handler) handleReadReceipt(client *Client, msg ReadReceiptMessage) {
 	// Store read receipt
-	if err := h.service.StoreReadReceipt(client.userID, msg.ChatID, msg.MessageID); err != nil {
+	if err := h.messagineService.StoreReadReceipt(client.userID, msg.ChatID, msg.MessageID); err != nil {
 		log.Printf("Error storing read receipt: %v", err)
 		return
 	}
@@ -286,7 +369,7 @@ func (h *Handler) handleReadReceipt(client *Client, msg ReadReceiptMessage) {
 // broadcastToChat sends a message to all clients in a chat
 func (h *Handler) broadcastToChat(chatID string, message []byte) {
 	// Get all participants in the chat
-	participants, err := h.service.GetChatParticipantsForBroadcast(chatID)
+	participants, err := h.messagineService.GetChatParticipantsForBroadcast(chatID)
 	if err != nil {
 		log.Printf("Error fetching chat participants: %v", err)
 		return
@@ -307,7 +390,7 @@ func (h *Handler) broadcastToChat(chatID string, message []byte) {
 
 // broadcastToChatExcept sends a message to all clients in a chat except the specified user
 func (h *Handler) broadcastToChatExcept(chatID string, message []byte, exceptUserID int) {
-	participants, err := h.service.GetChatParticipants(chatID)
+	participants, err := h.messagineService.GetChatParticipants(chatID)
 	if err != nil {
 		log.Printf("Error fetching chat participants: %v", err)
 		return

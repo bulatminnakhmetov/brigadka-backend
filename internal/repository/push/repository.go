@@ -22,8 +22,9 @@ type PushToken struct {
 type Repository interface {
 	SaveToken(ctx context.Context, token PushToken) (int, error)
 	GetUserTokens(ctx context.Context, userID int) ([]PushToken, error)
-	DeleteToken(ctx context.Context, token string) error
+	DeleteToken(ctx context.Context, userID int, token string) error
 	UpdateLastSeen(ctx context.Context, token string) error
+	IsTokenExists(ctx context.Context, token string, userID int) (bool, error)
 }
 
 type postgresRepository struct {
@@ -92,10 +93,20 @@ func (r *postgresRepository) GetUserTokens(ctx context.Context, userID int) ([]P
 	return tokens, nil
 }
 
+func (r *postgresRepository) IsTokenExists(ctx context.Context, token string, userID int) (bool, error) {
+	query := `SELECT EXISTS(SELECT 1 FROM push_tokens WHERE token = $1 AND user_id = $2)`
+	var exists bool
+	err := r.db.QueryRowContext(ctx, query, token, userID).Scan(&exists)
+	if err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
 // DeleteToken removes a push token
-func (r *postgresRepository) DeleteToken(ctx context.Context, token string) error {
-	query := `DELETE FROM push_tokens WHERE token = $1`
-	_, err := r.db.ExecContext(ctx, query, token)
+func (r *postgresRepository) DeleteToken(ctx context.Context, userID int, token string) error {
+	query := `DELETE FROM push_tokens WHERE token = $1 AND user_id = $2`
+	_, err := r.db.ExecContext(ctx, query, token, userID)
 	return err
 }
 

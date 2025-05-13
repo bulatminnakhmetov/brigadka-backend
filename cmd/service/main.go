@@ -40,6 +40,8 @@ import (
 	pushhandler "github.com/bulatminnakhmetov/brigadka-backend/internal/handler/push"
 	pushrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/push"
 	pushservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/push"
+
+	firebase "firebase.google.com/go/v4"
 )
 
 // @title           Brigadka API
@@ -162,11 +164,6 @@ func main() {
 	// Инициализация хендлера медиа
 	mediaHandler := media.NewMediaHandler(mediaService)
 
-	// Инициализация сервиса и хендлера сообщений
-	messagingRepo := messagingrepo.NewRepository(db)
-	messagingService := messagingservice.NewService(messagingRepo, profileRepo)
-	messagingHandler := messaging.NewHandler(messagingService)
-
 	// Load APNS private key
 	apnsPrivateKey := []byte{}
 	apnsPrivateKeySource := getEnv("APNS_PRIVATE_KEY", ptr(""))
@@ -180,16 +177,35 @@ func main() {
 
 	pushRepo := pushrepo.NewPostgresRepository(db)
 	pushConfig := pushservice.Config{
-		FCMServerKey: getEnv("FCM_SERVER_KEY", ptr("")),
-		APNSKeyID:    getEnv("APNS_KEY_ID", ptr("")),
-		APNSTeamID:   getEnv("APNS_TEAM_ID", ptr("")),
+		APNSKeyID:  getEnv("APNS_KEY_ID", ptr("")),
+		APNSTeamID: getEnv("APNS_TEAM_ID", ptr("")),
 		// In a real implementation, load private key from file or environment
 		APNSPrivateKey:  apnsPrivateKey,
 		APNSBundleID:    getEnv("APNS_BUNDLE_ID", ptr("")),
 		APNSDevelopment: getEnv("APP_ENV", ptr("development")) != "production",
 	}
-	pushService := pushservice.NewPushService(pushRepo, pushConfig)
+
+	// Initialize Firebase app
+
+	ctx := context.Background()
+	app, err := firebase.NewApp(ctx, nil)
+	if err != nil {
+		log.Fatalf("error initializing app: %v", err)
+	}
+
+	// Get Messaging client
+	firebaseClient, err := app.Messaging(ctx)
+	if err != nil {
+		log.Fatalf("error getting Messaging client: %v", err)
+	}
+
+	pushService := pushservice.NewPushService(pushRepo, pushConfig, firebaseClient)
 	pushHandler := pushhandler.NewHandler(pushService)
+
+	// Инициализация сервиса и хендлера сообщений
+	messagingRepo := messagingrepo.NewRepository(db)
+	messagingService := messagingservice.NewService(messagingRepo, profileRepo)
+	messagingHandler := messaging.NewHandler(messagingService, profileService, pushService)
 
 	// Создание роутера
 	r := chi.NewRouter()

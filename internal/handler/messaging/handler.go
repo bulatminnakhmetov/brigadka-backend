@@ -1,6 +1,7 @@
 package messaging
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -14,14 +15,24 @@ import (
 	apierrors "github.com/bulatminnakhmetov/brigadka-backend/internal/errors"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/messaging"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/profile"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/service/push"
 )
 
+type PushService interface {
+	SendNotification(ctx context.Context, userID int, payload push.NotificationPayload) error
+}
+
+type ProfileService interface {
+	GetProfile(userID int) (*profile.Profile, error)
+}
+
 type Handler struct {
-	profile      profile.ProfileRepository
-	service      messaging.Service
-	upgrader     websocket.Upgrader
-	clients      map[int]*Client // Map of userID to client connection
-	clientsMutex sync.RWMutex
+	messagineService messaging.Service
+	profileService   ProfileService
+	pushService      PushService
+	upgrader         websocket.Upgrader
+	clients          map[int]*Client // Map of userID to client connection
+	clientsMutex     sync.RWMutex
 }
 
 // CreateChatRequest представляет запрос на создание чата
@@ -72,9 +83,11 @@ type Client struct {
 	userID int
 }
 
-func NewHandler(service messaging.Service) *Handler {
+func NewHandler(messagineService messaging.Service, profileService ProfileService, pushService PushService) *Handler {
 	return &Handler{
-		service: service,
+		messagineService: messagineService,
+		profileService:   profileService,
+		pushService:      pushService,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -157,7 +170,7 @@ func (h *Handler) CreateChat(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create chat using the service
-	err := h.service.CreateChat(r.Context(), req.ChatID, userID, req.ChatName, req.Participants)
+	err := h.messagineService.CreateChat(r.Context(), req.ChatID, userID, req.ChatName, req.Participants)
 	if err != nil {
 		// Check if it's a duplicate chat (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
@@ -208,7 +221,7 @@ func (h *Handler) GetOrCreateDirectChat(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Get or create the direct chat
-	chatID, err := h.service.GetOrCreateDirectChat(r.Context(), currentUserID, req.UserID)
+	chatID, err := h.messagineService.GetOrCreateDirectChat(r.Context(), currentUserID, req.UserID)
 	if err != nil {
 		if err.Error() == apierrors.ErrorCannotCreateChatWithSelf {
 			http.Error(w, apierrors.ErrorCannotCreateChatWithSelf, http.StatusBadRequest)
@@ -247,7 +260,7 @@ func (h *Handler) GetUserChats(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get user's chats using the service
-	chats, err := h.service.GetUserChats(userID)
+	chats, err := h.messagineService.GetUserChats(userID)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error fetching chats: %v", err)
@@ -282,7 +295,7 @@ func (h *Handler) GetChat(w http.ResponseWriter, r *http.Request) {
 	chatID := chi.URLParam(r, "chatID")
 
 	// Get chat details from the service
-	chat, err := h.service.GetChat(chatID, userID)
+	chat, err := h.messagineService.GetChat(chatID, userID)
 	if err != nil {
 		if err.Error() == apierrors.ErrorUserNotInChat {
 			http.Error(w, "Chat not found", http.StatusNotFound)
@@ -343,7 +356,7 @@ func (h *Handler) GetChatMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get messages
-	messages, err := h.service.GetChatMessages(chatID, userID, limit, offset)
+	messages, err := h.messagineService.GetChatMessages(chatID, userID, limit, offset)
 	if err != nil {
 		if err.Error() == apierrors.ErrorUserNotInChat {
 			http.Error(w, "Chat not found", http.StatusNotFound)
@@ -392,7 +405,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the current user is in the chat (only participants can add others)
-	inChat, err := h.service.IsUserInChat(userID, chatID)
+	inChat, err := h.messagineService.IsUserInChat(userID, chatID)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error checking chat participation: %v", err)
@@ -404,7 +417,7 @@ func (h *Handler) AddParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add new participant
-	if err := h.service.AddParticipant(chatID, req.UserID); err != nil {
+	if err := h.messagineService.AddParticipant(chatID, req.UserID); err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error adding participant: %v", err)
 		return
@@ -446,7 +459,7 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if the current user is in the chat
-	inChat, err := h.service.IsUserInChat(userID, chatID)
+	inChat, err := h.messagineService.IsUserInChat(userID, chatID)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error checking chat participation: %v", err)
@@ -466,7 +479,7 @@ func (h *Handler) RemoveParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Remove participant
-	if err := h.service.RemoveParticipant(chatID, targetUserID); err != nil {
+	if err := h.messagineService.RemoveParticipant(chatID, targetUserID); err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error removing participant: %v", err)
 		return
@@ -510,7 +523,7 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Add reaction using service
-	err := h.service.AddReaction(req.ReactionID, messageID, userID, req.ReactionCode)
+	err := h.messagineService.AddReaction(req.ReactionID, messageID, userID, req.ReactionCode)
 	if err != nil {
 		// Check if it's a duplicate reaction (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {
@@ -531,7 +544,7 @@ func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get chat ID for the message for broadcasting
-	chatID, err := h.service.GetChatIDForMessage(messageID)
+	chatID, err := h.messagineService.GetChatIDForMessage(messageID)
 	if err != nil {
 		log.Printf("Error getting chat ID for message: %v", err)
 		// Continue to return success even if we can't broadcast
@@ -581,14 +594,14 @@ func (h *Handler) RemoveReaction(w http.ResponseWriter, r *http.Request) {
 	reactionCode := chi.URLParam(r, "reactionCode")
 
 	// Get chat ID for the message for broadcasting
-	chatID, err := h.service.GetChatIDForMessage(messageID)
+	chatID, err := h.messagineService.GetChatIDForMessage(messageID)
 	if err != nil {
 		log.Printf("Error getting chat ID for message: %v", err)
 		// We'll continue even if we can't broadcast
 	}
 
 	// Remove reaction
-	err = h.service.RemoveReaction(messageID, userID, reactionCode)
+	err = h.messagineService.RemoveReaction(messageID, userID, reactionCode)
 	if err != nil {
 		http.Error(w, "Server error", http.StatusInternalServerError)
 		log.Printf("Error removing reaction: %v", err)
@@ -651,7 +664,7 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Store message
-	sentAt, err := h.service.AddMessage(req.MessageID, chatID, userID, req.Content)
+	sentAt, err := h.messagineService.AddMessage(req.MessageID, chatID, userID, req.Content)
 	if err != nil {
 		// Check if it's a duplicate message (UUID constraint violation)
 		if isPrimaryKeyViolation(err) {

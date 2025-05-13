@@ -6,3 +6,4 @@
 /certs/minio/*
 !/certs/minio/openssl.cnf.template
 /.vscode*
+secrets

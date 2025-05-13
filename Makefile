@@ -93,11 +93,9 @@ generate-swagger:
 		swag init -q -pd -o ./docs/http/$$tag --outputTypes yaml --tags $$tag -g cmd/service/main.go; \
 	done
 
-# --- Подготовка окружения для отладки ---
-prepare-debug-env: generate-local-ca
+prepare-env-vars:
 	# Копируем пример .env в рабочий .env
 	cp .env.debug .env
-	@echo "Detecting Docker environment..."
 	@bash -c ' \
 		ABS_CERT_PATH=$$(cd certs/ca && pwd)/ca.crt; \
 		echo "Updating .env with SSL_CERT_FILE=$$ABS_CERT_PATH"; \
@@ -107,6 +105,18 @@ prepare-debug-env: generate-local-ca
 			echo "SSL_CERT_FILE=$$ABS_CERT_PATH" >> .env; \
 		fi \
 	'
+	@bash -c ' \
+		ABS_FIREBASE_KEY_PATH=$$(cd secrets && pwd)/firebase.json; \
+		echo "Updating .env with GOOGLE_APPLICATION_CREDENTIALS=$$ABS_FIREBASE_KEY_PATH"; \
+		if grep -q "^GOOGLE_APPLICATION_CREDENTIALS=" .env; then \
+			sed -i.bak "s|^GOOGLE_APPLICATION_CREDENTIALS=.*|GOOGLE_APPLICATION_CREDENTIALS=$$ABS_FIREBASE_KEY_PATH|" .env && rm .env.bak; \
+		else \
+			echo "GOOGLE_APPLICATION_CREDENTIALS=$$ABS_FIREBASE_KEY_PATH" >> .env; \
+		fi \
+	'
+
+# --- Подготовка окружения для отладки ---
+prepare-debug-env: generate-local-ca prepare-env-vars
 
 start-debug-env: prepare-debug-env
 	# Запуск всех сервисов кроме приложения для отладки
