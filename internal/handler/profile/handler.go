@@ -425,7 +425,7 @@ func (h *ProfileHandler) GetGenders(w http.ResponseWriter, r *http.Request) {
 	// Get language from query parameter or use default
 	lang := r.URL.Query().Get("lang")
 	if lang == "" {
-		lang = "en" // Default language
+		lang = "ru" // Default language
 	}
 
 	// Call the service to get the genders

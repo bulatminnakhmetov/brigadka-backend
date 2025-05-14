@@ -24,9 +24,8 @@ var (
 
 // TranslatedItem represents a catalog item with translations
 type TranslatedItem struct {
-	Code        string `json:"code"`
-	Label       string `json:"label"`
-	Description string `json:"description"`
+	Code  string `json:"code"`
+	Label string `json:"label"`
 }
 
 // City represents a city
@@ -487,9 +486,8 @@ func (s *ProfileServiceImpl) GetImprovStyles(lang string) ([]TranslatedItem, err
 	items := make([]TranslatedItem, len(repoItems))
 	for i, item := range repoItems {
 		items[i] = TranslatedItem{
-			Code:        item.Code,
-			Label:       item.Label,
-			Description: item.Description,
+			Code:  item.Code,
+			Label: item.Label,
 		}
 	}
 	return items, nil
@@ -505,9 +503,8 @@ func (s *ProfileServiceImpl) GetImprovGoals(lang string) ([]TranslatedItem, erro
 	items := make([]TranslatedItem, len(repoItems))
 	for i, item := range repoItems {
 		items[i] = TranslatedItem{
-			Code:        item.Code,
-			Label:       item.Label,
-			Description: item.Description,
+			Code:  item.Code,
+			Label: item.Label,
 		}
 	}
 	return items, nil
@@ -523,9 +520,8 @@ func (s *ProfileServiceImpl) GetGenders(lang string) ([]TranslatedItem, error) {
 	items := make([]TranslatedItem, len(repoItems))
 	for i, item := range repoItems {
 		items[i] = TranslatedItem{
-			Code:        item.Code,
-			Label:       item.Label,
-			Description: item.Description,
+			Code:  item.Code,
+			Label: item.Label,
 		}
 	}
 	return items, nil

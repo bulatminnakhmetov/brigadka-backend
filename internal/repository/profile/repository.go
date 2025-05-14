@@ -408,7 +408,7 @@ func (r *PostgresRepository) GetImprovStylesCatalog(lang string) ([]TranslatedIt
 	}
 
 	rows, err := r.db.Query(`
-        SELECT isc.style_code, ist.label, ist.description
+        SELECT isc.style_code, ist.label
         FROM improv_style_catalog isc
         LEFT JOIN improv_style_translation ist ON isc.style_code = ist.style_code AND ist.lang = $1
     `, lang)
@@ -420,7 +420,7 @@ func (r *PostgresRepository) GetImprovStylesCatalog(lang string) ([]TranslatedIt
 	var items []TranslatedItem
 	for rows.Next() {
 		var item TranslatedItem
-		if err := rows.Scan(&item.Code, &item.Label, &item.Description); err != nil {
+		if err := rows.Scan(&item.Code, &item.Label); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -435,7 +435,7 @@ func (r *PostgresRepository) GetImprovGoalsCatalog(lang string) ([]TranslatedIte
 	}
 
 	rows, err := r.db.Query(`
-        SELECT igc.goal_id, igt.label, igt.description
+        SELECT igc.goal_id, igt.label
         FROM improv_goals_catalog igc
         LEFT JOIN improv_goals_translation igt ON igc.goal_id = igt.goal_id AND igt.lang = $1
     `, lang)
@@ -447,7 +447,7 @@ func (r *PostgresRepository) GetImprovGoalsCatalog(lang string) ([]TranslatedIte
 	var items []TranslatedItem
 	for rows.Next() {
 		var item TranslatedItem
-		if err := rows.Scan(&item.Code, &item.Label, &item.Description); err != nil {
+		if err := rows.Scan(&item.Code, &item.Label); err != nil {
 			return nil, err
 		}
 		items = append(items, item)
@@ -462,7 +462,7 @@ func (r *PostgresRepository) GetGendersCatalog(lang string) ([]TranslatedItem, e
 	}
 
 	rows, err := r.db.Query(`
-        SELECT gc.gender_code, gct.label, '' as description
+        SELECT gc.gender_code, gct.label
         FROM gender_catalog gc
         LEFT JOIN gender_catalog_translation gct ON gc.gender_code = gct.gender_code AND gct.lang = $1
     `, lang)
@@ -474,7 +474,7 @@ func (r *PostgresRepository) GetGendersCatalog(lang string) ([]TranslatedItem, e
 	var items []TranslatedItem
 	for rows.Next() {
 		var item TranslatedItem
-		if err := rows.Scan(&item.Code, &item.Label, &item.Description); err != nil {
+		if err := rows.Scan(&item.Code, &item.Label); err != nil {
 			return nil, err
 		}
 		items = append(items, item)

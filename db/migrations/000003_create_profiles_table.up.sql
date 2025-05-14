@@ -10,20 +10,29 @@ CREATE TABLE improv_style_translation (
     style_code VARCHAR(50) REFERENCES improv_style_catalog(style_code) ON DELETE CASCADE,
     lang VARCHAR(10) NOT NULL,
     label TEXT NOT NULL,
-    description TEXT,
     PRIMARY KEY (style_code, lang)
 );
 
 -- Начальные значения стилей импровизации
 INSERT INTO improv_style_catalog (style_code) VALUES
     ('shortform'),
-    ('longform');
-    
-INSERT INTO improv_style_translation (style_code, lang, label, description) VALUES
-    ('shortform', 'en', 'Short Form', 'Fast-paced, game-based improv'),
-    ('shortform', 'ru', 'Короткая форма', 'Импровизация в формате коротких игр'),
-    ('longform', 'en', 'Long Form', 'Extended scenes and narratives'),
-    ('longform', 'ru', 'Длинная форма', 'Импровизация с длинными сценами и историей');
+    ('longform'),
+    ('battles'),
+    ('musical'),
+    ('rap'),
+    ('playback'),
+    ('absurd'),
+    ('realistic');
+
+INSERT INTO improv_style_translation (style_code, lang, label) VALUES
+    ('shortform', 'ru', 'Короткая форма'),
+    ('longform', 'ru', 'Длинная форма'),
+    ('battles', 'ru', 'Баттлы'),
+    ('musical', 'ru', 'Мюзикл'),
+    ('rap', 'ru', 'Фристайл-рэп'),
+    ('playback', 'ru', 'Плейбэк-театр'),
+    ('absurd', 'ru', 'Абсурд'),
+    ('realistic', 'ru', 'Реализм');
 
 -- Каталог целей импровизации
 CREATE TABLE improv_goals_catalog (
@@ -35,23 +44,19 @@ CREATE TABLE improv_goals_translation (
     goal_id VARCHAR(50) REFERENCES improv_goals_catalog(goal_id) ON DELETE CASCADE,
     lang VARCHAR(10) NOT NULL,
     label TEXT NOT NULL,
-    description TEXT,
     PRIMARY KEY (goal_id, lang)
 );
 
 -- Начальные значения целей импровизации
 INSERT INTO improv_goals_catalog (goal_id) VALUES
     ('hobby'),
-    ('career'),
-    ('experiment');
+    ('career');
 
-INSERT INTO improv_goals_translation (goal_id, lang, label, description) VALUES
-    ('hobby', 'en', 'Hobby', 'Doing improv for fun and leisure'),
-    ('hobby', 'ru', 'Хобби', 'Занятие импровом для удовольствия'),
-    ('career', 'en', 'Career', 'Professional interest in improv'),
-    ('career', 'ru', 'Карьера', 'Импровизация как профессиональный путь'),
-    ('experiment', 'en', 'Experiment', 'Trying something new'),
-    ('experiment', 'ru', 'Эксперимент', 'Изучение импрова ради нового опыта');
+INSERT INTO improv_goals_translation (goal_id, lang, label) VALUES
+    ('hobby', 'en', 'Hobby'),
+    ('hobby', 'ru', 'Хобби'),
+    ('career', 'en', 'Career'),
+    ('career', 'ru', 'Карьера');
 
 -- Таблица городов
 CREATE TABLE cities (
@@ -83,8 +88,8 @@ INSERT INTO gender_catalog (gender_code) VALUES
     ('female');
 
 INSERT INTO gender_catalog_translation (gender_code, lang, label) VALUES
-    ('male', 'ru', 'Мужской'),
-    ('female', 'ru', 'Женский'),
+    ('male', 'ru', 'Мужчина'),
+    ('female', 'ru', 'Женщина'),
     ('male', 'en', 'Male'),
     ('female', 'en', 'Female');
 
