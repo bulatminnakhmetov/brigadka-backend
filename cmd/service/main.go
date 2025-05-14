@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
 	httpSwagger "github.com/swaggo/http-swagger"
+	"google.golang.org/api/option"
 
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/database"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
@@ -188,7 +189,7 @@ func main() {
 	// Initialize Firebase app
 
 	ctx := context.Background()
-	app, err := firebase.NewApp(ctx, nil)
+	app, err := firebase.NewApp(ctx, nil, option.WithCredentialsFile(getEnv("GOOGLE_APPLICATION_CREDENTIALS", nil)))
 	if err != nil {
 		log.Fatalf("error initializing app: %v", err)
 	}

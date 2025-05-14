@@ -158,8 +158,7 @@ func (s *pushService) SendNotificationToTokens(ctx context.Context, userID int, 
 		return errors.New("no tokens provided")
 	}
 
-	// For simplicity, assuming all tokens are FCM tokens
-	// In a real implementation, you might want to determine the type of each token
+	// TODO: handler apns
 	return s.sendToFCM(ctx, userID, tokens, payload)
 }
 
@@ -186,19 +185,23 @@ func (s *pushService) sendToFCM(ctx context.Context, userID int, tokens []string
 			Body:  payload.Body,
 		}
 
+		// Create android config with icon from the image URL
+		androidConfig := &messaging.AndroidConfig{
+			Notification: &messaging.AndroidNotification{
+				Sound: defaultIfEmpty(payload.Sound, "default"),
+			},
+		}
+
+		// Set icon for Android if image URL is provided
 		if payload.ImageURL != "" {
-			notification.ImageURL = payload.ImageURL
+			androidConfig.Notification.Icon = payload.ImageURL
 		}
 
 		// Create message for a single token
 		message := &messaging.Message{
 			Token:        token,
 			Notification: notification,
-			Android: &messaging.AndroidConfig{
-				Notification: &messaging.AndroidNotification{
-					Sound: defaultIfEmpty(payload.Sound, "default"),
-				},
-			},
+			Android:      androidConfig,
 		}
 
 		// Send individual message
@@ -206,7 +209,7 @@ func (s *pushService) sendToFCM(ctx context.Context, userID int, tokens []string
 		if err != nil {
 			failedTokens = append(failedTokens, token)
 
-			log.Printf("Failed to send FCM message to user %d: %v", userID, err)
+			log.Printf("Failed to send FCM message to user %d, token %s: %v", userID, token, err)
 
 			// Check if error is due to an invalid token
 			if messaging.IsUnregistered(err) || messaging.IsInvalidArgument(err) {

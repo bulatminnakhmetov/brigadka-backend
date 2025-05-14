@@ -2,6 +2,7 @@ package push
 
 import (
 	"encoding/json"
+	"log"
 	"net/http"
 
 	pushservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/push"
@@ -73,6 +74,8 @@ func (h *Handler) RegisterToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Printf("User %d registered token %s for platform %s", userID, req.Token, req.Platform)
+
 	respondJSON(w, http.StatusOK, map[string]string{"status": "success"})
 }
 
@@ -115,6 +118,8 @@ func (h *Handler) UnregisterToken(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to delete token: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	log.Printf("User %d unregistered token %s", userID, req.Token)
 
 	respondJSON(w, http.StatusOK, map[string]string{"status": "success"})
 }
