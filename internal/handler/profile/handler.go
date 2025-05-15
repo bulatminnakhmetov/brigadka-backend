@@ -141,7 +141,7 @@ type ProfileService interface {
 	GetImprovGoals(lang string) ([]profile.TranslatedItem, error)
 	GetGenders(lang string) ([]profile.TranslatedItem, error)
 	GetCities() ([]profile.City, error)
-	Search(filter profile.SearchFilter) (*profile.SearchResult, error)
+	Search(userID int, filter profile.SearchFilter) (*profile.SearchResult, error)
 }
 
 // ProfileHandler handles requests related to profiles
@@ -475,6 +475,12 @@ func (h *ProfileHandler) GetCities(w http.ResponseWriter, r *http.Request) {
 // @Failure      500      {string}  string  "Server error"
 // @Router       /profiles/search [post]
 func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) {
+	userID, ok := r.Context().Value("user_id").(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var req SearchRequest
 
 	// Parse the request body
@@ -501,7 +507,7 @@ func (h *ProfileHandler) SearchProfiles(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Call the service to perform the search
-	result, err := h.profileService.Search(filter)
+	result, err := h.profileService.Search(userID, filter)
 	if err != nil {
 		handleError(w, err)
 		return

@@ -512,8 +512,9 @@ func (r *PostgresRepository) GetCities() ([]struct {
 	return cities, rows.Err()
 }
 
-// SearchProfiles searches for profiles based on the provided filters
+// SearchProfiles searches for profiles and sorts them based on matching improv styles
 func (r *PostgresRepository) SearchProfiles(
+	currentUserID int,
 	fullName *string,
 	lookingForTeam *bool,
 	goals []string,
@@ -530,12 +531,44 @@ func (r *PostgresRepository) SearchProfiles(
 ) ([]*ProfileModel, int, error) {
 	// Start building the query
 	baseQuery := `
-        SELECT DISTINCT p.user_id, p.full_name, p.birthday, p.gender, 
-               p.city_id, p.bio, p.goal, p.looking_for_team, p.created_at
-        FROM profiles p
+        WITH current_user_styles AS (
+            SELECT style FROM improv_profile_styles WHERE user_id = $1
+        ),
+        profile_matches AS (
+            SELECT 
+                p.user_id, 
+                p.full_name, 
+                p.birthday, 
+                p.gender, 
+                p.city_id, 
+                p.bio, 
+                p.goal, 
+                p.looking_for_team, 
+                p.created_at,
+                (
+                    SELECT COUNT(*) 
+                    FROM improv_profile_styles ips
+                    JOIN current_user_styles cus ON ips.style = cus.style
+                    WHERE ips.user_id = p.user_id
+                ) AS style_match_count
+            FROM profiles p
     `
 
-	countQuery := `SELECT COUNT(DISTINCT p.user_id) FROM profiles p`
+	countQuery := `
+        WITH current_user_styles AS (
+            SELECT style FROM improv_profile_styles WHERE user_id = $1
+        ),
+        profile_matches AS (
+            SELECT 
+                p.user_id,
+                (
+                    SELECT COUNT(*) 
+                    FROM improv_profile_styles ips
+                    JOIN current_user_styles cus ON ips.style = cus.style
+                    WHERE ips.user_id = p.user_id
+                ) AS style_match_count
+            FROM profiles p
+    `
 
 	// Add joins if needed
 	joins := []string{}
@@ -575,8 +608,11 @@ func (r *PostgresRepository) SearchProfiles(
 
 	// Build WHERE clause
 	conditions := []string{}
-	args := []interface{}{}
-	argIndex := 1
+	args := []interface{}{currentUserID} // First argument is current user ID
+	argIndex := 2
+
+	// Exclude current user from results
+	conditions = append(conditions, "p.user_id <> $1")
 
 	// Full name search (using ILIKE for case-insensitive search)
 	if fullName != nil && *fullName != "" {
@@ -668,6 +704,10 @@ func (r *PostgresRepository) SearchProfiles(
 		countQuery += whereClause
 	}
 
+	// Close the CTE and add ORDER BY for style matches
+	baseQuery += `) SELECT * FROM profile_matches ORDER BY style_match_count DESC, created_at DESC`
+	countQuery += `) SELECT COUNT(*) FROM profile_matches`
+
 	// Get total count
 	var totalCount int
 	err := r.db.QueryRow(countQuery, args...).Scan(&totalCount)
@@ -675,8 +715,7 @@ func (r *PostgresRepository) SearchProfiles(
 		return nil, 0, err
 	}
 
-	// Add ORDER BY and pagination to the base query
-	baseQuery += " ORDER BY p.created_at DESC"
+	// Add pagination to the final query
 	baseQuery += fmt.Sprintf(" LIMIT $%d OFFSET $%d", argIndex, argIndex+1)
 	args = append(args, pageSize, (page-1)*pageSize)
 
@@ -691,10 +730,12 @@ func (r *PostgresRepository) SearchProfiles(
 	profiles := []*ProfileModel{}
 	for rows.Next() {
 		profile := &ProfileModel{}
+		var styleMatchCount int
 		if err := rows.Scan(
 			&profile.UserID, &profile.FullName, &profile.Birthday,
 			&profile.Gender, &profile.CityID, &profile.Bio,
 			&profile.Goal, &profile.LookingForTeam, &profile.CreatedAt,
+			&styleMatchCount,
 		); err != nil {
 			return nil, 0, err
 		}

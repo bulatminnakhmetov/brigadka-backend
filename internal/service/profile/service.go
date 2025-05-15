@@ -123,6 +123,7 @@ type ProfileRepository interface {
 		Name string
 	}, error)
 	SearchProfiles(
+		currentUserID int,
 		fullName *string,
 		lookingForTeam *bool,
 		goals []string,

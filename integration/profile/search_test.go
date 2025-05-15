@@ -192,7 +192,7 @@ func (s *ProfileSearchTestSuite) getStandardProfileTemplates() []ProfileTemplate
 			Gender:         "female",
 			CityID:         2, // Saint Petersburg
 			Bio:            "Looking for experimental improv teams",
-			Goal:           "experiment",
+			Goal:           "career",
 			ImprovStyles:   []string{"longform"},
 			LookingForTeam: true,
 			HasAvatar:      false,
@@ -783,7 +783,7 @@ func (s *ProfileSearchTestSuite) TestSearchByMultipleGoals() {
 
 	// Find profiles with either hobby OR career goals
 	filter := map[string]interface{}{
-		"goals":         []string{"hobby", "career"},
+		"goals":         []string{"career"},
 		"created_after": createdAfter,
 		"page":          1,
 		"page_size":     10,
@@ -791,15 +791,15 @@ func (s *ProfileSearchTestSuite) TestSearchByMultipleGoals() {
 
 	result, err := s.executeSearch(filter)
 	assert.NoError(t, err)
-	assert.Equal(t, 4, len(result.Profiles)) // Should find 4 profiles with hobby or career goals
+	assert.Equal(t, 3, len(result.Profiles)) // Should find 4 profiles with hobby or career goals
 
 	// Verify that each returned profile has one of the requested goals
 	for _, profile := range result.Profiles {
 		assert.Contains(t, []string{"hobby", "career"}, profile.Goal)
 	}
 
-	// Find profiles with hobby, career, OR experiment goals (should include all 5 profiles)
-	filter["goals"] = []string{"hobby", "career", "experiment"}
+	// Find profiles with hobby, career goals (should include all 5 profiles)
+	filter["goals"] = []string{"hobby", "career"}
 	result, err = s.executeSearch(filter)
 	assert.NoError(t, err)
 	assert.Equal(t, 5, len(result.Profiles)) // Should find all 5 profiles

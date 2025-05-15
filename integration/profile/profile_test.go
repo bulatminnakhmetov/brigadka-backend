@@ -417,7 +417,7 @@ func (s *ProfileIntegrationTestSuite) TestGetCatalogData() {
 	authToken, _ := s.registerTestUser(t)
 
 	// Test getting improv styles
-	req, _ := http.NewRequest("GET", s.appUrl+"/api/profiles/catalog/improv-styles?lang=en", nil)
+	req, _ := http.NewRequest("GET", s.appUrl+"/api/profiles/catalog/improv-styles", nil)
 	req.Header.Set("Authorization", "Bearer "+authToken)
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -426,7 +426,7 @@ func (s *ProfileIntegrationTestSuite) TestGetCatalogData() {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Test getting goals
-	req, _ = http.NewRequest("GET", s.appUrl+"/api/profiles/catalog/improv-goals?lang=en", nil)
+	req, _ = http.NewRequest("GET", s.appUrl+"/api/profiles/catalog/improv-goals", nil)
 	req.Header.Set("Authorization", "Bearer "+authToken)
 	resp, err = client.Do(req)
 	assert.NoError(t, err)
@@ -434,7 +434,7 @@ func (s *ProfileIntegrationTestSuite) TestGetCatalogData() {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 
 	// Test getting genders
-	req, _ = http.NewRequest("GET", s.appUrl+"/api/profiles/catalog/genders?lang=en", nil)
+	req, _ = http.NewRequest("GET", s.appUrl+"/api/profiles/catalog/genders", nil)
 	req.Header.Set("Authorization", "Bearer "+authToken)
 	resp, err = client.Do(req)
 	assert.NoError(t, err)

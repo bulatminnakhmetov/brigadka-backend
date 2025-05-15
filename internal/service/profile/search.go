@@ -30,54 +30,65 @@ type SearchResult struct {
 	PageSize   int       `json:"page_size"`
 }
 
-// Search searches for profiles based on the provided filters
-func (s *ProfileServiceImpl) Search(filter SearchFilter) (*SearchResult, error) {
-	// Set defaults if not provided
+// Search searches for profiles with the given filters and sorts results by improv style matches
+func (s *ProfileServiceImpl) Search(userID int, filter SearchFilter) (*SearchResult, error) {
+	// Set defaults for pagination
 	if filter.Page <= 0 {
 		filter.Page = 1
 	}
-	if filter.PageSize <= 0 {
-		filter.PageSize = 10
-	} else if filter.PageSize > 100 {
-		filter.PageSize = 100 // Maximum page size to prevent excessive queries
+	if filter.PageSize <= 0 || filter.PageSize > 100 {
+		filter.PageSize = 20
 	}
 
-	// Convert age min/max to birthday range if provided
-	var birthDateMax, birthDateMin *time.Time
+	// Convert ages to birthdate bounds if provided
+	var birthDateMin, birthDateMax *time.Time
 	if filter.AgeMin != nil {
 		date := time.Now().AddDate(-*filter.AgeMin, 0, 0)
 		birthDateMax = &date
 	}
 	if filter.AgeMax != nil {
-		date := time.Now().AddDate(-*filter.AgeMax-1, 0, 0).AddDate(0, 0, 1) // Add a day to get inclusive range
+		date := time.Now().AddDate(-*filter.AgeMax-1, 0, 0).AddDate(0, 0, 1)
 		birthDateMin = &date
 	}
 
-	// Call repository to get results
-	results, totalCount, err := s.profileRepo.SearchProfiles(filter.FullName, filter.LookingForTeam,
-		filter.Goals, filter.ImprovStyles, birthDateMin, birthDateMax,
-		filter.Genders, filter.CityID, filter.HasAvatar, filter.HasVideo,
+	// Call repository to search profiles with style matches
+	profiles, totalCount, err := s.profileRepo.SearchProfiles(
+		userID,
+		filter.FullName,
+		filter.LookingForTeam,
+		filter.Goals,
+		filter.ImprovStyles,
+		birthDateMin,
+		birthDateMax,
+		filter.Genders,
+		filter.CityID,
+		filter.HasAvatar,
+		filter.HasVideo,
 		filter.CreatedAfter,
-		filter.Page, filter.PageSize)
+		filter.Page,
+		filter.PageSize,
+	)
+
 	if err != nil {
 		return nil, err
 	}
 
-	// Convert repository models to service models
-	profiles := make([]Profile, 0, len(results))
-	for _, result := range results {
-		profile, err := s.ExpandProfile(result)
-		if err != nil {
-			log.Printf("failed to expand profile: %v", err)
-			continue
-		}
-		profiles = append(profiles, *profile)
-	}
-
-	return &SearchResult{
-		Profiles:   profiles,
+	// Convert repository profiles to service profiles
+	result := &SearchResult{
+		Profiles:   make([]Profile, 0, len(profiles)),
 		TotalCount: totalCount,
 		Page:       filter.Page,
 		PageSize:   filter.PageSize,
-	}, nil
+	}
+
+	for _, p := range profiles {
+		expanded, err := s.ExpandProfile(p)
+		if err != nil {
+			log.Printf("Error expanding profile %d: %v", p.UserID, err)
+			continue
+		}
+		result.Profiles = append(result.Profiles, *expanded)
+	}
+
+	return result, nil
 }
