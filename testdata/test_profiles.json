@@ -1,0 +1,482 @@
+[
+    {
+      "full_name": "Иван Соколов",
+      "gender": "male",
+      "bio": "Начинающий импровизатор из Москвы. Делаю первые шаги в мире импровизационного театра. Мне нравится свобода выражения и возможность создавать истории на ходу.",
+      "goal": "hobby",
+      "improv_styles": ["shortform", "battles"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 25
+    },
+    {
+      "full_name": "Мария Петрова",
+      "gender": "female",
+      "bio": "Профессиональная актриса с опытом в клоунаде и импровизации. Преподаю импро уже 3 года. Ищу единомышленников для создания нового формата шоу.",
+      "goal": "career",
+      "improv_styles": ["longform", "absurd"],
+      "looking_for_team": false,
+      "city_id": 2,
+      "age": 34
+    },
+    {
+      "full_name": "Алексей Смирнов",
+      "gender": "male",
+      "bio": "Люблю абсурдный юмор и неожиданные повороты в историях. Занимаюсь импровизацией для души. Ищу команду с необычным подходом к творчеству.",
+      "goal": "hobby",
+      "improv_styles": ["absurd", "playback"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 29
+    },
+    {
+      "full_name": "Ольга Иванова",
+      "gender": "female",
+      "bio": "Выступаю на мероприятиях с короткими импровизационными номерами. Умею работать с аудиторией и вызывать эмоции. Хочу развиваться в длинной форме.",
+      "goal": "career",
+      "improv_styles": ["shortform", "musical"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 27
+    },
+    {
+      "full_name": "Дмитрий Козлов",
+      "gender": "male",
+      "bio": "Фристайл-рэпер, недавно открыл для себя мир театральной импровизации. Объединяю музыкальные навыки и актерское мастерство.",
+      "goal": "hobby",
+      "improv_styles": ["rap", "battles"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 23
+    },
+    {
+      "full_name": "Екатерина Новикова",
+      "gender": "female",
+      "bio": "Режиссер импровизационного театра с опытом работы в Европе. Исследую границы реализма и абсурда в спонтанном творчестве.",
+      "goal": "career",
+      "improv_styles": ["longform", "realistic"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 38
+    },
+    {
+      "full_name": "Николай Жуков",
+      "gender": "male",
+      "bio": "Бывший КВНщик, нашел себя в импровизационных баттлах. Быстро мыслю, создаю яркие образы, люблю работать с партнером.",
+      "goal": "hobby",
+      "improv_styles": ["battles", "shortform"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 26
+    },
+    {
+      "full_name": "Анна Морозова",
+      "gender": "female",
+      "bio": "Занимаюсь плейбэк-театром последние 5 лет. Умею слушать истории и превращать их в живые сцены. Ищу новые проекты для участия.",
+      "goal": "career",
+      "improv_styles": ["playback", "realistic"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 31
+    },
+    {
+      "full_name": "Владислав Попов",
+      "gender": "male",
+      "bio": "Импровизирую с музыкальным сопровождением. Играю на гитаре, пианино и укулеле. Создаю импровизационные мюзиклы на ходу.",
+      "goal": "career",
+      "improv_styles": ["musical", "longform"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 30
+    },
+    {
+      "full_name": "Светлана Белова",
+      "gender": "female",
+      "bio": "Недавно начала заниматься импровизацией. Меня привлекает непредсказуемость и возможность выйти из зоны комфорта.",
+      "goal": "hobby",
+      "improv_styles": ["shortform"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 24
+    },
+    {
+      "full_name": "Андрей Комаров",
+      "gender": "male",
+      "bio": "Создаю абсурдные и сюрреалистичные истории, вдохновляясь театром абсурда. Ищу команду для экспериментов на стыке жанров.",
+      "goal": "hobby",
+      "improv_styles": ["absurd", "longform"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 32
+    },
+    {
+      "full_name": "Юлия Сидорова",
+      "gender": "female",
+      "bio": "Преподаватель актерского мастерства, использующий техники импровизации в обучении. Развиваю у студентов спонтанность и присутствие.",
+      "goal": "career",
+      "improv_styles": ["realistic", "playback"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 36
+    },
+    {
+      "full_name": "Павел Волков",
+      "gender": "male",
+      "bio": "Работаю в формате комедийных скетчей. Быстро генерирую идеи, умею доводить сцену до яркой кульминации.",
+      "goal": "career",
+      "improv_styles": ["shortform", "battles"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 28
+    },
+    {
+      "full_name": "Наталья Кузнецова",
+      "gender": "female",
+      "bio": "Музыкальный импровизатор с вокальным образованием. Создаю песни на ходу, используя зрительские подсказки.",
+      "goal": "career",
+      "improv_styles": ["musical", "rap"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 29
+    },
+    {
+      "full_name": "Игорь Ковалев",
+      "gender": "male",
+      "bio": "Основатель импровизационной школы. Верю, что импро – это не только искусство, но и инструмент личностного роста.",
+      "goal": "career",
+      "improv_styles": ["shortform", "longform", "playback"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 42
+    },
+    {
+      "full_name": "Елена Орлова",
+      "gender": "female",
+      "bio": "Новичок в мире импровизации. Пришла после актерских курсов, чтобы преодолеть страх публичных выступлений.",
+      "goal": "hobby",
+      "improv_styles": ["shortform"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 22
+    },
+    {
+      "full_name": "Сергей Титов",
+      "gender": "male",
+      "bio": "Десятилетний опыт в комедийной импровизации. Участвовал в международных фестивалях. Ищу команду для создания нового шоу.",
+      "goal": "career",
+      "improv_styles": ["shortform", "longform", "battles"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 35
+    },
+    {
+      "full_name": "Татьяна Михайлова",
+      "gender": "female",
+      "bio": "Психолог, использующий техники импровизации в групповой терапии. Исследую границы между терапией и искусством.",
+      "goal": "hobby",
+      "improv_styles": ["playback", "realistic"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 39
+    },
+    {
+      "full_name": "Роман Федоров",
+      "gender": "male",
+      "bio": "Люблю реалистичные истории с неожиданными поворотами. Создаю на сцене атмосферу настоящей жизни со всеми ее нюансами.",
+      "goal": "hobby",
+      "improv_styles": ["realistic", "longform"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 33
+    },
+    {
+      "full_name": "Алина Королева",
+      "gender": "female",
+      "bio": "Фристайл-рэпер с опытом баттлов. Соединяю словесную импровизацию с актерским мастерством. Легко работаю с ритмом.",
+      "goal": "career",
+      "improv_styles": ["rap", "battles"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 26
+    },
+    {
+      "full_name": "Кирилл Михайлов",
+      "gender": "male",
+      "bio": "Пришел в импровизацию из стендапа. Умею работать с аудиторией и создавать комедийные моменты на ходу.",
+      "goal": "hobby",
+      "improv_styles": ["shortform", "battles"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 27
+    },
+    {
+      "full_name": "Валерия Соловьева",
+      "gender": "female",
+      "bio": "Драматург, исследующий границы между подготовленным и спонтанным текстом. Соединяю практики импровизации с классическими театральными формами.",
+      "goal": "career",
+      "improv_styles": ["longform", "playback"],
+      "looking_for_team": false,
+      "city_id": 2,
+      "age": 34
+    },
+    {
+      "full_name": "Артем Никитин",
+      "gender": "male",
+      "bio": "Участник импровизационных батлов с стажем. Быстро реагирую, умею работать под давлением и превращать любую ситуацию в выигрышную.",
+      "goal": "hobby",
+      "improv_styles": ["battles", "rap"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 25
+    },
+    {
+      "full_name": "Дарья Лебедева",
+      "gender": "female",
+      "bio": "Руководитель плейбэк-театра. Исследую границы между документальностью и художественным вымыслом в импровизации.",
+      "goal": "career",
+      "improv_styles": ["playback", "realistic"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 37
+    },
+    {
+      "full_name": "Владимир Макаров",
+      "gender": "male",
+      "bio": "Музыкальный импровизатор-самоучка. Создаю саундтреки к сценам в режиме реального времени. Ищу актеров для совместного проекта.",
+      "goal": "hobby",
+      "improv_styles": ["musical", "absurd"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 31
+    },
+    {
+      "full_name": "Евгения Антонова",
+      "gender": "female",
+      "bio": "Новичок в импровизации с музыкальным образованием. Хочу соединить классическую музыку и импровизационный театр.",
+      "goal": "hobby",
+      "improv_styles": ["musical", "shortform"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 28
+    },
+    {
+      "full_name": "Михаил Иванов",
+      "gender": "male",
+      "bio": "Организатор импровизационных фестивалей. Развиваю культуру импро в России. Ищу команды с необычными форматами для участия.",
+      "goal": "career",
+      "improv_styles": ["shortform", "longform", "absurd"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 40
+    },
+    {
+      "full_name": "Ксения Андреева",
+      "gender": "female",
+      "bio": "Танцор, исследующий телесную импровизацию. Соединяю движение и сторителлинг в спонтанном творчестве.",
+      "goal": "career",
+      "improv_styles": ["playback", "musical"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 29
+    },
+    {
+      "full_name": "Артур Мельников",
+      "gender": "male",
+      "bio": "Опытный импровизатор абсурдного жанра. Создаю сюрреалистические миры с неожиданными логическими связями.",
+      "goal": "hobby",
+      "improv_styles": ["absurd", "longform"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 34
+    },
+    {
+      "full_name": "Вера Захарова",
+      "gender": "female",
+      "bio": "Импровизирую в жанре псевдо-документалистики. Создаю реалистичные истории на ходу, основанные на личном опыте зрителей.",
+      "goal": "hobby",
+      "improv_styles": ["realistic", "playback"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 32
+    },
+    {
+      "full_name": "Денис Степанов",
+      "gender": "male",
+      "bio": "Комик с опытом в стендапе. Перешел в импровизацию, чтобы расширить творческие горизонты. Ищу команду для регулярных выступлений.",
+      "goal": "career",
+      "improv_styles": ["shortform", "battles"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 29
+    },
+    {
+      "full_name": "Марина Громова",
+      "gender": "female",
+      "bio": "Начинающая импровизаторка, влюбленная в музыкальные форматы. Пою и создаю мелодии на ходу.",
+      "goal": "hobby",
+      "improv_styles": ["musical", "shortform"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 24
+    },
+    {
+      "full_name": "Григорий Зайцев",
+      "gender": "male",
+      "bio": "Создатель уникального формата импровизации, соединяющего элементы детектива и абсурдной комедии.",
+      "goal": "career",
+      "improv_styles": ["absurd", "longform", "realistic"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 38
+    },
+    {
+      "full_name": "Софья Кузьмина",
+      "gender": "female",
+      "bio": "Актриса с классическим образованием, изучающая импровизацию как метод создания новых театральных форм.",
+      "goal": "career",
+      "improv_styles": ["longform", "realistic"],
+      "looking_for_team": false,
+      "city_id": 2,
+      "age": 30
+    },
+    {
+      "full_name": "Борис Семенов",
+      "gender": "male",
+      "bio": "Импровизатор-реалист. Создаю на сцене правдоподобные ситуации и характеры. Исследую глубину человеческих отношений.",
+      "goal": "hobby",
+      "improv_styles": ["realistic", "playback"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 35
+    },
+    {
+      "full_name": "Карина Медведева",
+      "gender": "female",
+      "bio": "Профессиональная вокалистка, недавно открывшая для себя мир импровизации. Соединяю вокальное мастерство и актерское искусство.",
+      "goal": "hobby",
+      "improv_styles": ["musical", "shortform"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 27
+    },
+    {
+      "full_name": "Станислав Ильин",
+      "gender": "male",
+      "bio": "Создаю сложные многоуровневые истории в формате длинной импровизации. Люблю работать с большими командами.",
+      "goal": "career",
+      "improv_styles": ["longform", "realistic"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 33
+    },
+    {
+      "full_name": "Полина Крылова",
+      "gender": "female",
+      "bio": "Мастер коротких форм импровизации. Создаю яркие запоминающиеся сцены с неожиданными развязками.",
+      "goal": "hobby",
+      "improv_styles": ["shortform", "battles"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 26
+    },
+    {
+      "full_name": "Тимур Гаврилов",
+      "gender": "male",
+      "bio": "Опытный импровизатор в жанре абсурда. Создаю сюрреалистичные миры и характеры, исследую границы логики и здравого смысла.",
+      "goal": "hobby",
+      "improv_styles": ["absurd", "longform"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 31
+    },
+    {
+      "full_name": "Александра Васильева",
+      "gender": "female",
+      "bio": "Работаю на стыке клоунады и драматической импровизации. Исследую грань между смешным и трогательным.",
+      "goal": "career",
+      "improv_styles": ["absurd", "realistic"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 34
+    },
+    {
+      "full_name": "Федор Орлов",
+      "gender": "male",
+      "bio": "Импровизатор-рассказчик. Создаю детальные миры и атмосферные истории, вдохновляясь литературой и кино.",
+      "goal": "hobby",
+      "improv_styles": ["longform", "realistic"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 29
+    },
+    {
+      "full_name": "Лидия Виноградова",
+      "gender": "female",
+      "bio": "Мастер плейбэк-театра. Умею слушать истории зрителей и воплощать их эмоциональную суть на сцене.",
+      "goal": "career",
+      "improv_styles": ["playback", "realistic"],
+      "looking_for_team": false,
+      "city_id": 2,
+      "age": 36
+    },
+    {
+      "full_name": "Вадим Филиппов",
+      "gender": "male",
+      "bio": "Фристайлер-самоучка. Рифмую на ходу, легко подстраиваюсь под любую тему. Ищу команду для музыкальных экспериментов.",
+      "goal": "hobby",
+      "improv_styles": ["rap", "battles"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 24
+    },
+    {
+      "full_name": "Инна Козлова",
+      "gender": "female",
+      "bio": "Молодая актриса, осваивающая импровизацию. Изучаю разные техники и форматы, чтобы найти свой стиль.",
+      "goal": "hobby",
+      "improv_styles": ["shortform", "playback"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 22
+    },
+    {
+      "full_name": "Константин Романов",
+      "gender": "male",
+      "bio": "Ветеран импровизационной сцены. Основатель нескольких команд и форматов. Сейчас фокусируюсь на обучении молодых импровизаторов.",
+      "goal": "career",
+      "improv_styles": ["shortform", "longform", "musical"],
+      "looking_for_team": false,
+      "city_id": 1,
+      "age": 45
+    },
+    {
+      "full_name": "Людмила Шишкина",
+      "gender": "female",
+      "bio": "Импровизатор в жанре реализма. Создаю на сцене правдоподобные ситуации и характеры. Исследую глубину человеческих взаимоотношений.",
+      "goal": "hobby",
+      "improv_styles": ["realistic", "longform"],
+      "looking_for_team": true,
+      "city_id": 2,
+      "age": 32
+    },
+    {
+      "full_name": "Антон Максимов",
+      "gender": "male",
+      "bio": "Музыкант-импровизатор. Создаю музыкальное сопровождение для сцен в режиме реального времени. Ищу актеров для формата музыкальной импровизации.",
+      "goal": "career",
+      "improv_styles": ["musical", "shortform"],
+      "looking_for_team": true,
+      "city_id": 1,
+      "age": 28
+    },
+    {
+      "full_name": "Анастасия Горбунова",
+      "gender": "female",
+      "bio": "Режиссер с опытом в классическом театре. Исследую импровизацию как метод для создания новых театральных форм.",
+      "goal": "career",
+      "improv_styles": ["longform", "realistic", "playback"],
+      "looking_for_team": false,
+      "city_id": 2,
+      "age": 37
+    }
+  ]

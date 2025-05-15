@@ -24,7 +24,7 @@ type Media struct {
 
 // Константы для ограничений
 const (
-	MaxFileSize = 10 * 1024 * 1024 // 10 MB
+	MaxFileSize = 50 * 1024 * 1024 // 10 MB
 )
 
 // Repository defines the interface for media database operations
