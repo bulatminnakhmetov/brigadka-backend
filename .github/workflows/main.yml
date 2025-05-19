@@ -28,7 +28,7 @@ jobs:
 
       - name: Create .env file
         run: |
-          cp .env.docker .env
+          cp .env.tests .env
 
       - name: Run Integration Tests
         run: |

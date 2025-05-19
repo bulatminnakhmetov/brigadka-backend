@@ -115,7 +115,7 @@ func main() {
 	// Загрузка конфигурации из переменных окружения
 	dbConfig := &database.Config{
 		Host:     getEnv("DB_HOST", nil),
-		Port:     getEnvAsInt("DB_PORT", 5432),
+		Port:     getEnvAsInt("DB_PORT", ptr(5432)),
 		User:     getEnv("DB_USER", nil),
 		Password: getEnv("DB_PASSWORD", nil),
 		DBName:   getEnv("DB_NAME", nil),
@@ -163,7 +163,11 @@ func main() {
 	profileHandler := profile.NewProfileHandler(profileService)
 
 	// Инициализация хендлера медиа
-	mediaHandler := media.NewMediaHandler(mediaService)
+	mediaHandler := media.NewMediaHandler(
+		mediaService,
+		getEnvAsInt("MAX_CONCURRENT_UPLOADS", nil),
+		int64(getEnvAsInt("MAX_UPLOAD_SIZE_MB", nil)),
+	)
 
 	// Load APNS private key
 	apnsPrivateKey := []byte{}
@@ -362,14 +366,17 @@ func getEnv(key string, fallback *string) string {
 	return *fallback
 }
 
-func getEnvAsInt(key string, fallback int) int {
+func getEnvAsInt(key string, fallback *int) int {
 	if value, exists := os.LookupEnv(key); exists {
 		var intVal int
 		if _, err := fmt.Sscanf(value, "%d", &intVal); err == nil {
 			return intVal
 		}
 	}
-	return fallback
+	if fallback == nil {
+		panic(fmt.Sprintf("Environment variable %s is not set and no fallback provided", key))
+	}
+	return *fallback
 }
 
 // LoadAPNSPrivateKey loads an APNS private key from a file path or from base64-encoded environment variable

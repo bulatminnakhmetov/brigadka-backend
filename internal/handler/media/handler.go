@@ -15,13 +15,17 @@ type MediaService interface {
 
 // MediaHandler handles requests for media operations
 type MediaHandler struct {
-	service MediaService
+	service         MediaService
+	uploadSemaphore chan struct{}
+	maxFileSizeMB   int64
 }
 
 // NewMediaHandler creates a new instance of MediaHandler
-func NewMediaHandler(service MediaService) *MediaHandler {
+func NewMediaHandler(service MediaService, maxConcurrentUploads int, maxFileSizeMB int64) *MediaHandler {
 	return &MediaHandler{
-		service: service,
+		service:         service,
+		uploadSemaphore: make(chan struct{}, maxConcurrentUploads),
+		maxFileSizeMB:   maxFileSizeMB,
 	}
 }
 
@@ -47,6 +51,9 @@ type MediaResponse struct {
 // @Router       /api/media [post]
 // @Security     BearerAuth
 func (h *MediaHandler) UploadMedia(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, h.maxFileSizeMB<<20)
+	h.uploadSemaphore <- struct{}{}
+	defer func() { <-h.uploadSemaphore }()
 	// Get user ID from context (assuming it's set by auth middleware)
 	userID, ok := r.Context().Value("user_id").(int)
 	if !ok {
@@ -57,6 +64,10 @@ func (h *MediaHandler) UploadMedia(w http.ResponseWriter, r *http.Request) {
 	// Parse multipart form
 	err := r.ParseMultipartForm(10 << 20) // 10 MB
 	if err != nil {
+		if err.(*http.MaxBytesError) != nil {
+			http.Error(w, "File too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		http.Error(w, "Could not parse form", http.StatusBadRequest)
 		return
 	}

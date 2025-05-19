@@ -14,6 +14,7 @@ import (
 
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/media"
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -34,6 +35,8 @@ func (s *MediaIntegrationTestSuite) SetupSuite() {
 	if s.appUrl == "" {
 		s.appUrl = "http://localhost:8080" // Default for local testing
 	}
+
+	_ = godotenv.Load("../../.env") // Load environment variables from .env file
 
 	// Set paths for test media files
 	s.testImagePath = filepath.Join("testdata", "test_image.jpg")
@@ -366,6 +369,58 @@ func (s *MediaIntegrationTestSuite) TestUploadNoThumbnail() {
 
 	// Should return bad request since thumbnail is required
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Should return status 400 Bad Request")
+}
+
+// TestUploadFileTooLarge tests uploading a file that exceeds the size limit
+func (s *MediaIntegrationTestSuite) TestUploadFileTooLarge() {
+	t := s.T()
+
+	// Create a temporary large file that exceeds the size limit
+	// (Using environment variable or default to 10MB for testing)
+	var maxSizeMB int
+	if envSize := os.Getenv("MAX_UPLOAD_SIZE_MB"); envSize != "" {
+		fmt.Sscanf(envSize, "%d", &maxSizeMB)
+	} else {
+		panic("MAX_UPLOAD_SIZE_MB environment variable not set")
+	}
+
+	// Create a file slightly larger than the max size
+	largeFilePath := filepath.Join("testdata", "large_file.bin")
+	largeFileSize := (int64(maxSizeMB) << 20) + (1 << 20) // maxSize + 1MB
+
+	err := createFileWithSize(largeFilePath, largeFileSize)
+	assert.NoError(t, err)
+	defer os.Remove(largeFilePath)
+
+	files := map[string]string{
+		"file":      largeFilePath,
+		"thumbnail": s.testThumbnailPath,
+	}
+
+	req, err := createMultipartRequestWithFiles(s.appUrl+"/api/media", files, s.authToken)
+	assert.NoError(t, err)
+
+	client := &http.Client{
+		Timeout: 30 * time.Second, // Increase timeout for large file upload
+	}
+	resp, err := client.Do(req)
+	assert.NoError(t, err)
+	defer resp.Body.Close()
+
+	// Should return 413 Request Entity Too Large
+	assert.Equal(t, http.StatusRequestEntityTooLarge, resp.StatusCode, "Should return status 413 Request Entity Too Large")
+}
+
+// Helper function to create a file of specific size
+func createFileWithSize(path string, sizeBytes int64) error {
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Quickly set file size without writing data
+	return file.Truncate(sizeBytes)
 }
 
 // TestMediaIntegration runs the media integration test suite

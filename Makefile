@@ -29,7 +29,7 @@ run-unit-tests:
 
 # --- Тесты ---
 run-integration-tests: generate-local-ca
-	cp .env.docker .env
+	cp .env.tests .env
 	# Запуск интеграционных тестов в Docker
 ifdef DEBUG-ENV
 	# Запуск с выводом логов в консоль
