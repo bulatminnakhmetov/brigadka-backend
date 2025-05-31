@@ -125,7 +125,6 @@ func (s *VerificationIntegrationTestSuite) TestResendVerification() {
 
 	// Create request to resend verification email
 	resendData := auth.ResendVerificationRequest{
-		Email:          s.testEmail,
 		IgnoreCooldown: true, // Ignore cooldown for testing purposes
 	}
 
@@ -157,9 +156,7 @@ func (s *VerificationIntegrationTestSuite) TestResendVerificationUnauthorized() 
 	t := s.T()
 
 	// Create request without auth token
-	resendData := auth.ResendVerificationRequest{
-		Email: s.testEmail,
-	}
+	resendData := auth.ResendVerificationRequest{}
 
 	resendJSON, _ := json.Marshal(resendData)
 	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/resend-verification", bytes.NewBuffer(resendJSON))
@@ -181,9 +178,7 @@ func (s *VerificationIntegrationTestSuite) TestResendVerificationTooSoon() {
 	t := s.T()
 
 	// Try to resend immediately after the previous test
-	resendData := auth.ResendVerificationRequest{
-		Email: s.testEmail,
-	}
+	resendData := auth.ResendVerificationRequest{}
 
 	resendJSON, _ := json.Marshal(resendData)
 	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/resend-verification", bytes.NewBuffer(resendJSON))
@@ -358,29 +353,6 @@ func (s *VerificationIntegrationTestSuite) TestInvalidVerificationToken() {
 	buf := new(bytes.Buffer)
 	buf.ReadFrom(resp.Body)
 	assert.Contains(t, buf.String(), "invalid verification token")
-}
-
-// TestResendToNonexistentUser tests resending verification to a non-existent user
-func (s *VerificationIntegrationTestSuite) TestResendToNonexistentUser() {
-	t := s.T()
-
-	// Try to resend verification to non-existent email
-	resendData := auth.ResendVerificationRequest{
-		Email: "nonexistent-" + generateTestEmail(),
-	}
-
-	resendJSON, _ := json.Marshal(resendData)
-	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/resend-verification", bytes.NewBuffer(resendJSON))
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.bearerToken) // Add auth header
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-
-	// Should return not found
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
 }
 
 // TestVerificationIntegration runs the verification integration test suite

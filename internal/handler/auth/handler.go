@@ -183,26 +183,10 @@ func (h *AuthHandler) ResendVerification(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get user ID from email
-	user, err := h.authService.GetUserByEmail(req.Email)
-	if err != nil {
-		http.Error(w, "User not found", http.StatusNotFound)
-		return
-	}
-
-	// Check if already verified
-	if user.EmailVerified {
-		response := VerificationResponse{
-			Success: true,
-			Message: "Email is already verified",
-		}
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(response)
-		return
-	}
+	userID := r.Context().Value("user_id").(int)
 
 	// Resend verification
-	err = h.authService.ResendVerificationEmail(user.ID, req.IgnoreCooldown)
+	err := h.authService.ResendVerificationEmail(userID, req.IgnoreCooldown)
 	if err != nil {
 		if errors.Is(err, verification.ErrEmailRecentlySent) {
 			http.Error(w, "Verification email was sent recently", http.StatusTooManyRequests)

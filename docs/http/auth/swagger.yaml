@@ -32,8 +32,6 @@ definitions:
     type: object
   internal_handler_auth.ResendVerificationRequest:
     properties:
-      email:
-        type: string
       ignore_cooldown:
         type: boolean
     type: object

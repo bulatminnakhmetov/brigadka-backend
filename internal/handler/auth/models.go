@@ -24,8 +24,7 @@ type VerifyEmailRequest struct {
 }
 
 type ResendVerificationRequest struct {
-	Email          string `json:"email"`
-	IgnoreCooldown bool   `json:"ignore_cooldown,omitempty"`
+	IgnoreCooldown bool `json:"ignore_cooldown,omitempty"`
 }
 
 // Response models
