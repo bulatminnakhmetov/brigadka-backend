@@ -2,6 +2,8 @@ basePath: /api
 definitions:
   internal_handler_auth.AuthResponse:
     properties:
+      email_verified:
+        type: boolean
       refresh_token:
         type: string
       token:
@@ -26,6 +28,30 @@ definitions:
       email:
         type: string
       password:
+        type: string
+    type: object
+  internal_handler_auth.ResendVerificationRequest:
+    properties:
+      email:
+        type: string
+      ignore_cooldown:
+        type: boolean
+    type: object
+  internal_handler_auth.VerificationResponse:
+    properties:
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  internal_handler_auth.VerificationStatusResponse:
+    properties:
+      verified:
+        type: boolean
+    type: object
+  internal_handler_auth.VerifyEmailRequest:
+    properties:
+      token:
         type: string
     type: object
 host: localhost:8080
@@ -141,6 +167,99 @@ paths:
           schema:
             type: string
       summary: User registration
+      tags:
+      - auth
+  /auth/resend-verification:
+    post:
+      consumes:
+      - application/json
+      description: Resend verification email to a user
+      parameters:
+      - description: Email for verification
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_auth.ResendVerificationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler_auth.VerificationResponse'
+        "400":
+          description: Invalid data
+          schema:
+            type: string
+        "404":
+          description: User not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Resend verification email
+      tags:
+      - auth
+  /auth/verification-status:
+    get:
+      consumes:
+      - application/json
+      description: Check if user's email is verified
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler_auth.VerificationStatusResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Get user verification status
+      tags:
+      - auth
+  /auth/verify-email:
+    post:
+      consumes:
+      - application/json
+      description: Verify a user's email address using a verification token
+      parameters:
+      - description: Verification token
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_auth.VerifyEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler_auth.VerificationResponse'
+        "400":
+          description: Invalid data
+          schema:
+            type: string
+        "401":
+          description: Invalid verification token
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Email verification
       tags:
       - auth
 securityDefinitions:

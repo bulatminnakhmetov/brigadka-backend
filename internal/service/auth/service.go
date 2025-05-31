@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,10 +18,20 @@ type UserRepository interface {
 	GetUserByEmail(email string) (*User, error)
 	GetUserByID(id int) (*User, error)
 	CreateUser(user *User) error
+	UpdateEmailVerificationStatus(userID int, verified bool) error
+	UpdateUser(user *User) error
+}
+
+type EmailVerificationService interface {
+	SendVerificationEmail(userID int, userEmail string) error
+	VerifyEmail(token string) error
+	ResendVerificationEmail(userID int, ignoreCooldown bool) error
+	IsTokenExpiredForEmail(email string) (bool, error)
 }
 
 type AuthService struct {
 	userRepository UserRepository
+	emailService   EmailVerificationService
 	jwtSecret      []byte
 	tokenExpiry    time.Duration
 	refreshExpiry  time.Duration
@@ -32,9 +43,10 @@ type AuthResponse struct {
 	User         *User  `json:"user"`
 }
 
-func NewAuthService(userRepo UserRepository, jwtSecret string) *AuthService {
+func NewAuthService(userRepo UserRepository, emailService EmailVerificationService, jwtSecret string) *AuthService {
 	return &AuthService{
 		userRepository: userRepo,
+		emailService:   emailService,
 		jwtSecret:      []byte(jwtSecret),
 		tokenExpiry:    time.Hour * 1,      // Token valid for 1 hour
 		refreshExpiry:  time.Hour * 24 * 7, // Refresh token valid for 7 days
@@ -88,46 +100,86 @@ func (s *AuthService) Register(email, password string) (*AuthResponse, error) {
 		return nil, fmt.Errorf("failed to check user existence: %w", err)
 	}
 
-	if existingUser != nil {
-		return nil, errors.New("email already registered")
-	}
-
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errors.New("failed to process request")
 	}
 
-	newUser := &User{
-		Email:        email,
-		PasswordHash: string(hashedPassword),
+	var user *User
+
+	// Special handling for unverified emails
+	if existingUser != nil {
+		// If the user exists and is already verified, registration is rejected
+		if existingUser.EmailVerified {
+			return nil, errors.New("email already registered")
+		}
+
+		// Check if verification token is expired
+		isExpired, err := s.emailService.IsTokenExpiredForEmail(email)
+		if err != nil {
+			return nil, fmt.Errorf("failed to check token status: %w", err)
+		}
+
+		// If token is not expired, user can't register with this email yet
+		if !isExpired {
+			return nil, errors.New("email already registered but not verified, check your email for verification link")
+		}
+
+		// If token is expired, update the existing user instead of creating a new one
+		existingUser.PasswordHash = string(hashedPassword)
+		existingUser.EmailVerified = false
+
+		if err := s.userRepository.UpdateUser(existingUser); err != nil {
+			return nil, errors.New("failed to update user")
+		}
+
+		user = existingUser
+	} else {
+		// Create new user if no existing user was found
+		newUser := &User{
+			Email:         email,
+			PasswordHash:  string(hashedPassword),
+			EmailVerified: false, // New users start unverified
+		}
+
+		// Save user to DB
+		if err := s.userRepository.CreateUser(newUser); err != nil {
+			return nil, errors.New("failed to create user")
+		}
+
+		user = newUser
 	}
 
-	// Save user to DB
-	if err := s.userRepository.CreateUser(newUser); err != nil {
-		return nil, errors.New("failed to create user")
+	// Send verification email
+	if err := s.emailService.SendVerificationEmail(user.ID, user.Email); err != nil {
+		fmt.Printf("Failed to send verification email: %v\n", err)
 	}
 
 	// Generate JWT token
-	token, err := s.generateToken(newUser)
+	token, err := s.generateToken(user)
 	if err != nil {
 		return nil, errors.New("failed to generate token")
 	}
 
 	// Generate refresh token
-	refreshToken, err := s.generateRefreshToken(newUser)
+	refreshToken, err := s.generateRefreshToken(user)
 	if err != nil {
 		return nil, errors.New("failed to generate refresh token")
 	}
 
 	// Clear sensitive data
-	newUser.PasswordHash = ""
+	user.PasswordHash = ""
 
 	return &AuthResponse{
 		Token:        token,
 		RefreshToken: refreshToken,
-		User:         newUser,
+		User:         user,
 	}, nil
+}
+
+func (s *AuthService) VerifyEmail(token string) error {
+	return s.emailService.VerifyEmail(token)
 }
 
 func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
@@ -178,29 +230,13 @@ func (s *AuthService) RefreshToken(refreshToken string) (*AuthResponse, error) {
 	}, nil
 }
 
-func (s *AuthService) VerifyToken(tokenString string) error {
-	claims := jwt.MapClaims{}
-
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
-		}
-		return s.jwtSecret, nil
-	})
-
-	if err != nil || !token.Valid {
-		return errors.New("invalid token")
-	}
-
-	return nil
-}
-
 func (s *AuthService) generateToken(user *User) (string, error) {
 	claims := jwt.MapClaims{
-		"user_id": user.ID,
-		"email":   user.Email,
-		"exp":     time.Now().Add(s.tokenExpiry).UnixNano(),
-		"type":    "access",
+		"user_id":        user.ID,
+		"email":          user.Email,
+		"email_verified": user.EmailVerified, // Include verification status in token
+		"exp":            time.Now().Add(s.tokenExpiry).UnixNano(),
+		"type":           "access",
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -218,22 +254,49 @@ func (s *AuthService) generateRefreshToken(user *User) (string, error) {
 	return token.SignedString(s.jwtSecret)
 }
 
-func (s *AuthService) GetUserInfoFromToken(tokenString string) (int, string, error) {
-	claims := jwt.MapClaims{}
+// GetUserInfoFromToken extracts user information from JWT token
+func (s *AuthService) GetUserInfoFromToken(tokenString string) (*User, error) {
+	// Extract JWT token
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 
-	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, errors.New("unexpected signing method")
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-		return s.jwtSecret, nil
+		return []byte(s.jwtSecret), nil
 	})
 
-	if err != nil || !token.Valid {
-		return 0, "", errors.New("invalid token")
+	if err != nil {
+		return nil, err
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token")
 	}
 
 	userID := int(claims["user_id"].(float64))
 	email := claims["email"].(string)
+	emailVerified := claims["email_verified"].(bool)
 
-	return userID, email, nil
+	return &userrepo.User{ID: userID, Email: email, EmailVerified: emailVerified}, nil
+}
+
+// IsUserVerified checks if a user's email is verified
+func (s *AuthService) IsUserVerified(userID int) (bool, error) {
+	user, err := s.userRepository.GetUserByID(userID)
+	if err != nil {
+		return false, err
+	}
+	return user.EmailVerified, nil
+}
+
+// ResendVerificationEmail sends a new verification email
+func (s *AuthService) ResendVerificationEmail(userID int, ignoreCooldown bool) error {
+	return s.emailService.ResendVerificationEmail(userID, ignoreCooldown)
+}
+
+// GetUserByEmail returns user information by email
+func (s *AuthService) GetUserByEmail(email string) (*User, error) {
+	return s.userRepository.GetUserByEmail(email)
 }

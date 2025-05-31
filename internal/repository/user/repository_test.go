@@ -147,3 +147,49 @@ func TestBeginTx_Success(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, tx)
 }
+
+func TestUpdateUser_Success(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(`
+        UPDATE users
+        SET email = $2, password_hash = $3, email_verified = $4
+        WHERE id = $1
+    `)).
+		WithArgs(1, "updated@example.com", "new_hashed_password", true).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+
+	user := &User{
+		ID:            1,
+		Email:         "updated@example.com",
+		PasswordHash:  "new_hashed_password",
+		EmailVerified: true,
+	}
+
+	err := repo.UpdateUser(user)
+	assert.NoError(t, err)
+}
+
+func TestUpdateUser_Error(t *testing.T) {
+	db, mock, repo := setupMockDB(t)
+	defer db.Close()
+
+	mock.ExpectExec(regexp.QuoteMeta(`
+        UPDATE users
+        SET email = $2, password_hash = $3, email_verified = $4
+        WHERE id = $1
+    `)).
+		WithArgs(1, "updated@example.com", "new_hashed_password", true).
+		WillReturnError(errors.New("database error"))
+
+	user := &User{
+		ID:            1,
+		Email:         "updated@example.com",
+		PasswordHash:  "new_hashed_password",
+		EmailVerified: true,
+	}
+
+	err := repo.UpdateUser(user)
+	assert.Error(t, err)
+}

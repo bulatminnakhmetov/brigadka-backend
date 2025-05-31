@@ -20,6 +20,8 @@ import (
 	httpSwagger "github.com/swaggo/http-swagger"
 	"google.golang.org/api/option"
 
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/client/email"
+	"github.com/bulatminnakhmetov/brigadka-backend/internal/config"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/database"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/media"
@@ -30,11 +32,13 @@ import (
 	messagingrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/messaging"
 	profilerepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/profile"
 	userrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/user"
+	verificationrepo "github.com/bulatminnakhmetov/brigadka-backend/internal/repository/verification"
 
 	authservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/auth"
 	mediaservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/media"
 	messagingservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/messaging"
 	profileservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/profile"
+	verificationservice "github.com/bulatminnakhmetov/brigadka-backend/internal/service/verification"
 
 	mediastorage "github.com/bulatminnakhmetov/brigadka-backend/internal/storage/media"
 
@@ -125,6 +129,8 @@ func main() {
 	jwtSecret := getEnv("JWT_SECRET", nil)
 	serverPort := getEnv("SERVER_PORT", ptr("8080"))
 	appVersion := getEnv("APP_VERSION", ptr("dev"))
+	frontendURL := getEnv("FRONTEND_URL", ptr("http://localhost:8080"))
+	env := getEnv("ENV", ptr(config.EnvTypeProd)) // Use "test" for test environment
 
 	// Подключение к базе данных
 	db, err := database.NewConnection(dbConfig)
@@ -152,9 +158,25 @@ func main() {
 	// Инициализация сервиса медиа
 	mediaService := mediaservice.NewMediaService(mediaRepo, s3Storage)
 
-	// Инициализация репозитория и хендлера авторизации
+	// Инициализация репозитория пользователей
 	userRepo := userrepo.NewPostgresUserRepository(db)
-	authService := authservice.NewAuthService(userRepo, jwtSecret)
+
+	emailProviderClient := email.NewEmailProviderStub()
+
+	// Initialize verification repository and service
+	verificationRepo := verificationrepo.NewPostgresRepository(db)
+	verificationService := verificationservice.NewEmailVerificationService(
+		userRepo,
+		emailProviderClient,
+		verificationRepo,
+		frontendURL,
+		env,
+	)
+
+	// Инициализация сервиса аутентификации
+	authService := authservice.NewAuthService(userRepo, verificationService, jwtSecret)
+
+	// Initialize auth handler with verification support
 	authHandler := auth.NewAuthHandler(authService)
 
 	// Инициализация сервиса и хендлера профилей
@@ -262,24 +284,26 @@ func main() {
 		json.NewEncoder(w).Encode(details)
 	})
 
-	// Публичные маршруты аутентификации
+	// Маршруты для аутентификации и регистрации
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
 		r.Post("/register", authHandler.Register)
 		r.Post("/refresh", authHandler.RefreshToken)
+
+		r.Route("/", func(r chi.Router) {
+			r.Use(authHandler.AuthMiddleware(false))
+
+			r.Post("/verify-email", authHandler.VerifyEmail)
+			r.Post("/resend-verification", authHandler.ResendVerification)
+			r.Get("/verification-status", authHandler.GetVerificationStatus)
+		})
 	})
 
 	// Защищенные маршруты (требуют аутентификации)
 	r.Group(func(r chi.Router) {
-		r.Use(authHandler.AuthMiddleware)
+		r.Use(authHandler.AuthMiddleware(true))
 
 		r.Route("/api", func(r chi.Router) {
-			r.Get("/protected", func(w http.ResponseWriter, r *http.Request) {
-				userID := r.Context().Value("user_id").(int)
-				email := r.Context().Value("email").(string)
-				w.Write([]byte(fmt.Sprintf("Protected resource. User ID: %d, Email: %s", userID, email)))
-			})
-
 			// Маршруты для работы с профилями (требуют аутентификации)
 			r.Route("/profiles", func(r chi.Router) {
 
