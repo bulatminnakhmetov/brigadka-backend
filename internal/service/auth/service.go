@@ -244,9 +244,16 @@ func (s *AuthService) generateToken(user *User) (string, error) {
 }
 
 func (s *AuthService) generateRefreshToken(user *User) (string, error) {
+	var expireAt time.Time
+	if user.EmailVerified {
+		expireAt = time.Now().Add(s.refreshExpiry)
+	} else {
+		expireAt = time.Now().Add(s.tokenExpiry) // Use shorter expiry for unverified users
+	}
+
 	claims := jwt.MapClaims{
 		"user_id": user.ID,
-		"exp":     time.Now().Add(s.refreshExpiry).UnixNano(),
+		"exp":     expireAt.UnixNano(),
 		"type":    "refresh",
 	}
 
