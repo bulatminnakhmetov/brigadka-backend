@@ -1,11 +1,16 @@
 basePath: /api
 definitions:
-  internal_handler_push.TokenRequest:
+  internal_handler_push.RegisterTokenRequest:
     properties:
       device_id:
         type: string
       platform:
         type: string
+      token:
+        type: string
+    type: object
+  internal_handler_push.UnregisterTokenRequest:
+    properties:
       token:
         type: string
     type: object
@@ -33,7 +38,7 @@ paths:
         name: token
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_push.TokenRequest'
+          $ref: '#/definitions/internal_handler_push.RegisterTokenRequest'
       produces:
       - application/json
       responses:
@@ -77,7 +82,7 @@ paths:
         name: token
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_push.TokenRequest'
+          $ref: '#/definitions/internal_handler_push.UnregisterTokenRequest'
       produces:
       - application/json
       responses:

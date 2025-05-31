@@ -273,68 +273,6 @@ func (s *AuthIntegrationTestSuite) TestRefreshTokenInvalid() {
 	assert.Equal(t, http.StatusUnauthorized, refreshResp.StatusCode, "Should return status 401 Unauthorized")
 }
 
-// TestVerifyToken tests the token verification endpoint
-func (s *AuthIntegrationTestSuite) TestVerifyToken() {
-	t := s.T()
-
-	// Register a user to get a token
-	testEmail := generateTestEmail()
-	testPassword := "TestPassword123!"
-
-	// Register
-	registerData := auth.RegisterRequest{
-		Email:    testEmail,
-		Password: testPassword,
-	}
-
-	registerJSON, _ := json.Marshal(registerData)
-	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-
-	var authResponse auth.AuthResponse
-	err = json.NewDecoder(resp.Body).Decode(&authResponse)
-	assert.NoError(t, err)
-	resp.Body.Close()
-
-	// Verify the token
-	verifyReq, _ := http.NewRequest("GET", s.appUrl+"/api/auth/verify", nil)
-	verifyReq.Header.Set("Authorization", "Bearer "+authResponse.Token)
-
-	verifyResp, err := client.Do(verifyReq)
-	assert.NoError(t, err)
-	defer verifyResp.Body.Close()
-
-	// Check response status
-	assert.Equal(t, http.StatusOK, verifyResp.StatusCode, "Should return status 200 OK")
-
-	// Read and parse response body
-	var response map[string]string
-	err = json.NewDecoder(verifyResp.Body).Decode(&response)
-	assert.NoError(t, err)
-	assert.Equal(t, "valid", response["status"], "Token status should be valid")
-}
-
-// TestVerifyTokenInvalid tests verifying an invalid token
-func (s *AuthIntegrationTestSuite) TestVerifyTokenInvalid() {
-	t := s.T()
-
-	// Use an invalid token
-	verifyReq, _ := http.NewRequest("GET", s.appUrl+"/api/auth/verify", nil)
-	verifyReq.Header.Set("Authorization", "Bearer invalid.token.here")
-
-	client := &http.Client{}
-	verifyResp, err := client.Do(verifyReq)
-	assert.NoError(t, err)
-	defer verifyResp.Body.Close()
-
-	// Should return unauthorized
-	assert.Equal(t, http.StatusUnauthorized, verifyResp.StatusCode, "Should return status 401 Unauthorized")
-}
-
 // TestProtectedEndpoint tests accessing a protected endpoint with a valid token
 func (s *AuthIntegrationTestSuite) TestProtectedEndpoint() {
 	t := s.T()

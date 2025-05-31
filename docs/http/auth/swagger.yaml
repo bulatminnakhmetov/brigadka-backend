@@ -41,27 +41,6 @@ info:
   title: Brigadka API
   version: "1.0"
 paths:
-  /api/auth/verify:
-    get:
-      consumes:
-      - application/json
-      description: Verify JWT token validity
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Token is valid
-          schema:
-            type: string
-        "401":
-          description: Invalid token
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Token verification
-      tags:
-      - auth
   /auth/login:
     post:
       consumes:

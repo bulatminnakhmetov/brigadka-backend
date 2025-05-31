@@ -266,7 +266,6 @@ func main() {
 	r.Route("/api/auth", func(r chi.Router) {
 		r.Post("/login", authHandler.Login)
 		r.Post("/register", authHandler.Register)
-		r.Get("/verify", authHandler.Verify)
 		r.Post("/refresh", authHandler.RefreshToken)
 	})
 

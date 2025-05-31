@@ -134,8 +134,6 @@ definitions:
     properties:
       code:
         type: string
-      description:
-        type: string
       label:
         type: string
     type: object
@@ -320,12 +318,17 @@ definitions:
       total_count:
         type: integer
     type: object
-  internal_handler_push.TokenRequest:
+  internal_handler_push.RegisterTokenRequest:
     properties:
       device_id:
         type: string
       platform:
         type: string
+      token:
+        type: string
+    type: object
+  internal_handler_push.UnregisterTokenRequest:
+    properties:
       token:
         type: string
     type: object
@@ -342,27 +345,6 @@ info:
   title: Brigadka API
   version: "1.0"
 paths:
-  /api/auth/verify:
-    get:
-      consumes:
-      - application/json
-      description: Verify JWT token validity
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: Token is valid
-          schema:
-            type: string
-        "401":
-          description: Invalid token
-          schema:
-            type: string
-      security:
-      - BearerAuth: []
-      summary: Token verification
-      tags:
-      - auth
   /api/media:
     post:
       consumes:
@@ -418,7 +400,7 @@ paths:
         name: token
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_push.TokenRequest'
+          $ref: '#/definitions/internal_handler_push.RegisterTokenRequest'
       produces:
       - application/json
       responses:
@@ -462,7 +444,7 @@ paths:
         name: token
         required: true
         schema:
-          $ref: '#/definitions/internal_handler_push.TokenRequest'
+          $ref: '#/definitions/internal_handler_push.UnregisterTokenRequest'
       produces:
       - application/json
       responses:

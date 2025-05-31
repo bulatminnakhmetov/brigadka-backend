@@ -121,32 +121,6 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// @Summary      Token verification
-// @Description  Verify JWT token validity
-// @Tags         auth
-// @Accept       json
-// @Produce      json
-// @Security     BearerAuth
-// @Success      200      {string}  string  "Token is valid"
-// @Failure      401      {string}  string  "Invalid token"
-// @Router       /api/auth/verify [get]
-func (h *AuthHandler) Verify(w http.ResponseWriter, r *http.Request) {
-	tokenString := extractToken(r)
-	if tokenString == "" {
-		http.Error(w, "Authorization header required", http.StatusUnauthorized)
-		return
-	}
-
-	if err := h.authService.VerifyToken(tokenString); err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	// Token is valid
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"status":"valid"}`))
-}
-
 // Middleware for authentication
 func (h *AuthHandler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
