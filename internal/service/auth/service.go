@@ -115,17 +115,6 @@ func (s *AuthService) Register(email, password string) (*AuthResponse, error) {
 			return nil, errors.New("email already registered")
 		}
 
-		// Check if verification token is expired
-		isExpired, err := s.emailService.IsTokenExpiredForEmail(email)
-		if err != nil {
-			return nil, fmt.Errorf("failed to check token status: %w", err)
-		}
-
-		// If token is not expired, user can't register with this email yet
-		if !isExpired {
-			return nil, errors.New("email already registered but not verified, check your email for verification link")
-		}
-
 		// If token is expired, update the existing user instead of creating a new one
 		existingUser.PasswordHash = string(hashedPassword)
 		existingUser.EmailVerified = false
