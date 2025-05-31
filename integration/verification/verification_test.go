@@ -202,14 +202,8 @@ func (s *VerificationIntegrationTestSuite) TestResendVerificationTooSoon() {
 func (s *VerificationIntegrationTestSuite) TestVerifyEmail() {
 	t := s.T()
 
-	// Create verification request with our test token
-	verifyData := auth.VerifyEmailRequest{
-		Token: s.testToken,
-	}
-
-	verifyJSON, _ := json.Marshal(verifyData)
-	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/verify-email", bytes.NewBuffer(verifyJSON))
-	req.Header.Set("Content-Type", "application/json")
+	// Create GET request with token as query parameter
+	req, _ := http.NewRequest("GET", s.appUrl+"/api/auth/verify-email?token="+s.testToken, nil)
 	req.Header.Set("Authorization", "Bearer "+s.bearerToken) // Add auth header
 
 	client := &http.Client{}
@@ -244,6 +238,7 @@ func (s *VerificationIntegrationTestSuite) TestVerifyEmail() {
 	// User should now be verified
 	assert.True(t, updatedStatus.Verified)
 
+	// Check verification status with new token
 	loginData := auth.LoginRequest{
 		Email:    s.testEmail,
 		Password: "TestPassword123!",
@@ -288,13 +283,7 @@ func (s *VerificationIntegrationTestSuite) TestVerifyEmailUnauthorized() {
 	t := s.T()
 
 	// Create request without auth token
-	verifyData := auth.VerifyEmailRequest{
-		Token: s.testToken,
-	}
-
-	verifyJSON, _ := json.Marshal(verifyData)
-	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/verify-email", bytes.NewBuffer(verifyJSON))
-	req.Header.Set("Content-Type", "application/json")
+	req, _ := http.NewRequest("GET", s.appUrl+"/api/auth/verify-email?token="+s.testToken, nil)
 	// No auth header
 
 	client := &http.Client{}
@@ -333,13 +322,7 @@ func (s *VerificationIntegrationTestSuite) TestInvalidVerificationToken() {
 	resp.Body.Close()
 
 	// Try to verify with an invalid token
-	verifyData := auth.VerifyEmailRequest{
-		Token: "invalid-token-that-does-not-exist",
-	}
-
-	verifyJSON, _ := json.Marshal(verifyData)
-	req, _ = http.NewRequest("POST", s.appUrl+"/api/auth/verify-email", bytes.NewBuffer(verifyJSON))
-	req.Header.Set("Content-Type", "application/json")
+	req, _ = http.NewRequest("GET", s.appUrl+"/api/auth/verify-email?token=invalid-token-that-does-not-exist", nil)
 	req.Header.Set("Authorization", "Bearer "+newUserToken) // Use the new user's token
 
 	resp, err = client.Do(req)

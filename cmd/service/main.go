@@ -289,11 +289,10 @@ func main() {
 		r.Post("/login", authHandler.Login)
 		r.Post("/register", authHandler.Register)
 		r.Post("/refresh", authHandler.RefreshToken)
+		r.Get("/verify-email", authHandler.VerifyEmail)
 
 		r.Route("/", func(r chi.Router) {
 			r.Use(authHandler.AuthMiddleware(false))
-
-			r.Post("/verify-email", authHandler.VerifyEmail)
 			r.Post("/resend-verification", authHandler.ResendVerification)
 			r.Get("/verification-status", authHandler.GetVerificationStatus)
 		})

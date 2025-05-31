@@ -127,25 +127,25 @@ func (h *AuthHandler) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// @Summary      Email verification
-// @Description  Verify a user's email address using a verification token
+// @Summary      Verify user email
+// @Description  Verify user email with token
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        request  body  VerifyEmailRequest  true  "Verification token"
-// @Success      200      {object}  VerificationResponse
-// @Failure      400      {string}  string  "Invalid data"
-// @Failure      401      {string}  string  "Invalid verification token"
-// @Failure      500      {string}  string  "Internal server error"
-// @Router       /auth/verify-email [post]
+// @Param        token  query  string  true  "Verification token"
+// @Success      200    {object}  VerificationResponse
+// @Failure      401    {string}  string  "Invalid or expired token"
+// @Failure      500    {string}  string  "Internal server error"
+// @Router       /auth/verify-email [get]
 func (h *AuthHandler) VerifyEmail(w http.ResponseWriter, r *http.Request) {
-	var req VerifyEmailRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+	// Get token from query parameters
+	token := r.URL.Query().Get("token")
+	if token == "" {
+		http.Error(w, "Missing verification token", http.StatusBadRequest)
 		return
 	}
 
-	err := h.authService.VerifyEmail(req.Token)
+	err := h.authService.VerifyEmail(token)
 	if err != nil {
 		if strings.Contains(err.Error(), "invalid verification token") ||
 			strings.Contains(err.Error(), "verification token has expired") {
