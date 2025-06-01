@@ -1,4 +1,4 @@
-package integration
+package profile
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
+	"github.com/bulatminnakhmetov/brigadka-backend/integration"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/media"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/profile"
 	"github.com/stretchr/testify/assert"
@@ -44,39 +44,14 @@ func (s *ProfileIntegrationTestSuite) TearDownSuite() {
 	os.RemoveAll(s.testDirPath)
 }
 
-// Generate a unique email for test user
-func generateTestEmail() string {
-	return fmt.Sprintf("profile_test_%d_%d@example.com", os.Getpid(), time.Now().UnixNano())
-}
-
 // Register a test user and return auth token and user ID
 func (s *ProfileIntegrationTestSuite) registerTestUser(t *testing.T) (string, int) {
-	// Create unique test credentials
-	testEmail := generateTestEmail()
-	testPassword := "TestPassword123!"
-
-	// Prepare registration request
-	registerData := auth.RegisterRequest{
-		Email:    testEmail,
-		Password: testPassword,
+	user, err := integration.RegisterUser(s.appUrl)
+	if err != nil {
+		t.Fatalf("Failed to register test user: %v", err)
+		return "", 0
 	}
-
-	registerJSON, _ := json.Marshal(registerData)
-	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusCreated, resp.StatusCode)
-
-	var authResponse auth.AuthResponse
-	err = json.NewDecoder(resp.Body).Decode(&authResponse)
-	assert.NoError(t, err)
-
-	return authResponse.Token, authResponse.UserID
+	return user.Token, user.UserID
 }
 
 // Helper function to create test files and upload to media service

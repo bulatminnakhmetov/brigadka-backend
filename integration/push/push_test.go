@@ -1,4 +1,4 @@
-package integration
+package push
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
+	"github.com/bulatminnakhmetov/brigadka-backend/integration"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/push"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -40,38 +40,11 @@ func generateTestEmail() string {
 
 // Helper function to register a test user and return the auth token
 func (s *PushIntegrationTestSuite) registerTestUser() string {
-	// Create unique test credentials
-	testEmail := generateTestEmail()
-	testPassword := "TestPassword123!"
-
-	// Prepare registration request
-	registerData := auth.RegisterRequest{
-		Email:    testEmail,
-		Password: testPassword,
-	}
-
-	registerJSON, _ := json.Marshal(registerData)
-	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	user, err := integration.RegisterUser(s.appUrl)
 	if err != nil {
 		s.T().Fatalf("Failed to register test user: %v", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		s.T().Fatalf("Failed to register test user. Status: %d", resp.StatusCode)
-	}
-
-	var authResponse auth.AuthResponse
-	err = json.NewDecoder(resp.Body).Decode(&authResponse)
-	if err != nil {
-		s.T().Fatalf("Failed to decode auth response: %v", err)
-	}
-
-	return authResponse.Token
+	return user.Token
 }
 
 // Helper function to generate a unique device token
@@ -355,42 +328,12 @@ func (s *PushIntegrationTestSuite) TestUnregisterEmptyToken() {
 	assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "Should return status 400 Bad Request for empty token")
 }
 
-// Helper function to register a second test user for cross-user tests
-func (s *PushIntegrationTestSuite) registerSecondTestUser() string {
-	testEmail := generateTestEmail()
-	testPassword := "TestPassword123!"
-
-	registerData := auth.RegisterRequest{
-		Email:    testEmail,
-		Password: testPassword,
-	}
-
-	registerJSON, _ := json.Marshal(registerData)
-	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		s.T().Fatalf("Failed to register second test user: %v", err)
-	}
-	defer resp.Body.Close()
-
-	var authResponse auth.AuthResponse
-	err = json.NewDecoder(resp.Body).Decode(&authResponse)
-	if err != nil {
-		s.T().Fatalf("Failed to decode auth response: %v", err)
-	}
-
-	return authResponse.Token
-}
-
 // TestUnregisterOtherUserToken tests that a user cannot unregister another user's token
 func (s *PushIntegrationTestSuite) TestUnregisterOtherUserToken() {
 	t := s.T()
 
 	// Register a second user
-	secondUserToken := s.registerSecondTestUser()
+	secondUserToken := s.registerTestUser()
 
 	// First, register a token for the second user
 	token := generateUniqueToken()
@@ -472,7 +415,7 @@ func (s *PushIntegrationTestSuite) TestRegisterSameTokenDifferentUsers() {
 	t := s.T()
 
 	// Register a second user
-	secondUserToken := s.registerSecondTestUser()
+	secondUserToken := s.registerTestUser()
 
 	// Create a token
 	token := generateUniqueToken()

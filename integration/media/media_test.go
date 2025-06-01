@@ -1,4 +1,4 @@
-package integration
+package media
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
+	"github.com/bulatminnakhmetov/brigadka-backend/integration"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/media"
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/assert"
@@ -147,38 +147,11 @@ func generateTestEmail() string {
 
 // Helper function to register a test user and return the auth token
 func (s *MediaIntegrationTestSuite) registerTestUser() string {
-	// Create unique test credentials
-	testEmail := generateTestEmail()
-	testPassword := "TestPassword123!"
-
-	// Prepare registration request
-	registerData := auth.RegisterRequest{
-		Email:    testEmail,
-		Password: testPassword,
-	}
-
-	registerJSON, _ := json.Marshal(registerData)
-	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	user, err := integration.RegisterUser(s.appUrl)
 	if err != nil {
 		s.T().Fatalf("Failed to register test user: %v", err)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusCreated {
-		s.T().Fatalf("Failed to register test user. Status: %d", resp.StatusCode)
-	}
-
-	var authResponse auth.AuthResponse
-	err = json.NewDecoder(resp.Body).Decode(&authResponse)
-	if err != nil {
-		s.T().Fatalf("Failed to decode auth response: %v", err)
-	}
-
-	return authResponse.Token
+	return user.Token
 }
 
 // Helper function to create a multipart request with a file and optional thumbnail

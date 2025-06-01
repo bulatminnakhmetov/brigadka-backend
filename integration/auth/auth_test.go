@@ -1,4 +1,4 @@
-package integration
+package auth
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bulatminnakhmetov/brigadka-backend/integration"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -74,29 +75,24 @@ func (s *AuthIntegrationTestSuite) TestRegister() {
 func (s *AuthIntegrationTestSuite) TestRegisterDuplicate() {
 	t := s.T()
 
-	// Create unique test credentials
-	testEmail := generateTestEmail()
-	testPassword := "TestPassword123!"
+	user, err := integration.RegisterUser(s.appUrl)
+	assert.NoError(t, err, "User registration should succeed")
 
 	// Register the first user
 	registerData := auth.RegisterRequest{
-		Email:    testEmail,
-		Password: testPassword,
+		Email:    user.Email,
+		Password: user.Password,
 	}
 
 	registerJSON, _ := json.Marshal(registerData)
 	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	resp.Body.Close()
-
 	// Try to register with the same email
 	req, _ = http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
 	req.Header.Set("Content-Type", "application/json")
 
+	client := &http.Client{}
 	duplicateResp, err := client.Do(req)
 	assert.NoError(t, err)
 	defer duplicateResp.Body.Close()
@@ -277,33 +273,14 @@ func (s *AuthIntegrationTestSuite) TestRefreshTokenInvalid() {
 func (s *AuthIntegrationTestSuite) TestProtectedEndpoint() {
 	t := s.T()
 
-	// Register a user to get a token
-	testEmail := generateTestEmail()
-	testPassword := "TestPassword123!"
-
-	// Register
-	registerData := auth.RegisterRequest{
-		Email:    testEmail,
-		Password: testPassword,
-	}
-
-	registerJSON, _ := json.Marshal(registerData)
-	req, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-
-	var authResponse auth.AuthResponse
-	err = json.NewDecoder(resp.Body).Decode(&authResponse)
-	assert.NoError(t, err)
-	resp.Body.Close()
+	user, err := integration.RegisterUser(s.appUrl)
+	assert.NoError(t, err, "User registration should succeed")
 
 	// Access a protected endpoint (using /api/chats as an example)
 	protectedReq, _ := http.NewRequest("GET", s.appUrl+"/api/chats", nil)
-	protectedReq.Header.Set("Authorization", "Bearer "+authResponse.Token)
+	protectedReq.Header.Set("Authorization", "Bearer "+user.Token)
 
+	client := &http.Client{}
 	protectedResp, err := client.Do(protectedReq)
 	assert.NoError(t, err)
 	defer protectedResp.Body.Close()

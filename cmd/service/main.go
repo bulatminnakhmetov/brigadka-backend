@@ -284,63 +284,64 @@ func main() {
 		json.NewEncoder(w).Encode(details)
 	})
 
-	// Маршруты для аутентификации и регистрации
-	r.Route("/api/auth", func(r chi.Router) {
-		r.Post("/login", authHandler.Login)
-		r.Post("/register", authHandler.Register)
-		r.Post("/refresh", authHandler.RefreshToken)
-		r.Get("/verify-email", authHandler.VerifyEmail)
-
-		r.Route("/", func(r chi.Router) {
-			r.Use(authHandler.AuthMiddleware(false))
-			r.Post("/resend-verification", authHandler.ResendVerification)
-			r.Get("/verification-status", authHandler.GetVerificationStatus)
-		})
-	})
-
-	// Защищенные маршруты (требуют аутентификации)
 	r.Group(func(r chi.Router) {
-		r.Use(authHandler.AuthMiddleware(true))
 
 		r.Route("/api", func(r chi.Router) {
-			// Маршруты для работы с профилями (требуют аутентификации)
-			r.Route("/profiles", func(r chi.Router) {
 
-				r.Post("/", profileHandler.CreateProfile)
-				r.Get("/{userID}", profileHandler.GetProfile)
-				r.Patch("/{userID}", profileHandler.UpdateProfile)
+			r.Route("/auth", func(r chi.Router) {
+				r.Post("/login", authHandler.Login)
+				r.Post("/register", authHandler.Register)
+				r.Post("/refresh", authHandler.RefreshToken)
+				r.Get("/verify-email", authHandler.VerifyEmail)
 
-				// Регистрация обработчиков для справочников
-				r.Route("/catalog", func(r chi.Router) {
-					r.Get("/improv-styles", profileHandler.GetImprovStyles)
-					r.Get("/improv-goals", profileHandler.GetImprovGoals)
-					r.Get("/genders", profileHandler.GetGenders)
-					r.Get("/cities", profileHandler.GetCities)
+				r.Group(func(r chi.Router) {
+					r.Use(authHandler.AuthMiddleware(false))
+					r.Post("/resend-verification", authHandler.ResendVerification)
+					r.Get("/verification-status", authHandler.GetVerificationStatus)
+				})
+			})
+
+			r.Group(func(r chi.Router) {
+				r.Use(authHandler.AuthMiddleware(true))
+
+				r.Route("/profiles", func(r chi.Router) {
+
+					r.Post("/", profileHandler.CreateProfile)
+					r.Get("/{userID}", profileHandler.GetProfile)
+					r.Patch("/{userID}", profileHandler.UpdateProfile)
+
+					// Регистрация обработчиков для справочников
+					r.Route("/catalog", func(r chi.Router) {
+						r.Get("/improv-styles", profileHandler.GetImprovStyles)
+						r.Get("/improv-goals", profileHandler.GetImprovGoals)
+						r.Get("/genders", profileHandler.GetGenders)
+						r.Get("/cities", profileHandler.GetCities)
+					})
+
+					r.Post("/search", profileHandler.SearchProfiles)
 				})
 
-				r.Post("/search", profileHandler.SearchProfiles)
+				// Маршруты для работы с медиа (требуют аутентификации)
+				r.Route("/media", func(r chi.Router) {
+					r.Post("/", mediaHandler.UploadMedia)
+				})
+
+				// Маршруты для работы с сообщениями (требуют аутентификации)
+				r.Post("/chats", messagingHandler.CreateChat)
+				r.Get("/chats", messagingHandler.GetUserChats)
+				r.Post("/chats/direct", messagingHandler.GetOrCreateDirectChat)
+				r.Get("/chats/{chatID}", messagingHandler.GetChat)
+				r.Get("/chats/{chatID}/messages", messagingHandler.GetChatMessages)
+				r.Post("/chats/{chatID}/messages", messagingHandler.SendMessage)
+				r.Post("/chats/{chatID}/participants", messagingHandler.AddParticipant)
+				r.Delete("/chats/{chatID}/participants/{userID}", messagingHandler.RemoveParticipant)
+				r.Post("/messages/{messageID}/reactions", messagingHandler.AddReaction)
+				r.Delete("/messages/{messageID}/reactions/{reactionCode}", messagingHandler.RemoveReaction)
+				r.HandleFunc("/ws/chat", messagingHandler.HandleWebSocket)
+
+				r.Post("/push/register", pushHandler.RegisterToken)
+				r.Delete("/push/unregister", pushHandler.UnregisterToken)
 			})
-
-			// Маршруты для работы с медиа (требуют аутентификации)
-			r.Route("/media", func(r chi.Router) {
-				r.Post("/", mediaHandler.UploadMedia)
-			})
-
-			// Маршруты для работы с сообщениями (требуют аутентификации)
-			r.Post("/chats", messagingHandler.CreateChat)
-			r.Get("/chats", messagingHandler.GetUserChats)
-			r.Post("/chats/direct", messagingHandler.GetOrCreateDirectChat)
-			r.Get("/chats/{chatID}", messagingHandler.GetChat)
-			r.Get("/chats/{chatID}/messages", messagingHandler.GetChatMessages)
-			r.Post("/chats/{chatID}/messages", messagingHandler.SendMessage)
-			r.Post("/chats/{chatID}/participants", messagingHandler.AddParticipant)
-			r.Delete("/chats/{chatID}/participants/{userID}", messagingHandler.RemoveParticipant)
-			r.Post("/messages/{messageID}/reactions", messagingHandler.AddReaction)
-			r.Delete("/messages/{messageID}/reactions/{reactionCode}", messagingHandler.RemoveReaction)
-			r.HandleFunc("/ws/chat", messagingHandler.HandleWebSocket)
-
-			r.Post("/push/register", pushHandler.RegisterToken)
-			r.Delete("/push/unregister", pushHandler.UnregisterToken)
 		})
 	})
 

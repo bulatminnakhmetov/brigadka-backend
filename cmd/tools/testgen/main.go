@@ -102,7 +102,7 @@ func main() {
 		user, err := registerUser(apiURL, i+1)
 		if err != nil {
 			log.Printf("Failed to register user: %v", err)
-			continue
+			panic(err)
 		}
 
 		// Calculate birthday from age
@@ -199,6 +199,34 @@ func registerUser(apiURL string, index int) (*TestUser, error) {
 	}
 
 	var authResp AuthResponse
+	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
+		return nil, err
+	}
+
+	testToken := fmt.Sprintf("test-verification-token-%d", authResp.UserID)
+
+	req, _ := http.NewRequest("GET", apiURL+"/auth/verify-email?token="+testToken, nil)
+
+	client := &http.Client{}
+	resp, err = client.Do(req)
+	defer resp.Body.Close()
+
+	if err != nil || resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("email verification failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
+	resp, err = http.Post(apiURL+"/auth/login", "application/json", bytes.NewBuffer(reqBody))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("registration failed with status %d: %s", resp.StatusCode, string(body))
+	}
+
 	if err := json.NewDecoder(resp.Body).Decode(&authResp); err != nil {
 		return nil, err
 	}

@@ -1,4 +1,4 @@
-package integration
+package messaging
 
 import (
 	"bytes"
@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/auth"
+	"github.com/bulatminnakhmetov/brigadka-backend/integration"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/messaging"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
@@ -72,39 +72,11 @@ func (s *MessagingIntegrationTestSuite) TearDownSuite() {
 
 // Helper function to create a test user
 func (s *MessagingIntegrationTestSuite) createTestUser() (int, string, error) {
-	// Generate unique email for the user
-	testEmail := fmt.Sprintf("messaging_test_user_%d_%d@example.com", os.Getpid(), time.Now().UnixNano())
-	testPassword := "TestPassword123"
-
-	// Register test user
-	registerData := auth.RegisterRequest{
-		Email:    testEmail,
-		Password: testPassword,
-	}
-
-	registerJSON, _ := json.Marshal(registerData)
-	registerReq, _ := http.NewRequest("POST", s.appUrl+"/api/auth/register", bytes.NewBuffer(registerJSON))
-	registerReq.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	registerResp, err := client.Do(registerReq)
+	user, err := integration.RegisterUser(s.appUrl)
 	if err != nil {
 		return 0, "", fmt.Errorf("failed to register test user: %v", err)
 	}
-	defer registerResp.Body.Close()
-
-	if registerResp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(registerResp.Body)
-		return 0, "", fmt.Errorf("failed to register test user. Status: %d, Body: %s", registerResp.StatusCode, string(body))
-	}
-
-	var registerResult auth.AuthResponse
-	err = json.NewDecoder(registerResp.Body).Decode(&registerResult)
-	if err != nil {
-		return 0, "", fmt.Errorf("failed to decode register response: %v", err)
-	}
-
-	return registerResult.UserID, registerResult.Token, nil
+	return user.UserID, user.Token, err
 }
 
 // Helper function to create a chat

@@ -1,4 +1,4 @@
-package integration
+package profile
 
 import (
 	"bytes"
@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/bulatminnakhmetov/brigadka-backend/integration"
 	"github.com/bulatminnakhmetov/brigadka-backend/internal/handler/profile"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -79,35 +80,12 @@ func (s *StyleMatchOrderingTestSuite) TearDownSuite() {
 
 // Register a test user and return auth token and user ID
 func (s *StyleMatchOrderingTestSuite) registerTestUser(t *testing.T) (string, int) {
-	// Create unique test credentials
-	email := fmt.Sprintf("style_match_test_%d@example.com", time.Now().UnixNano())
-	password := "TestPassword123!"
-
-	// Prepare registration request
-	registerData := map[string]string{
-		"email":    email,
-		"password": password,
+	user, err := integration.RegisterUser(s.appUrl)
+	if err != nil {
+		t.Fatalf("Failed to register test user: %v", err)
+		return "", 0
 	}
-
-	registerJSON, _ := json.Marshal(registerData)
-	req, _ := http.NewRequest("POST", fmt.Sprintf("%s/api/auth/register", s.appUrl), bytes.NewBuffer(registerJSON))
-	req.Header.Set("Content-Type", "application/json")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	assert.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusCreated, resp.StatusCode)
-
-	var authResponse struct {
-		Token  string `json:"token"`
-		UserID int    `json:"user_id"`
-	}
-	err = json.NewDecoder(resp.Body).Decode(&authResponse)
-	assert.NoError(t, err)
-
-	return authResponse.Token, authResponse.UserID
+	return user.Token, user.UserID
 }
 
 // Create a test profile with given styles
